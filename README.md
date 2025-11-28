@@ -3,7 +3,7 @@
 (Program auto approve Fasih-sm)
 
 Here, we'll be using Chromedriver with Google Chrome version 142.0.7444.176, so make sure you're using that version for smooth operation.
-Just download the [`dist`](/dist) folder and run the [`.exe`](/dist/Selenium_vpn_tkinter.exe) file.
+Just download the [`dist`](/dist) folder and run the [`.exe`](/dist/Selenium_vpn_tkinter.exe) file. You can add your own function which can be added in [`get_data.py`](/dist/get_data.py)
 1. Enter your `username` and `password` to log in to fasih-sm. The default target link is the fasih-sm homepage.
 2. The program will open your chrome browser and go to the link. Then search/click for the survey **manually** until you reach the **data tab**.
 3. `Get List data` to retrieve the dataframe there (this is to get the link). The program will run automatically and be exported as `data.csv`, see there. There are two options if you do `Get list data` several times, namely `'rewrite'` the output data (data.csv) or add (`'append'`) the output data to the existing data.csv. 
