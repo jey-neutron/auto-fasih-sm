@@ -6,13 +6,15 @@ from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.keys import Keys
 import pandas as pd
 import time
-import importlib
+#import importlib
 import random
 
-def getrandom(instance):
-    #instance.isdone = 0
-    #time.sleep(2)
-    instance.log_message(f"# Hasil: randomese {random.random()} ---------------------------------")
+
+def getrandom(instance, waktu): 
+    '''List all function in this module'''
+    instance.isdone = 0
+    time.sleep(int(waktu))
+    instance.log_message(f"Hasil angka random {random.random()}")
     instance.isdone = 1
 
 def getdataPES(instance):
@@ -174,13 +176,19 @@ def getdataPES(instance):
     # FINISH
     return d
 
+
 # Function to get list data
-def get_list_data(instance, namadf, maxrow=0, sep=",", mode="w"):
+def get_list_data(instance, namadf,  mode="w", maxrow=0, sep=","):
     '''Get dataframe dari prelist link fasih untuk dijadikan bahan, kemudian export ke csv juga'''
     instance.isdone = 0
-    # Get all window handles & Switch to the first window (index 0)
-    all_window_handles = instance.driver.window_handles
-    instance.driver.switch_to.window(all_window_handles[0])
+    try:
+        # Get all window handles & Switch to the first window (index 0)
+        all_window_handles = instance.driver.window_handles
+        instance.driver.switch_to.window(all_window_handles[0])
+    except Exception as e:
+        instance.log_message(f'ERROR: {e}', tag="red_tag")
+        instance.isdone = 1
+        return
     # get header dataframe
     headdf = []
     for i in instance.driver.find_elements(By.XPATH, 'id("assignmentDatatable")/THEAD/TR[1]/TD'):
@@ -262,13 +270,19 @@ def mainfunc(instance, filename, mulai=0, func=None, cekapprov=True, idlog='Kode
     '''Get data dari Fasih dengan membuka linknya dari dataframe df, kemudian export ke csv. Kemudian jika ada cekapprov, maka jika sudah approv akan skip'''
     # konfig
     import sys
-    df = pd.read_csv(filename, sep=sep)
-    if 'approved' not in df.columns:
-        df['approved'] = ""
     instance.isdone = 0
     # GETTING DATA FROM FASIH OPEN DETAIL
-    all_window_handles = instance.driver.window_handles
-    instance.driver.switch_to.window(all_window_handles[0])
+    try:
+        df = pd.read_csv(filename, sep=sep)
+        if 'approved' not in df.columns:
+            df['approved'] = ""
+        # Get all window handles & Switch to the first window (index 0)
+        all_window_handles = instance.driver.window_handles
+        instance.driver.switch_to.window(all_window_handles[0])
+    except Exception as e:
+        instance.log_message(f'ERROR: {e}', tag="red_tag")
+        instance.isdone = 1
+        return
 
     #timestamp = datetime.now().strftime("%H:%M:%S")
     if cekapprov == True:

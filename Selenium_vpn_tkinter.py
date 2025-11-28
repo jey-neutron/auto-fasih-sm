@@ -27,7 +27,7 @@ import sys
 
 #####
 # --- Bagian A: Membaca dan Menjalankan Skrip Relatif ---
-def load_setting_file(instance, filename="get_data.py"):
+def load_setting_file(instance, filename="get_data.py", load=True):
     """Membaca dan menjalankan kode dari file relatif."""
     # Pastikan file ada di direktori yang sama dengan .exe
     
@@ -43,23 +43,25 @@ def load_setting_file(instance, filename="get_data.py"):
     
     # 2. Cek apakah file ada
     if not os.path.exists(file_path):
-        instance.log_message(self=instance, message=f"ERROR: File konfigurasi tidak ditemukan: {filename}", tag="red_tag")
+        instance.log_message(message=f"ERROR: File konfigurasi tidak ditemukan: {filename}", tag="red_tag")
         return None
         
-    # 3. Baca dan jalankan
-    try:
-        # Kita buat namespace khusus untuk menampung fungsi dari file yang di-load
-        namespace = {} 
-        with open(file_path, 'r') as f:
-            code = f.read()
-            # Menjalankan kode. Fungsi-fungsi akan tersedia di 'namespace'
-            exec(code, namespace)
+    if load:
+        # 3. Baca dan jalankan
+        try:
+            # Kita buat namespace khusus untuk menampung fungsi dari file yang di-load
+            namespace = {} 
+            with open(file_path, 'r') as f:
+                code = f.read()
+                # Menjalankan kode. Fungsi-fungsi akan tersedia di 'namespace'
+                exec(code, namespace)
+                
+            return namespace
             
-        return namespace
-        
-    except Exception as e:
-        instance.log_message(self=instance, message=f"ERROR: Gagal memuat file konfigurasi: {e}", tag="red_tag")
-        return None
+        except Exception as e:
+            instance.log_message(message=f"ERROR: Gagal memuat file konfigurasi: {e}", tag="red_tag")
+            return None
+    return True
 
 #####
 
@@ -125,8 +127,20 @@ class SimpleApp:
         self.btn_frame_2 = tk.Frame(self.main_frame)
         self.btn_frame_2.pack(fill=tk.X, pady=10)
 
+        # Variabel kontrol untuk menyimpan nilai radiobutton yang dipilih
+        self.vwrite = tk.IntVar(value=1)
+        # Label untuk menampilkan hasil pilihan
+        self.label_hasil = tk.Label(self.btn_frame_2, text="Write data.csv?")
+        self.label_hasil.pack(pady=5, side=tk.LEFT)
+        # radio
+        self.rw1= tk.Radiobutton(self.btn_frame_2, text='Rewrite', variable=self.vwrite, value=1, indicatoron=0, command=self.update_label_vwrite)
+        self.rw1.pack(side=tk.LEFT, padx=0)
+        self.rw2= tk.Radiobutton(self.btn_frame_2, text='Append', variable=self.vwrite, value=0, indicatoron=0, command=self.update_label_vwrite)
+        self.rw2.pack(side=tk.LEFT, padx=0)
+
+        # main btn func 1
         self.btn_func_1 = tk.Button(self.btn_frame_2, text="Get List Data", command=self.run_function_1, bg="#FFF2E6", relief=tk.RAISED)
-        self.btn_func_1.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
+        self.btn_func_1.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(10, 5))
 
         #self.btn_func_2 = tk.Button(self.btn_frame_2, text="Run Approve", command=self.run_function_2, bg="#FFF2E6", relief=tk.RAISED)
         #self.btn_func_2.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
@@ -139,16 +153,27 @@ class SimpleApp:
         self.create_input_field("Baris Mulai:", "Cth: 0 (untuk mulai dari awal)", "start_row_entry", self.func2_frame)
         self.create_input_field("Nama File:", "data.csv", "filename_entry", self.func2_frame)
         self.create_input_field("Input Tambahan:", "Input opsional...", "extra_input_entry", self.func2_frame)
+        
+        # Variabel kontrol untuk menyimpan nilai radiobutton yang dipilih
+        self.v = tk.IntVar(value=1)
+        # Label untuk menampilkan hasil pilihan
+        self.label_hasil = tk.Label(self.func2_frame, text="Sekalian approve Fasih?")
+        self.label_hasil.pack(pady=5, side=tk.LEFT)
+        # radio
+        self.rb1= tk.Radiobutton(self.func2_frame, text='True', variable=self.v, value=1, indicatoron=0, command=self.update_label)
+        self.rb1.pack(side=tk.LEFT, padx=0)
+        self.rb2= tk.Radiobutton(self.func2_frame, text='False', variable=self.v, value=0, indicatoron=0, command=self.update_label)
+        self.rb2.pack(side=tk.LEFT, padx=0)
 
         # --- Tombol Baris 3: Close App & Exit App ---
         self.btn_frame_3 = tk.Frame(self.main_frame)
         self.btn_frame_3.pack(fill=tk.X, pady=15)
 
         self.btn_func_2 = tk.Button(self.btn_frame_3, text="Run Approve", command=self.run_function_2, bg="#FFF2E6", relief=tk.RAISED)
-        self.btn_func_2.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
+        self.btn_func_2.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(1, 5))
 
         self.btn_close_app = tk.Button(self.btn_frame_3, text="Close Browser", command=self.close_browser, bg="#E6F7FF", relief=tk.RAISED)
-        self.btn_close_app.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
+        self.btn_close_app.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 1))
 
         #self.btn_exit = tk.Button(self.btn_frame_3, text="Exit App", command=master.quit, bg="#FFEEEE", relief=tk.RAISED)
         #self.btn_exit.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
@@ -161,7 +186,12 @@ class SimpleApp:
         self.log_area.tag_config("green_tag", foreground="green")
 
         # Log pesan awal
+        # Set pilihan awal
         self.log_message("Aplikasi dimulai. Selamat datang!")
+        self.rw1.select()
+        self.update_label_vwrite()
+        self.rb1.select()
+        self.update_label()
 
     # --- Utility Function untuk membuat field input berulang ---
     def create_input_field(self, label_text, placeholder, attr_name, parent, show=''):
@@ -182,6 +212,34 @@ class SimpleApp:
         # Event handler untuk menghapus placeholder saat fokus
         entry.bind('<FocusIn>', lambda event, e=entry, p=placeholder: self.clear_placeholder(e, p))
         entry.bind('<FocusOut>', lambda event, e=entry, p=placeholder: self.restore_placeholder(e, p))
+
+    # --update untuk radiobtn
+    def update_label(self):
+        """Fungsi yang dipanggil saat radiobutton diklik."""
+        # Nilai dari radiobutton yang dipilih otomatis tersimpan di self.pilihan_var.
+        # Kita hanya memastikan label display sudah menampilkan nilai terbaru.
+        if self.v.get() == 1:
+            self.log_message(f"Pilihan approve: Ya, sekalian diapprove")
+        else :
+            self.log_message(f"Pilihan approve: Gausa diapprove")
+        # Karena kita menggunakan textvariable, label akan otomatis terupdate.
+        pass
+
+    # --update untuk radiobtn vwrite
+    def update_label_vwrite(self):
+        """Fungsi yang dipanggil saat radiobutton diklik."""
+        # Nilai dari radiobutton yang dipilih otomatis tersimpan di self.pilihan_var.
+        # Kita hanya memastikan label display sudah menampilkan nilai terbaru.
+        if self.vwrite.get() == 1:
+            self.log_message(f"Pilihan Write data.csv: Rewrite")
+        else :
+            cekcsv = load_setting_file(self,filename="data.csv",load=False)
+            if cekcsv:
+                self.log_message(f"Pilihan Write data.csv: Append to data.csv")
+            else:
+                self.log_message(f"data.csv tidak ditemukan, harap pilih 'Rewrite'", tag="red_tag")
+        # Karena kita menggunakan textvariable, label akan otomatis terupdate.
+        pass
 
     def clear_placeholder(self, entry, placeholder):
         if entry.get() == placeholder:
@@ -246,7 +304,7 @@ class SimpleApp:
                 self.log_message("Sukses: link target terbuka.")
                 # try login sso disini
                 # Validasi sederhana
-                if self.username_entry.get() in ["Masukkan Username...", ""]:
+                if self.username_entry.get() in ["Masukkan Username...", "jimmy.nx" ,""]:
                     self.log_message("ERROR: Fungsi 1 dibatalkan. Username tidak valid.")
                     return
                 if "bps.go.id" in self.driver.current_url:
@@ -284,13 +342,20 @@ class SimpleApp:
     # --- Function 1 ---
     def run_function_1(self):
         self.isdone = 0
-        self.log_message("Perintah: Memulai Get list data...")
-        self.change_status("STATUS: Getting list data...", color="blue")
-        
-        fungsi1_thread = threading.Thread(target=get_list_data, args=(self, "data.csv"))
-        fungsi1_thread.start()
-        #fungsi1_thread.join()  # Tunggu hingga thread selesai
-
+        try:
+            self.log_message("Perintah: Memulai Get list data...")
+            self.change_status("STATUS: Getting list data...", color="blue")
+            
+            if self.vwrite.get() == 1:
+                mode = 'w'
+            elif self.vwrite.get() == 0:
+                mode = 'a'
+            fungsi1_thread = threading.Thread(target=get_list_data, args=(self, "data.csv",mode))
+            fungsi1_thread.start()
+            #fungsi1_thread.join()  # Tunggu hingga thread selesai
+        except Exception as e:
+            self.isdone = 1
+            self.log_message(f"ERROR: {e}...", tag="red_tag")
         # Mulai pengecekan berkala apakah sudah selesai
         self.check_isdone()
 
@@ -311,6 +376,8 @@ class SimpleApp:
             if row_num < 0:
                  raise ValueError
         except ValueError:
+            self.isdone = 1
+            self.change_status("STATUS: Running batal", color="blue")
             self.log_message(f"ERROR: Fungsi 2 dibatalkan. Baris Mulai '{start_row}' harus berupa angka positif.")
             return
 
@@ -321,12 +388,12 @@ class SimpleApp:
 
         if extra_input == "Input opsional..." or extra_input.strip() == "":
             self.log_message("Catatan: Tidak ada fungsi tambahan yang dipilih.")
-            extra_input = None 
+            extra_input_fun = None 
         else:
             try:
                 #import importlib
                 external_funcs = load_setting_file(self)
-                extra_input = external_funcs.get(extra_input)
+                extra_input_fun = external_funcs.get(extra_input)
                 self.log_message(f"Modul '{extra_input}' berhasil dimuat untuk fungsi tambahan.")
                 #importlib.import_module(extra_input)
             #except ModuleNotFoundError:
@@ -337,14 +404,26 @@ class SimpleApp:
             except Exception as e:
                 self.log_message( f"ERROR: Terjadi kesalahan saat import modul/file: {e}", tag="red_tag")
 
-        if extra_input == "getrandom":
-            #external_funcs = load_setting_file(self)
-            #mainfunc = external_funcs.get('getrandom')
-            fungsi2_thread = threading.Thread(target=extra_input, args=(self))
-        else:
-            fungsi2_thread = threading.Thread(target=mainfunc, args=(self, filename, row_num, extra_input))
-        fungsi2_thread.start()
-        #fungsi2_thread.join()  # Tunggu hingga thread selesai
+        try:
+            if extra_input == "getrandom":
+                #external_funcs = load_setting_file(self)
+                #mainfunc = external_funcs.get('getrandom')
+                fungsi2_thread = threading.Thread(target=extra_input_fun, args=(self,1))
+            elif extra_input == "get_list_data" or extra_input == "mainfunc":
+                self.log_message(f"ERROR: Fungsi 2 dibatalkan. Input tambahan invalid.")
+                return
+            else:
+                if self.v.get() == 1:
+                    cekapprove = True
+                elif self.v.get() == 0:
+                    cekapprove = False
+                fungsi2_thread = threading.Thread(target=mainfunc, args=(self, filename, row_num, extra_input_fun, cekapprove))
+            fungsi2_thread.start()
+            #fungsi2_thread.join()  # Tunggu hingga thread selesai
+
+        except Exception as e:
+            self.isdone = 1
+            self.log_message(f"ERROR: {e}...", tag="red_tag")
 
         # Mulai pengecekan berkala apakah sudah selesai
         self.check_isdone()
