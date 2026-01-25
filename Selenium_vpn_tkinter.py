@@ -142,11 +142,11 @@ class SimpleApp:
         self.btn_func_1 = tk.Button(self.btn_frame_2, text="Get List Data", command=self.run_function_1, bg="#FFF2E6", relief=tk.RAISED)
         self.btn_func_1.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(10, 5))
 
-        #self.btn_func_2 = tk.Button(self.btn_frame_2, text="Run Approve", command=self.run_function_2, bg="#FFF2E6", relief=tk.RAISED)
+        #self.btn_func_2 = tk.Button(self.btn_frame_2, text="Run Function", command=self.run_function_2, bg="#FFF2E6", relief=tk.RAISED)
         #self.btn_func_2.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
         
         # --- SECTION : Input Fields Khusus Fungsi 2 (LabelFrame) ---
-        self.func2_frame = tk.LabelFrame(self.main_frame, text="Parameter Fungsi 'Run Approve'", padx=10, pady=5, bd=2, relief=tk.GROOVE)
+        self.func2_frame = tk.LabelFrame(self.main_frame, text="Parameter Fungsi 'Run Function'", padx=10, pady=5, bd=2, relief=tk.GROOVE)
         self.func2_frame.pack(fill=tk.X, pady=(10, 15))
 
         # Menggunakan func2_frame sebagai parent untuk input ini
@@ -164,12 +164,14 @@ class SimpleApp:
         self.rb1.pack(side=tk.LEFT, padx=0)
         self.rb2= tk.Radiobutton(self.func2_frame, text='False', variable=self.v, value=0, indicatoron=0, command=self.update_label)
         self.rb2.pack(side=tk.LEFT, padx=0)
+        self.rb3= tk.Radiobutton(self.func2_frame, text='NonFasih', variable=self.v, value=99, indicatoron=0, command=self.update_label)
+        self.rb3.pack(side=tk.LEFT, padx=0)
 
         # --- Tombol Baris 3: Close App & Exit App ---
         self.btn_frame_3 = tk.Frame(self.main_frame)
         self.btn_frame_3.pack(fill=tk.X, pady=15)
 
-        self.btn_func_2 = tk.Button(self.btn_frame_3, text="Run Approve", command=self.run_function_2, bg="#FFF2E6", relief=tk.RAISED)
+        self.btn_func_2 = tk.Button(self.btn_frame_3, text="Run Function", command=self.run_function_2, bg="#FFF2E6", relief=tk.RAISED)
         self.btn_func_2.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(1, 5))
 
         self.btn_close_app = tk.Button(self.btn_frame_3, text="Close Browser", command=self.close_browser, bg="#E6F7FF", relief=tk.RAISED)
@@ -405,7 +407,8 @@ class SimpleApp:
                 self.log_message( f"ERROR: Terjadi kesalahan saat import modul/file: {e}", tag="red_tag")
 
         try:
-            if extra_input == "getrandom":
+            #if extra_input == "getrandom":
+            if self.v.get() == 99:
                 #external_funcs = load_setting_file(self)
                 #mainfunc = external_funcs.get('getrandom')
                 fungsi2_thread = threading.Thread(target=extra_input_fun, args=(self,1))

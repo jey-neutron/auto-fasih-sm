@@ -2,7 +2,7 @@
 
 (Program auto approve Fasih-sm)
 
-Here, we'll be using Chromedriver with Google Chrome version 142.0.7444.176, so make sure you're using that version for smooth operation.
+Here, we'll be using Chromedriver with Google Chrome version 144, so make sure you're using that version for smooth operation.
 Just download the [`dist`](/dist) folder and run the [`.exe`](/dist/Selenium_vpn_tkinter.exe) file. You can add your own function which can be added in [`get_data.py`](/dist/get_data.py)
 1. Enter your `username` and `password` to log in to fasih-sm. The default target link is the fasih-sm homepage.
 2. The program will open your chrome browser and go to the link. Then search/click for the survey **manually** until you reach the **data tab**.
@@ -12,5 +12,5 @@ Just download the [`dist`](/dist) folder and run the [`.exe`](/dist/Selenium_vpn
 > - "Baris mulai" / start line, with integer value, `0,1,2,...`
 > - "Nama file" / file name (this is the name of the file used; if you're using the data from the get list, you'll use `data.csv`),
 > - "Input Tambahan" / optional additional input (this can be modified if you want to **retrieve data** as well, or something else, you can modify it in get_data.py, then just fill the field with the created function, for example, `getrandom`).
-> - And there's an additional option: whether to approve or not. The "False" option is usually used if you only want to get data and not approve, and usually requires an additional input field or adding your own function.
-5. Then hit `Run Approve` and the program will do it for u
+> - And there's an additional option: whether to approve or not. The "False" option is usually used if you only want to get data and not approve, and this field requires an additional input field or adding your own function. U can add your own function that not related with Fasih and choosing the "NonFasih".
+5. Then hit `Run Function` and the program will do it for u
