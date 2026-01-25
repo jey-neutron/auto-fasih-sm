@@ -100,7 +100,7 @@ def getdataPES(instance):
                 if r.is_selected(): break
             # jika ada terpilih
             if r.get_attribute('value') == '1':
-                d[f"r10.{i}.2"] = driver.find_element(By.XPATH, f"//div[@id='len_stay_tourism_{i:02}']//input[@type='text']").get_attribute('value')
+                d[f"r10.{i}.2"] = driver.find_element(By.XPATH, f"//div[@id='len_stay_tourism_{i}']//input[@type='text']").get_attribute('value')
             d[f"r10.{i}.1"] = r.get_attribute('value')
             
             # for switch
