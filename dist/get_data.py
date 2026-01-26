@@ -24,7 +24,7 @@ def getrandom(instance, waktu):
     instance.log_message(f"Hasil angka random {random.random()}")
     instance.isdone = 1
 
-def inputwebdash(instance):
+def inputwebdash(instance, var):
     # FUNC MODDED FOR WEBDASH ENTRI KEGIATAN
     # cek if file ada, klo gada generate new, abistu delete deh klo dah diup
     import os
@@ -149,6 +149,156 @@ def inputwebdash(instance):
 
         instance.log_message("Data webdash sudah diisi semua, silakan dicek dan disubmit jika sudah benar.", tag="green_tag")
         instance.log_message("Silakan dihapus file-nya juga jika udah diupload: data-webdash.json")
+        instance.isdone = 1
+
+def inputsbr(instance, var):
+    '''Input data SBR dari file csv'''
+    from pathlib import Path
+    import numpy as np
+    from selenium.common.exceptions import NoSuchElementException
+
+    instance.isdone = 0
+    driver = instance.driver
+
+    try:
+        # Login Matchapro
+        driver.get("https://matchapro.web.bps.go.id/dirgc")
+        try:
+            driver.find_element("xpath", "//a[text()='Sign in with SSO BPS']").click()
+            # time.sleep(1)
+            driver.find_element("xpath", '//*[@id="username"]').send_keys(instance.username_entry.get()) #username sso
+            driver.find_element("xpath", '//*[@id="password"]').send_keys(instance.password_entry.get()) #password sso
+            driver.find_element("xpath", '//*[@id="kc-login"]').click()
+        except: pass
+        
+        # cek modheader extension
+        time.sleep(1)
+        try:
+            if driver.find_element("xpath", "//p[contains(text(),'Akses lewat matchapro mobile aja ya')]"):
+                instance.log_message("# Anda belum mengaktifkan modheader, aktifin dulu manual di chromenya, abistu run ulang ya", tag="red_tag")
+                instance.isdone = 1
+                return
+                #time.sleep(10)
+        except: pass
+        instance.log_message("# Modheader aktif, lanjut ke proses berikutnya...")
+        driver.execute_script("document.body.style.zoom='33%'")
+        
+        # Baca Excel
+        # cek file ada     
+        nama_excel = instance.filename_entry.get()
+        file_path = Path(nama_excel)
+        if not file_path.exists():
+            instance.log_message("# File tidak ditemukan, periksa kembali nama filenya", tag="red_tag")
+            instance.isdone = 1
+            return
+        # read df
+        #if file_path.suffix in ['.xls', '.xlsx']:
+        if file_path.suffix == '.csv':
+            instance.log_message("File found. Membaca data dari file csv...")
+            #df = pd.read_excel(nama_excel, sheet_name="Sheet1")
+            df = pd.read_csv(nama_excel)
+        else:
+            instance.log_message("# Format file salah, harus .csv", tag="red_tag")
+            instance.isdone = 1
+            return
+
+        # read row file
+        l1 = []
+        for index, row in df.iterrows():
+            l1.append(row.to_list())
+        #print(l1)
+        instance.log_message("Data dari csv dibaca, contoh 1 baris:")
+        instance.log_message(str(l1[0]))
+        time.sleep(2)
+
+        if len(l1[0]) != 7:
+            instance.log_message("# Format csv salah, harus 7 kolom: IDSBR, Nama, Lat, Lon, hasil_gc, hasil_input, user_sso", tag="red_tag")
+            instance.log_message("# Perbaiki lalu run ulang")
+            instance.isdone = 1
+            return
+
+        #Update di Matchapro
+        no = int(instance.start_row_entry.get()) #0
+        for x in l1:
+            idsbr = x[0]
+            nama = x[1]
+            lat = x[2]
+            lon = x[3]
+            if np.isnan(lat): lat = ""
+            if np.isnan(lon): lon = ""
+            hasil_gc = x[4]
+            hasil_input = x[5]
+            user = x[6]
+            # print(hasil_input)
+            
+            if hasil_input != "Berhasil" and user == instance.username_entry.get():
+                #input IDSBR
+                driver.find_element("xpath", '//div[@id="toggle-filter"]').click()
+                time.sleep(2)
+                driver.find_element("xpath", '//input[@id="search-idsbr"]').send_keys(Keys.CONTROL, 'a')
+                driver.find_element("xpath", '//input[@id="search-idsbr"]').send_keys(idsbr)
+                time.sleep(2)
+                
+                try:
+                    # wait till loading ilang
+                    time.sleep(2) #5
+                    WebDriverWait(driver, 100).until(EC.invisibility_of_element_located((By.CSS_SELECTOR, 'blockUI blockMsg blockPage')))
+                    WebDriverWait(driver, 100).until(EC.invisibility_of_element_located((By.CSS_SELECTOR, 'blockUI blockOverlay')))
+                    WebDriverWait(driver, 100).until(EC.invisibility_of_element_located((By.CSS_SELECTOR, 'spinner-border')))
+                    
+                    WebDriverWait(driver, 100).until(EC.element_to_be_clickable((By.XPATH, '//div[@class="usaha-card "]')))
+
+                    # cek status gc
+                    gc_badges = driver.find_elements(By.CSS_SELECTOR, ".usaha-card-title .gc-badge")
+                    if len(gc_badges) > 0:
+                        instance.log_message(f"{str(no+1)}. SBR {idsbr} dilewati karena sudah berstatus 'Sudah GC'dan Skip Ke IDSBR Selanjutnya")
+                        time.sleep(2)
+                        continue
+                    driver.execute_script("document.body.style.zoom='33%'")
+                    driver.find_element("xpath", '//div[@class="usaha-card "]').click()
+                
+                except NoSuchElementException:
+                    instance.log_message(str(no+1)+". Gagal. "+str(idsbr)+" - "+str(nama)+" (Tidak ditemukan di Matchapro)")
+                    time.sleep(1)
+                    continue
+                # time.sleep(1)
+                driver.find_element("xpath", '//button[@class="btn-tandai"]').click()
+                time.sleep(2)
+                driver.find_element("xpath", '//select[@id="tt_hasil_gc"]').send_keys(hasil_gc)
+                driver.find_element("xpath", '//input[@id="tt_latitude_cek_user"]').send_keys(lat)
+                driver.find_element("xpath", '//input[@id="tt_longitude_cek_user"]').send_keys(lon)
+                driver.find_element("xpath", '//button[@id="save-tandai-usaha-btn"]').click()
+                time.sleep(3)
+
+                if hasil_gc == 0:
+                    driver.find_element("xpath", '//button[@class="swal2-confirm swal2-styled"]').click()
+                    time.sleep(3)
+            
+                # simpan ke excel jika terdapat perubahan
+                x[5] = "Berhasil"
+                #kolom = pd.read_excel(nama_excel).columns
+                kolom = pd.read_csv(nama_excel).columns
+                df1 = pd.DataFrame(l1, columns=kolom)
+                #df1.to_excel(nama_excel, sheet_name="Sheet1", index=False)
+                df1.to_csv(nama_excel, index=False)
+            
+                no=no+1
+                instance.log_message(str(no)+". Berhasil. "+str(idsbr)+" - "+str(nama))
+            
+                #driver.find_element("xpath", '//button[@class="swal2-confirm swal2-styled"]').click()
+                # wait till loading ilang
+                WebDriverWait(driver, 100).until(EC.invisibility_of_element_located((By.CSS_SELECTOR, 'spinner-border')))
+                # wait till ada submit button
+                WebDriverWait(driver, 100).until(EC.element_to_be_clickable((By.XPATH, '//button[@class="swal2-confirm swal2-styled"]')))
+                WebDriverWait(driver, 15).until( #using explicit wait for x seconds
+                    EC.presence_of_element_located((By.XPATH, '//button[@class="swal2-confirm swal2-styled"]')) ).click()
+            
+
+        instance.log_message('SELESSEEEEEEEEEEEEEEEE', tag="green_tag")
+        instance.isdone = 1
+    
+    except Exception as e:
+        instance.log_message(f'Terjadi error: {e}', tag="red_tag")
         instance.isdone = 1
 
 
