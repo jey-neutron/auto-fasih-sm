@@ -26,9 +26,9 @@ Ketika file [`Selenium_vpn_tkinter.exe`](/dist/Selenium_vpn_tkinter.exe) udah ja
 		> Jika ingin menjalankan program diluar Fasih-SM, maka di bawahnya pilih `NonFasih`
 
 		> Anda bisa menambahkan function sendiri di [`get_data.py`](/dist/get_data.py) kemudian memasukkan nama functionnya itu di field ini
-	-  `Sekalian approve Fasih` jika terpilih `True` maka akan auto-approve dengan user SSO yang udah login. Kalau `False` maka ya ngga approve, misal jika ingin mengambil datanya aja (tapi juga perlu nambah kode).
+	-  `Sekalian approve Fasih` jika terpilih `True` maka akan auto-approve dengan user SSO yang udah login. Kalau `False` maka ya ngga approve, misal jika ingin mengambil datanya aja (perlu code tambahan jika di survei lain).
 
 5. Klik `Run Function` and the program will do it for u.
-	> Data yang udah dieksekusi biasanya akan ada perubahan value suatu kolom di file dengan `Nama File` yang terpilih tadi.
+	> Data yang udah dieksekusi biasanya akan ada perubahan value suatu kolom di file dengan `Nama File` yang terpilih tadi. Tergantung code anda juga.
 
 Semoga tidak membingung 🍵😇
