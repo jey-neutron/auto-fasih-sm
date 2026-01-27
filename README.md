@@ -10,11 +10,12 @@ Ketika file [`Selenium_vpn_tkinter.exe`](/dist/Selenium_vpn_tkinter.exe) udah ja
 2. Kemudian `Open Browser` dan aplikasi akan auto membuka browser. `Goto Link` maka browser akan menuju link sesuai `Link target` yang terisi pada langkah 1. 
 	> Target link  jika terisi default (fasih-sm.bps.go.id) atau sso.bps.go.id maka akan auto login ke SSO. Biarin browsernya jalan sendiri gausah diganggu. 
 3. Fitur `Get List Data` akan mengambil list row pada tab data di Fasih-SM dan akan menyimpannya di file `data.csv` di folder yang sama. 
-	- `Rewrite` data.csv: membuat file baru (jika file belum ada) atau menimpa data.csv (jika sebelumnya udah ada file ini)
-	- `Append` data.csv: menambahkan list data pada data.csv yang udah ada
 	> Jika anda menggunakan fitur ini, maka setelah browser menuju link, anda perlu search/click survei **manual** sampai ke **tab data** di Fasih-SM, baru klik `Get List Data`
 
 	> Tujuan fitur ini adalah mendapatkan link per row di Fasih-SM (perlu dilakukan jika mau auto-approve/get-data di Fasih-SM)
+
+	- `Rewrite` data.csv: membuat file baru (jika file belum ada) atau menimpa data.csv (jika sebelumnya udah ada file ini)
+	- `Append` data.csv: menambahkan list data pada data.csv yang udah ada
 
 4. Jika ingin run auto-approve, ada beberapa parameter yang perlu dimasukkan:
 	- `"Baris mulai"`, diisi bilangan bulat `0,1,2,...`, isi `0` jika mulai dari awal atau biar dia ga error,
