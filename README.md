@@ -5,6 +5,12 @@
 Disini kita menggunakan Chromedriver untuk mengautomasi browser Chrome anda. Download aja folder [`dist`](/dist) dan jalankan file [`.exe`](/dist/Selenium_vpn_tkinter.exe)nya. 
 > Saat ini pakai Chrome versi 144, jadi harus disamain versinya. Kalau pake Chrome versi lain, chromedriver harus sama versinya juga biar lanjay.
 
+> **_[📝Update 28.01.26]_**
+> _Terdapat update di file [`get_data.py`](/dist/get_data.py), yaitu penambahan fitur bulk reject menggunakan file csv yang terpilih. Nanti `Input Tambahannya` diisi `reject`_
+> _Dan di section `Sekalian approve fasih` dipilih yang `NonFasih`, meskipun memang kerjanya di Fasih, (ya untuk versi sementara ini ikutin aja)._
+> 
+
+# Step-by-step 🚗
 Ketika file [`Selenium_vpn_tkinter.exe`](/dist/Selenium_vpn_tkinter.exe) udah jalan, maka muncul window aplikasi baru:
 1. Masukkan `username` dan `password` untuk login SSO. Kemudian di bawahnya ada `Link target`. Default target link-nya adalah web Fasih-SM.
 2. Kemudian `Open Browser` dan aplikasi akan auto membuka browser. `Goto Link` maka browser akan menuju link sesuai `Link target` yang terisi pada langkah 1. 
@@ -30,5 +36,5 @@ Ketika file [`Selenium_vpn_tkinter.exe`](/dist/Selenium_vpn_tkinter.exe) udah ja
 
 5. Klik `Run Function` and the program will do it for u.
 	> Data yang udah dieksekusi biasanya akan ada perubahan value suatu kolom di file dengan `Nama File` yang terpilih tadi. Tergantung code anda juga.
-
+---
 Semoga tidak membingung 🍵😇
