@@ -9,6 +9,42 @@ import time
 #import importlib
 import random
 
+def help(instance,var):
+    '''Get list of functions'''
+    instance.isdone = 0
+    instance.log_message(f"List of available functions:")
+
+    for nama, objek in globals().items():
+        if (callable(objek) and 
+            not nama.startswith("__") and 
+            nama not in ["mainfunc", "get_list_data", "By", "WebDriverWait", "TimeoutException", "Keys", "EC"] ):
+            
+            # Ambil docstring-nya, kalau kosong kasih teks default
+            deskripsi = objek.__doc__ if objek.__doc__ else ""# "Tidak ada deskripsi."
+
+            # print output
+            instance.log_area.insert("end", f"[-]")
+            instance.log_area.insert("end", f" {nama}" ,"red_tag")
+            instance.log_area.insert("end", f" ({deskripsi.strip().lower()})\n")
+
+    instance.log_area.insert("end", "\n")
+    instance.isdone = 1
+
+def clear(instance, var):
+    '''Clear log message'''
+    # Hapus dari index '1.0' (awal) sampai 'end' (akhir)
+    instance.isdone = 1
+    instance.log_area.delete('1.0', "end")
+    instance.log_message("Cleared! Aplikasi dimulai. Selamat datang!")
+    if instance.vwrite.get() == 1:
+        instance.log_message(f"Pilihan Write data.csv: Rewrite")
+    else:
+        instance.log_message(f"Pilihan Write data.csv: Append")
+    if instance.v.get() == 1:
+        instance.log_message(f"Pilihan approve: Ya, sekalian diapprove")
+    else :
+        instance.log_message(f"Pilihan approve: Gausa diapprove")
+
 def gettime(instance, var):
     '''Get current time'''
     instance.isdone = 0
@@ -25,6 +61,7 @@ def getrandom(instance, waktu):
     instance.isdone = 1
 
 def inputwebdash(instance, var):
+    '''Input Webdash entri kegiatan, akan generate .json. Kalo udah dieksekusi, delete aja'''
     # FUNC MODDED FOR WEBDASH ENTRI KEGIATAN
     # cek if file ada, klo gada generate new, abistu delete deh klo dah diup
     import os
