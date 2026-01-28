@@ -522,6 +522,181 @@ def getdataPES(instance):
     # FINISH
     return d
 
+# Function reject data Fasih
+def reject(instance, var, mulai=0, func=None, cekapprov=True, idlog='Kode Identitas', sep=','):
+    #(instance, filename, mulai=0, func=None, cekapprov=True, idlog='Kode Identitas', sep=',')
+    '''Reject di fasih-sm berdasarkan file yang dipilih'''
+    # konfig
+    import sys
+    instance.isdone = 0
+    filename = instance.filename_entry.get()
+    if instance.v.get() != 99:
+        instance.log_message('Mohon maaf, fungsi ini sementara hanya bisa dipilih di NonFasih, walaupun memang di Fasih, tapi ikuti aja deh', "red_tag")
+        instance.isdone = 1
+        return
+    # GETTING DATA FROM FASIH OPEN DETAIL
+    try:
+        df = pd.read_csv(filename, sep=sep)
+        if 'approved' not in df.columns:
+            df['approved'] = ""
+        # Get all window handles & Switch to the first window (index 0)
+        all_window_handles = instance.driver.window_handles
+        instance.driver.switch_to.window(all_window_handles[0])
+    except Exception as e:
+        instance.log_message(f'ERROR: {e}', tag="red_tag")
+        instance.isdone = 1
+        return
+
+    instance.log_message(f"# Loading for {len(df)-int(mulai)} data, length dataframe: {len(df)} data and rejecting in 5sec...")
+    time.sleep(5)
+
+    if mulai <0 : i=-1
+    else: i = mulai-1
+    while True: 
+        instance.isdone = 0
+        # Pastikan tampilan menggulir ke bagian paling bawah
+        #instance.log_area.see(tk.END)
+        #timestamp = datetime.now().strftime("%H:%M:%S")
+        i += 1
+        if i >= len(df):
+            #printwarn("# DONEEE ---------------------------------", color='red', font_weight='bold', font_size="30px")
+            instance.log_message(f"# DONEEE file {filename} updated ---------------------------------")
+            #change_text(label_status, f"Running Selesai {adaerr}", "green")
+            break
+        try:
+            # CEK DAH EKSEKUSI LOM ke0 ------------------------------------------------------------
+            if df.loc[i, 'approved'] == 'REJECTED':
+                instance.log_message(f"# {i,str(df[idlog][i])[:20]} | Dah dieksekusi, skip")
+                continue
+
+            ## goto web
+            instance.driver.get(df.link[i])
+            instance.driver.execute_script("document.body.style.zoom='50%'")
+            #change_text(label_status, f"Processin data {i}/{len(df)}")
+                  
+
+            ## click btn review
+            time.sleep(3)
+            WebDriverWait(instance.driver, 30).until(EC.presence_of_element_located((By.CSS_SELECTOR, "a.btn-primary")) ).click()
+            ## wait till loading nya ilang
+            time.sleep(2) #5
+            WebDriverWait(instance.driver, 100).until(EC.invisibility_of_element_located((By.CSS_SELECTOR, '.loading-text > .ng-tns-c4183080771-2')))
+            ## wait till rendering form
+            time.sleep(2) #3
+            WebDriverWait(instance.driver, 100).until(EC.invisibility_of_element_located((By.CSS_SELECTOR, 'p.mb-2')))
+            instance.driver.execute_script("document.body.style.zoom='50%'")
+
+            # CEK DAH APPROVED LOM ke1 ------------------------------------------------------------
+            try:
+                #try revoke
+                try:
+                    WebDriverWait(instance.driver, 5).until(
+                        EC.presence_of_element_located((By.XPATH, 'id("buttonRevoke")'))
+                    )
+                    btn_approve = instance.driver.find_element(By.XPATH,'id("buttonRevoke")')
+                    #btn_approve.location_once_scrolled_into_view
+                    btn_approve.click()
+                    #konfirmasi
+                    instance.driver.find_element(By.CSS_SELECTOR,'button.swal2-confirm').click()
+                    time.sleep(1)
+                    try:
+                        instance.driver.find_element(By.CSS_SELECTOR,'button.swal2-confirm').click()
+                        time.sleep(1)
+                    except: pass
+                
+                except: pass
+
+                # refresh
+                instance.driver.refresh()
+                ## wait till loading nya ilang
+                time.sleep(2) #5
+                WebDriverWait(instance.driver, 100).until(EC.invisibility_of_element_located((By.CSS_SELECTOR, '.loading-text > .ng-tns-c4183080771-2')))
+                ## wait till rendering form
+                instance.driver.execute_script("document.body.style.zoom='50%'")
+                time.sleep(2) #3
+                WebDriverWait(instance.driver, 100).until(EC.invisibility_of_element_located((By.CSS_SELECTOR, 'p.mb-2')))
+
+                # reject
+                WebDriverWait(instance.driver, 5).until(
+                    EC.presence_of_element_located((By.XPATH, 'id("buttonReject")'))
+                )
+                btn_approve = instance.driver.find_element(By.XPATH,'id("buttonReject")')
+                #btn_approve.location_once_scrolled_into_view
+                btn_approve.click()
+                #konfirmasi
+                instance.driver.find_element(By.CSS_SELECTOR,'button.swal2-confirm').click()
+                time.sleep(1)
+                try:
+                    instance.driver.find_element(By.CSS_SELECTOR,'button.swal2-confirm').click()
+                    time.sleep(1)
+                except: pass
+
+
+            except TimeoutException:
+                #print("# Approve button not found or not loaded yet")
+                #print(i,df[idlog][i],'| Not Found Approve button, skip')
+                instance.log_message(f"# {i,str(df[idlog][i])[:20]} | Not Found the button, skip", "red_tag")
+                # logging
+                df.loc[i, 'approved'] = 'REJECTED'
+                df.to_csv(filename, index=False)
+                continue
+            
+            # end result if success
+            df.loc[i, 'approved'] = 'REJECTED'
+            df.to_csv(filename, index=False)
+
+        except Exception as e:
+            # coba refresh n login ulang
+            # Login SSO
+            try:
+                if 'Server Not Found' in instance.driver.title: 
+                    #print('# Error server not found, CEK VPN -------------------------------------------')
+                    instance.log_message(f"# Error server not found, CEK VPN -------------------------------------------\n", "red_tag")
+                    #change_text(label_status, "Error, CEK VPN", "red")
+                    break
+                #driver.refresh()
+                instance.driver.get(df.link[i])
+                #i -= 1
+                if i < -1: i=-1
+                #print(f'# error {str(e)}, reloading')
+                instance.log_message(f"# Terjadi error: ")
+                instance.log_message(str(e).split("Stacktrace:")[0]+"\n", "red_tag")
+                #change_text(label_status, "Running ERROR", "red")
+                try:
+                    WebDriverWait(instance.driver, 10).until( #using explicit wait for x seconds
+                        EC.presence_of_element_located((By.XPATH, "id('login-in')/A[2]")) #finding the element
+                    ).click()
+                    # input SSO
+                    WebDriverWait(instance.driver, 15).until( #using explicit wait for x seconds
+                        EC.presence_of_element_located((By.XPATH, 'id("kc-login")')) )
+                    instance.driver.find_element(By.XPATH, '//*[@id="username"]').send_keys(instance.username_entry.get())
+                    instance.driver.find_element(By.XPATH, '//*[@id="password"]').send_keys(instance.password_entry.get())
+                    instance.driver.find_element(By.XPATH, '//*[@id="kc-login"]').send_keys(Keys.RETURN)
+                    WebDriverWait(instance.driver, 15).until( #using explicit wait for x seconds
+                        EC.presence_of_element_located((By.XPATH, 'id("Pencacahan")/TBODY[1]/TR[4]/TD[1]/A[1]')) )
+                    #print('# login sso ulang')
+                    instance.log_message(f"# Login SSO ulang ")
+                    adaerr = ""
+                except:
+                    pass
+                continue
+            except:
+                exc_type, exc_obj, exc_tb = sys.exc_info()
+                #print(f"{i,df[idlog][i]} | Err: {str(exc_tb.tb_lineno)} | {str(e)}"  ) 
+                #printwarn(f"{i,df[idlog][i]} | Err: {str(exc_tb.tb_lineno)} | {str(e)}", color='red', font_weight='bold', font_size="30px")
+                instance.log_message(f"# Terjadi error: {str(exc_tb.tb_lineno)} ")
+                instance.log_message(str(e).split("Stacktrace:")[0]+"\n", "red_tag")
+                #change_text(label_status, "Running ERRORRR", "red")
+                continue
+        
+        # jika satu row dah selesai, entah error or sukses    
+        #print(i,df[idlog][i],'| Done')
+        instance.log_message(f"# {i,str(df[idlog][i])[:20]} | Done")
+        #instance.log_message.yview_moveto(1.0)
+        continue
+
+    instance.isdone = 1
+
 
 # Function to get list data
 def get_list_data(instance, namadf,  mode="w", maxrow=0, sep=","):
