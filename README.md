@@ -7,7 +7,8 @@ Disini kita menggunakan Chromedriver untuk mengautomasi browser Chrome anda. Dow
 
 > **_[📝Update 28.01.26]_**
 > _Terdapat update di file [`get_data.py`](/dist/get_data.py), yaitu penambahan fitur bulk reject menggunakan file csv yang terpilih dengan template yang sama seperti hasil `GetListData`. Nanti `Input Tambahannya` diisi `reject`_
-> _Dan di section `Sekalian approve fasih` dipilih yang `NonFasih`, meskipun memang kerjanya di Fasih, (ya untuk versi sementara ini ikutin aja)._
+> _Dan di section `Sekalian approve fasih` dipilih yang `NonFasih`, meskipun memang kerjanya di Fasih, (ya untuk versi sementara ini ikutin aja).
+[Lihat fitur](#fitur)_
 > 
 
 # Step-by-step 🚗
@@ -36,5 +37,20 @@ Ketika file [`Selenium_vpn_tkinter.exe`](/dist/Selenium_vpn_tkinter.exe) udah ja
 
 5. Klik `Run Function` and the program will do it for u.
 	> Data yang udah dieksekusi biasanya akan ada perubahan value suatu kolom di file dengan `Nama File` yang terpilih tadi. Tergantung code anda juga.
----
+
 Semoga tidak membingung 🍵😇
+
+
+# Fitur📱
+Fitur yang sudah tersedia di [`get_data.py`](/dist/get_data.py) untuk saat ini:
+
+- **help** (get list of functions)
+- **clear** (clear log message)
+- **gettime** (get current time)
+- **getrandom** (get a random number)
+- **inputwebdash** (input webdash entri kegiatan, akan generate .json. kalo udah dieksekusi, delete aja)
+- **inputsbr** (input data sbr dari file csv)
+- **getdataPES** (function for getting data pes)
+- **getdataSAKpemut** (function for getting data sakernas pemutakhiran)
+- **reject** (reject di fasih-sm berdasarkan file yang dipilih)
+
