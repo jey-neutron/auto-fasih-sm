@@ -522,6 +522,51 @@ def getdataPES(instance):
     # FINISH
     return d
 
+def getdataSAKpemut(instance):
+    '''FUNCTION FOR GETTING DATA Sakernas pemutakhiran'''
+    try:
+        #instance.log_message("Masuk ke fungsi get data PES")
+        driver = instance.driver
+        # init a dict for data
+        col_list = ['usaha','tagging','catatan']
+        d = dict.fromkeys(col_list, '--')
+
+        # BLOK2
+        blok = 2
+        driver.find_element(By.XPATH, f'id("fasih-form")/DIV[1]/DIV[1]/ASIDE[1]/DIV[2]/DIV[{blok}]/DIV[1]').click()
+        # cek keberadaan ruta
+        time.sleep(1)
+        radios = driver.find_elements(By.XPATH, f'//div[@id="r506"]//input[@type="radio"]')
+        for r in radios:
+            if r.is_selected(): break
+        keberadaan = r.get_attribute('value')
+        if keberadaan == '3':
+            d['catatan'] = 'Responden tidak ditemukan di alamat sesuai ruta'
+            instance.log_message("Tidak ditemukan ruta, lanjut ke loop berikutnya")
+            return d # skip ke loop berikutnya
+
+        # wait biar isiannya muncul dulu
+        WebDriverWait(driver, 10).until(
+            #EC.text_to_be_present_in_element((By.XPATH, f"//div[@id='nationality']//button/div"), "[") )
+            lambda d: d.find_element(By.XPATH, "//div[@id='tagging']//input[@type='text']").get_attribute('value') != "")
+        #
+        d['tagging'] = driver.find_element(By.XPATH, "//div[@id='tagging']//input[@type='text']").get_attribute('value')
+        radios = driver.find_elements(By.XPATH, f"//div[@id='usaha']//input[@type='radio']")
+        for r in radios:
+            if r.is_selected(): break
+        d['usaha'] = r.get_attribute('value')
+
+        # BLOK3
+        blok = 3
+        driver.find_element(By.XPATH, f'id("fasih-form")/DIV[1]/DIV[1]/ASIDE[1]/DIV[2]/DIV[{blok}]/DIV[1]').click()
+        d['catatan'] = driver.find_element(By.XPATH,f"//div[@id='catatan']//textarea").get_attribute('value')
+        
+    except Exception as e:
+        instance.log_message(f'Terjadi error: {e}')
+
+    # FINISH
+    return d
+
 # Function reject data Fasih
 def reject(instance, var, mulai=0, func=None, cekapprov=True, idlog='Kode Identitas', sep=','):
     #(instance, filename, mulai=0, func=None, cekapprov=True, idlog='Kode Identitas', sep=',')
