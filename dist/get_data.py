@@ -528,7 +528,7 @@ def getdataSAKpemut(instance):
         #instance.log_message("Masuk ke fungsi get data PES")
         driver = instance.driver
         # init a dict for data
-        col_list = ['usaha','tagging','catatan']
+        col_list = ['keberadaan','usaha','tagging','catatan']
         d = dict.fromkeys(col_list, '--')
 
         # BLOK2
@@ -544,6 +544,7 @@ def getdataSAKpemut(instance):
             d['catatan'] = 'Responden tidak ditemukan di alamat sesuai ruta'
             instance.log_message("Tidak ditemukan ruta, lanjut ke loop berikutnya")
             return d # skip ke loop berikutnya
+        d['keberadaan'] = keberadaan
 
         # wait biar isiannya muncul dulu
         WebDriverWait(driver, 10).until(
