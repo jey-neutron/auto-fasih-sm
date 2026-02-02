@@ -540,11 +540,11 @@ def getdataSAKpemut(instance):
         for r in radios:
             if r.is_selected(): break
         keberadaan = r.get_attribute('value')
+        d['keberadaan'] = keberadaan
         if keberadaan == '3':
             d['catatan'] = 'Responden tidak ditemukan di alamat sesuai ruta'
             instance.log_message("Tidak ditemukan ruta, lanjut ke loop berikutnya")
             return d # skip ke loop berikutnya
-        d['keberadaan'] = keberadaan
 
         # wait biar isiannya muncul dulu
         WebDriverWait(driver, 10).until(
