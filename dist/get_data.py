@@ -179,6 +179,7 @@ def inputwebdash(instance, var):
             instance.driver.get('https://webdash.web.bps.go.id/beritaTambah')
             time.sleep(2)
             instance.driver.get('https://webdash.web.bps.go.id/beritaTambah')
+            instance.driver.execute_script("document.body.style.zoom='33%'")
             time.sleep(2)
             instance.driver.find_element(By.XPATH, "id('date')").send_keys(dt['tanggal'][0])
             instance.driver.find_element(By.XPATH, "id('date')").send_keys(Keys.RETURN)
@@ -570,7 +571,15 @@ def getdataSAKpemut(instance):
         keberadaan = r.get_attribute('value')
         d['keberadaan'] = keberadaan
         if keberadaan == '3':
-            d['catatan'] = 'Responden tidak ditemukan di alamat sesuai ruta'
+            try:
+                # BLOK3
+                blok = 3
+                driver.find_element(By.XPATH, f'id("fasih-form")/DIV[1]/DIV[1]/ASIDE[1]/DIV[2]/DIV[{blok}]/DIV[1]').click()
+                valcatatan = driver.find_element(By.XPATH,f"//div[@id='catatan']//textarea").get_attribute('value') or ""
+            except:
+                valcatatan = "Error getting catatan value"
+                pass
+            d['catatan'] = f"{valcatatan} | Responden tidak ditemukan di alamat sesuai ruta"
             instance.log_message("Tidak ditemukan ruta, lanjut ke loop berikutnya")
             return d # skip ke loop berikutnya
 
