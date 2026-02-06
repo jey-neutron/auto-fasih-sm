@@ -60,6 +60,24 @@ def getrandom(instance, waktu):
     instance.log_message(f"Hasil angka random {random.random()}")
     instance.isdone = 1
 
+def getdata(instance, var):
+    '''Get detail data pada csv dan index data terpilih [Pake "NonFasih" ya]'''
+    instance.isdone = 0
+    filename = instance.filename_entry.get()
+    idx = int(instance.start_row_entry.get())
+    #time.sleep(1)
+    instance.log_message(f"Getting detail data {filename} on index {idx}...")
+    # GETTING DATA FROM FASIH OPEN DETAIL
+    try:
+        df = pd.read_csv(filename, sep=",")
+        instance.log_message(f"\n{df.loc[idx]}")
+    except Exception as e:
+        instance.log_message(f'ERROR: {e}', tag="red_tag")
+        instance.isdone = 1
+        return
+    instance.log_message("Done. Please enlarge the window")
+    instance.isdone = 1
+
 def inputwebdash(instance, var):
     '''Input Webdash entri kegiatan, akan generate .json. Kalo udah dieksekusi, delete aja'''
     # FUNC MODDED FOR WEBDASH ENTRI KEGIATAN
@@ -85,108 +103,118 @@ def inputwebdash(instance, var):
         return
 
     else:
-        # jika ada, load file
-        instance.log_message("File data-webdash.json already exists, skipping creation." )
-        instance.log_message("Pastikan image sudah <150KB untuk upload webdash", tag="red_tag")
-        time.sleep(2)
-        with open('data-webdash.json', 'r') as file:
-            dt = json.load(file)
-        instance.log_message(dt)
+        try:
+            # jika ada, load file
+            instance.log_message("File data-webdash.json already exists, skipping creation." )
+            instance.log_message("Pastikan image sudah <150KB untuk upload webdash", tag="red_tag")
+            time.sleep(2)
+            instance.log_message("Loading file")
+            with open('data-webdash.json', 'r') as file:
+                dt = json.load(file)
+            instance.log_message(str(dt))
 
-        # cek image size
-        def get_image_size_kb(image_path, limitsize_kb=150):
-            """Mengembalikan ukuran file gambar dalam kilobyte (KB). Returns (size_kb, morelimit)"""
-            if not os.path.exists(image_path):
-                #return f"File tidak ditemukan di: {image_path}"
-                return (0, True)
-            
-            # Dapatkan ukuran dalam byte
-            size_bytes = os.path.getsize(image_path)
-            size_kb = size_bytes / 1024
+            # cek image size
+            def get_image_size_kb(image_path, limitsize_kb=150):
+                """Mengembalikan ukuran file gambar dalam kilobyte (KB). Returns (size_kb, morelimit)"""
+                if not os.path.exists(image_path):
+                    #return f"File tidak ditemukan di: {image_path}"
+                    return (0, True)
+                
+                # Dapatkan ukuran dalam byte
+                size_bytes = os.path.getsize(image_path)
+                size_kb = size_bytes / 1024
 
-            # cek 150 kb
-            morelimit = False
-            if size_kb > limitsize_kb:
-                morelimit = True
-            return (size_kb, morelimit) # Format 2 angka desimal
+                # cek 150 kb
+                morelimit = False
+                if size_kb > limitsize_kb:
+                    morelimit = True
+                return (size_kb, morelimit) # Format 2 angka desimal
 
-        # eksekusi cek size image
-        sizekb, morelimit = get_image_size_kb(dt['image'][0])
-        instance.log_message(f"Ukuran file {dt['image'][0]}: {sizekb:.2f} KB")
-        if morelimit:
-            instance.log_message(f"Ukuran file >150KB atau <0KB, silakan perbaiki dulu sebelum melanjutkan.", tag="red_tag")
+            # eksekusi cek size image
+            sizekb, morelimit = get_image_size_kb(dt['image'][0])
+            instance.log_message(f"Ukuran file {dt['image'][0]}: {sizekb:.2f} KB")
+            if morelimit:
+                instance.log_message(f"Ukuran file >150KB atau <0KB, silakan perbaiki dulu sebelum melanjutkan.", tag="red_tag")
+                instance.isdone = 1
+                return
+
+            # eksekusi translate
+            # buka gtranslate
+            #driver.switch_to.new_window('tab')
+            instance.driver.get('https://translate.google.com/?sl=id&tl=en&op=translate')
+            time.sleep(2)
+
+            # translate judul
+            instance.driver.find_element(By.XPATH, "//textarea").clear()
+            instance.driver.find_element(By.XPATH, "//textarea").send_keys(""+dt['judul_ind'][0])
+            time.sleep(5) #tunggu translate
+            dt['judul_eng'] = [instance.driver.find_element(By.XPATH, '//span[@lang="en"]').text]
+
+            # translate rincian
+            instance.driver.find_element(By.XPATH, "//textarea").clear()
+            instance.driver.find_element(By.XPATH, "//textarea").send_keys(""+dt['rincian_ind'][0])
+            time.sleep(5) #tunggu translate
+            dt['rincian_eng'] = [instance.driver.find_element(By.XPATH, '//span[@lang="en"]').text]
+
+            # cek result
+            instance.log_message(dt)
+
+            # eksekusi ngisi webdash
+            instance.driver.get('https://webdash.web.bps.go.id/beritaTambah')
+            try: #login sso 
+                WebDriverWait(instance.driver, 15).until( #using explicit wait for x seconds
+                    EC.presence_of_element_located((By.XPATH, 'id("kc-login")')) )
+                instance.driver.find_element(By.XPATH, '//*[@id="username"]').send_keys(instance.username_entry.get())
+                instance.driver.find_element(By.XPATH, '//*[@id="password"]').send_keys(instance.password_entry.get())
+                instance.driver.find_element(By.XPATH, '//*[@id="kc-login"]').send_keys(Keys.RETURN)
+                WebDriverWait(instance.driver, 15).until( #using explicit wait for x seconds
+                    EC.presence_of_element_located((By.XPATH, "//h4[@class='card-title']")) )
+                #log_area.insert(tk.END, f"[{timestamp}] Login SSO ulang \n")
+                #log_area.see(tk.END)
+                instance.driver.get('https://webdash.web.bps.go.id/beritaTambah')
+            except:
+                pass
+
+            # isi tanggal 
+            instance.driver.get('https://webdash.web.bps.go.id/beritaTambah')
+            time.sleep(2)
+            instance.driver.get('https://webdash.web.bps.go.id/beritaTambah')
+            time.sleep(2)
+            instance.driver.find_element(By.XPATH, "id('date')").send_keys(dt['tanggal'][0])
+            instance.driver.find_element(By.XPATH, "id('date')").send_keys(Keys.RETURN)
+
+            # isi jenis kegiatan
+            instance.driver.find_element(By.XPATH, "id('jenis_kegiatan')").send_keys(""+dt['jeniskeg'][0])
+            # isi image
+            instance.driver.find_element(By.XPATH, "id('foto')").send_keys(dt['image'][0])
+
+            # isi ind
+            instance.driver.find_element(By.XPATH, "id('nav-indo-tab')").click()
+            # isi judul_ind
+            instance.driver.find_element(By.XPATH, "id('judul_ind_get')").send_keys(dt['judul_ind'][0])
+            # isi rincian_ind
+            instance.driver.find_element(By.XPATH, "id('rincian_ind')/div[@class='ql-editor ql-blank']").send_keys(dt['rincian_ind'][0])
+            # isi eng
+            instance.driver.find_element(By.XPATH, "id('nav-eng-tab')").click()
+            # isi judul_eng
+            instance.driver.find_element(By.XPATH, "id('judul_eng_get')").send_keys(dt['judul_eng'][0])
+            # isi rincian_eng
+            instance.driver.find_element(By.XPATH, "id('rincian_eng')/div[@class='ql-editor ql-blank']").send_keys(dt['rincian_eng'][0])
+
+            # isi tag
+            instance.driver.find_element(By.XPATH, "id('tags')").send_keys(dt['tag'][0])
+
+            time.sleep (2)
+            #driver.close()
+            #driver.switch_to.window(driver.window_handles[0])
+
+            instance.log_message("Data webdash sudah diisi semua, silakan dicek dan disubmit jika sudah benar.", tag="green_tag")
+            instance.log_message("Silakan dihapus file-nya juga jika udah diupload: data-webdash.json")
             instance.isdone = 1
+        except Exception as e:
+            instance.log_message(f"Error: {str(e)}", "red_tag")
+            instance.isdone=1
             return
-
-        # eksekusi translate
-        # buka gtranslate
-        #driver.switch_to.new_window('tab')
-        instance.driver.get('https://translate.google.com/?sl=id&tl=en&op=translate')
-        time.sleep(2)
-
-        # translate judul
-        instance.driver.find_element(By.XPATH, "//textarea").clear()
-        instance.driver.find_element(By.XPATH, "//textarea").send_keys(""+dt['judul_ind'][0])
-        time.sleep(5) #tunggu translate
-        dt['judul_eng'] = [instance.driver.find_element(By.XPATH, '//span[@lang="en"]').text]
-
-        # translate rincian
-        instance.driver.find_element(By.XPATH, "//textarea").clear()
-        instance.driver.find_element(By.XPATH, "//textarea").send_keys(""+dt['rincian_ind'][0])
-        time.sleep(5) #tunggu translate
-        dt['rincian_eng'] = [instance.driver.find_element(By.XPATH, '//span[@lang="en"]').text]
-
-        # cek result
-        instance.log_message(dt)
-
-        # eksekusi ngisi webdash
-        instance.driver.get('https://webdash.web.bps.go.id/beritaTambah')
-        try: #login sso 
-            WebDriverWait(instance.driver, 15).until( #using explicit wait for x seconds
-                EC.presence_of_element_located((By.XPATH, 'id("kc-login")')) )
-            instance.driver.find_element(By.XPATH, '//*[@id="username"]').send_keys(instance.username_entry.get())
-            instance.driver.find_element(By.XPATH, '//*[@id="password"]').send_keys(instance.password_entry.get())
-            instance.driver.find_element(By.XPATH, '//*[@id="kc-login"]').send_keys(Keys.RETURN)
-            WebDriverWait(instance.driver, 15).until( #using explicit wait for x seconds
-                EC.presence_of_element_located((By.XPATH, "//h4[@class='card-title']")) )
-            #log_area.insert(tk.END, f"[{timestamp}] Login SSO ulang \n")
-            #log_area.see(tk.END)
-        except:
-            pass
-
-        # isi tanggal 
-        time.sleep(2)
-        instance.driver.find_element(By.XPATH, "id('date')").send_keys(dt['tanggal'][0])
-        instance.driver.find_element(By.XPATH, "id('date')").send_keys(Keys.RETURN)
-
-        # isi jenis kegiatan
-        instance.driver.find_element(By.XPATH, "id('jenis_kegiatan')").send_keys(""+dt['jeniskeg'][0])
-        # isi image
-        instance.driver.find_element(By.XPATH, "id('foto')").send_keys(dt['image'][0])
-
-        # isi ind
-        instance.driver.find_element(By.XPATH, "id('nav-indo-tab')").click()
-        # isi judul_ind
-        instance.driver.find_element(By.XPATH, "id('judul_ind_get')").send_keys(dt['judul_ind'][0])
-        # isi rincian_ind
-        instance.driver.find_element(By.XPATH, "id('rincian_ind')/div[@class='ql-editor ql-blank']").send_keys(dt['rincian_ind'][0])
-        # isi eng
-        instance.driver.find_element(By.XPATH, "id('nav-eng-tab')").click()
-        # isi judul_eng
-        instance.driver.find_element(By.XPATH, "id('judul_eng_get')").send_keys(dt['judul_eng'][0])
-        # isi rincian_eng
-        instance.driver.find_element(By.XPATH, "id('rincian_eng')/div[@class='ql-editor ql-blank']").send_keys(dt['rincian_eng'][0])
-
-        # isi tag
-        instance.driver.find_element(By.XPATH, "id('tags')").send_keys(dt['tag'][0])
-
-        time.sleep (2)
-        #driver.close()
-        #driver.switch_to.window(driver.window_handles[0])
-
-        instance.log_message("Data webdash sudah diisi semua, silakan dicek dan disubmit jika sudah benar.", tag="green_tag")
-        instance.log_message("Silakan dihapus file-nya juga jika udah diupload: data-webdash.json")
-        instance.isdone = 1
 
 def inputsbr(instance, var):
     '''Input data SBR dari file csv'''
