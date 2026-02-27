@@ -50,6 +50,8 @@ Fitur yang sudah tersedia di [`get_data.py`](/dist/get_data.py) untuk saat ini:
 - **clear** (clear log message)
 - **gettime** (get current time)
 - **getrandom** (get a random number)
+- **getdata** (get detail data pada csv dan index data terpilih [Pake "NonFasih"])
+- **getkurs** (get kurs data dari input csv dari kurs web Wise [Pake "NonFasih"])
 - **inputwebdash** (input webdash entri kegiatan, akan generate .json. kalo udah dieksekusi, delete aja)
 - **inputsbr** (input data sbr dari file csv)
 - **getdataPES** (function for getting data pes)
