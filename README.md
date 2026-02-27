@@ -12,6 +12,8 @@ Disini kita menggunakan Chromedriver untuk mengautomasi browser Chrome anda. Dow
 > 
 
 # Step-by-step 🚗
+> **👼Tutorial versi "Bahasa Bayi" [`disini`](/STEP-BY-STEP-%20AUTO-FASIH.pdf)**
+
 Ketika file [`Selenium_vpn_tkinter.exe`](/dist/Selenium_vpn_tkinter.exe) udah jalan, maka muncul window aplikasi baru:
 1. Masukkan `username` dan `password` untuk login SSO. Kemudian di bawahnya ada `Link target`. Default target link-nya adalah web Fasih-SM.
 2. Kemudian `Open Browser` dan aplikasi akan auto membuka browser. `Goto Link` maka browser akan menuju link sesuai `Link target` yang terisi pada langkah 1. 
