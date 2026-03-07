@@ -8,6 +8,7 @@ import pandas as pd
 import time
 #import importlib
 import random
+import re
 
 def help(instance,var):
     '''Get list of functions'''
@@ -958,7 +959,7 @@ def mainfunc(instance, filename, mulai=0, func=None, cekapprov=True, idlog='Kode
             #change_text(label_status, f"Running Selesai {adaerr}", "green")
             break
         try:
-            # CEK DAH APPROVED LOM ke0 ------------------------------------------------------------
+            # CEK DAH APPROVED LOM ke0 (cek dari hasil csv)------------------------------------------------------------
             if df.loc[i, 'approved'] == True:
                 instance.log_message(f"# {i,str(df[idlog][i])[:20]} | Dah approved admin, skip")
                 continue
@@ -968,17 +969,25 @@ def mainfunc(instance, filename, mulai=0, func=None, cekapprov=True, idlog='Kode
             instance.driver.execute_script("document.body.style.zoom='50%'")
             #change_text(label_status, f"Processin data {i}/{len(df)}")
             
-            # CEK DAH APPROVED LOM ke1 ------------------------------------------------------------
+            # CEK DAH APPROVED LOM ke1 (cek dari assignment detail fasih) ------------------------------------------------------------
             if cekapprov:
                 try:
                     WebDriverWait(instance.driver, 10).until(
-                        EC.presence_of_element_located((By.XPATH, 'id("datatable_wrapper")')) )
-                    approvtxt = instance.driver.find_element(By.XPATH, 'id("datatable_wrapper")').text
-                    if 'APPROVED BY Admin Kabupaten' in approvtxt:
-                        #print(i,df[idlog][i],'| Dah approved admin, skip')
-                        instance.log_message(f"# {i,str(df[idlog][i])[:20]} | Dah approved admin, skip")
-                        continue
-                    else: pass
+                        EC.presence_of_element_located((By.XPATH, 'id("datatable")')) )
+                    approvtxt = instance.driver.find_element(By.XPATH, 'id("datatable")').text
+                    # Pola Regex:
+                    # \d+           -> Mencari angka urutan (misal: 12)
+                    # \s+           -> Spasi setelah angka
+                    # (.*?)         -> Group 1: Ini adalah status yang kita ambil (non-greedy)
+                    # \s+           -> Spasi sebelum tanggal
+                    # \d{2}/\d{2}/  -> Pola tanggal (DD/MM/YYYY)
+                    pattern = r"\d+\s+(.*?)\s+\d{2}/\d{2}/\d{4}"
+                    matches = re.findall(pattern, approvtxt)
+                    if matches:
+                        if 'APPROVED' in matches[-1]:
+                            #print(i,df[idlog][i],'| Dah approved admin, skip')
+                            instance.log_message(f"# {i,str(df[idlog][i])[:20]} | Dah terapprov, skip")
+                            continue
                 except TimeoutException:
                     pass
         
@@ -993,7 +1002,7 @@ def mainfunc(instance, filename, mulai=0, func=None, cekapprov=True, idlog='Kode
             WebDriverWait(instance.driver, 100).until(EC.invisibility_of_element_located((By.CSS_SELECTOR, 'p.mb-2')))
             instance.driver.execute_script("document.body.style.zoom='50%'")
 
-            # CEK DAH APPROVED LOM ke2 ------------------------------------------------------------
+            # CEK DAH APPROVED LOM ke2 (cek dari adakah button approve fasih) ------------------------------------------------------------
             if cekapprov:
                 try:
                     WebDriverWait(instance.driver, 10).until(
