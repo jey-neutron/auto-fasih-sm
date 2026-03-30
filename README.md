@@ -3,13 +3,14 @@
 (Program auto approve Fasih-SM kerjaan B P S)
 
 Disini kita menggunakan Chromedriver untuk mengautomasi browser Chrome anda. Download aja folder [`dist`](/dist) dan jalankan file [`.exe`](/dist/Selenium_vpn_tkinter.exe)nya. 
-> Saat ini pakai Chrome versi 144, jadi harus disamain versinya. Kalau pake Chrome versi lain, chromedriver harus sama versinya juga biar lanjay.
-
 > **_[📝Update 28.01.26]_**
-> _Terdapat update di file [`get_data.py`](/dist/get_data.py), yaitu penambahan fitur bulk reject menggunakan file csv yang terpilih dengan template yang sama seperti hasil `GetListData`. Nanti `Input Tambahannya` diisi `reject`_
+> _Terdapat update di file [`get_data.py`](/dist/get_data.py), yaitu penambahan fitur bulk reject menggunakan file csv yang terpilih dengan template yang sama seperti hasil `GetListData`. Nanti `Input Tambahannya` diisi `reject`._
 > _Dan di section `Sekalian approve fasih` dipilih yang `NonFasih`, meskipun memang kerjanya di Fasih, (ya untuk versi sementara ini ikutin aja).
 [Lihat fitur](#fitur)_
-> 
+
+> **_[📝Update 30.03.26]_**
+> _Upgrade Selenium sehingga tidak memerlukan chromedriver_
+
 
 # Step-by-step 🚗
 > **👼Tutorial versi "Bahasa Bayi" [`disini`](/STEP-BY-STEP-%20AUTO-FASIH.pdf)**
