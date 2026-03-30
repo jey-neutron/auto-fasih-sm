@@ -12,6 +12,8 @@ Disini kita menggunakan Chromedriver untuk mengautomasi browser Chrome anda. Dow
 > 
 
 # Step-by-step 🚗
+> **👼Tutorial versi "Bahasa Bayi" [`disini`](/STEP-BY-STEP-%20AUTO-FASIH.pdf)**
+
 Ketika file [`Selenium_vpn_tkinter.exe`](/dist/Selenium_vpn_tkinter.exe) udah jalan, maka muncul window aplikasi baru:
 1. Masukkan `username` dan `password` untuk login SSO. Kemudian di bawahnya ada `Link target`. Default target link-nya adalah web Fasih-SM.
 2. Kemudian `Open Browser` dan aplikasi akan auto membuka browser. `Goto Link` maka browser akan menuju link sesuai `Link target` yang terisi pada langkah 1. 
@@ -48,6 +50,8 @@ Fitur yang sudah tersedia di [`get_data.py`](/dist/get_data.py) untuk saat ini:
 - **clear** (clear log message)
 - **gettime** (get current time)
 - **getrandom** (get a random number)
+- **getdata** (get detail data pada csv dan index data terpilih [Pake "NonFasih"])
+- **getkurs** (get kurs data dari input csv dari kurs web Wise [Pake "NonFasih"])
 - **inputwebdash** (input webdash entri kegiatan, akan generate .json. kalo udah dieksekusi, delete aja)
 - **inputsbr** (input data sbr dari file csv)
 - **getdataPES** (function for getting data pes)
