@@ -2,7 +2,7 @@
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 #from selenium.webdriver.common.action_chains import ActionChains
-from selenium.webdriver.chrome.service import Service
+#from selenium.webdriver.chrome.service import Service
 from selenium.common.exceptions import TimeoutException
 from datetime import datetime
 import time
@@ -274,15 +274,24 @@ class SimpleApp:
     def open_browser(self):
         self.log_message("Perintah: Membuka browser.")
         try:
-            service = Service(executable_path="chromedriver.exe") 
-            #service = Service(executable_path="geckodriver.exe") 
-            self.driver = webdriver.Chrome(service=service)
-            #self.driver = webdriver.Firefox(service=service)
+            self.driver = webdriver.Chrome() # Selenium akan otomatis mencari & mendownload ChromeDriver yang sesuai
             self.log_message("Ready for action.")
             self.change_status("STATUS: Browser Ready", color="green")
         except Exception as e:
             self.change_status("STATUS: Browser Error", color="red")
             self.log_message(f"ERROR: Gagal membuka browser. ({str(e).split('Stacktrace:')[0]})", tag="red_tag")    
+    #def open_browser(self):
+    #    self.log_message("Perintah: Membuka browser.")
+    #    try:
+    #        service = Service(executable_path="chromedriver.exe") 
+    #        #service = Service(executable_path="geckodriver.exe") 
+    #        self.driver = webdriver.Chrome(service=service)
+    #        #self.driver = webdriver.Firefox(service=service)
+    #        self.log_message("Ready for action.")
+    #        self.change_status("STATUS: Browser Ready", color="green")
+    #    except Exception as e:
+    #        self.change_status("STATUS: Browser Error", color="red")
+    #        self.log_message(f"ERROR: Gagal membuka browser. ({str(e).split('Stacktrace:')[0]})", tag="red_tag")    
 
     def close_browser(self):
         self.log_message("Perintah: Menutup browser.")
