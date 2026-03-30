@@ -970,26 +970,26 @@ def mainfunc(instance, filename, mulai=0, func=None, cekapprov=True, idlog='Kode
             #change_text(label_status, f"Processin data {i}/{len(df)}")
             
             # CEK DAH APPROVED LOM ke1 (cek dari assignment detail fasih) ------------------------------------------------------------
-            if cekapprov:
-                try:
-                    WebDriverWait(instance.driver, 10).until(
-                        EC.presence_of_element_located((By.XPATH, 'id("datatable")')) )
-                    approvtxt = instance.driver.find_element(By.XPATH, 'id("datatable")').text
-                    # Pola Regex:
-                    # \d+           -> Mencari angka urutan (misal: 12)
-                    # \s+           -> Spasi setelah angka
-                    # (.*?)         -> Group 1: Ini adalah status yang kita ambil (non-greedy)
-                    # \s+           -> Spasi sebelum tanggal
-                    # \d{2}/\d{2}/  -> Pola tanggal (DD/MM/YYYY)
-                    pattern = r"\d+\s+(.*?)\s+\d{2}/\d{2}/\d{4}"
-                    matches = re.findall(pattern, approvtxt)
-                    if matches:
-                        if 'APPROVED' in matches[-1]:
-                            #print(i,df[idlog][i],'| Dah approved admin, skip')
-                            instance.log_message(f"# {i,str(df[idlog][i])[:20]} | Dah terapprov, skip")
-                            continue
-                except TimeoutException:
-                    pass
+            #if cekapprov:
+            #    try:
+            #        WebDriverWait(instance.driver, 10).until(
+            #            EC.presence_of_element_located((By.XPATH, 'id("datatable")')) )
+            #        approvtxt = instance.driver.find_element(By.XPATH, 'id("datatable")').text
+            #        # Pola Regex:
+            #        # \d+           -> Mencari angka urutan (misal: 12)
+            #        # \s+           -> Spasi setelah angka
+            #        # (.*?)         -> Group 1: Ini adalah status yang kita ambil (non-greedy)
+            #        # \s+           -> Spasi sebelum tanggal
+            #        # \d{2}/\d{2}/  -> Pola tanggal (DD/MM/YYYY)
+            #        pattern = r"\d+\s+(.*?)\s+\d{2}/\d{2}/\d{4}"
+            #        matches = re.findall(pattern, approvtxt)
+            #        if matches:
+            #            if 'APPROVED' in matches[-1]:
+            #                #print(i,df[idlog][i],'| Dah approved admin, skip')
+            #                instance.log_message(f"# {i,str(df[idlog][i])[:20]} | Dah terapprov, skip")
+            #                continue
+            #    except TimeoutException:
+            #        pass
         
             ## click btn review
             time.sleep(3)
