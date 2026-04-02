@@ -52,7 +52,7 @@ Fitur yang sudah tersedia di [`get_data.py`](/dist/get_data.py) untuk saat ini:
 - **gettime** (get current time)
 - **getrandom** (get a random number)
 - **getdata** (get detail data pada csv dan index data terpilih [Pake "NonFasih"])
-- **getkurs** (get kurs data dari input csv dari kurs web Wise [Pake "NonFasih"])
+- **getkurs** (convert kurs data dari idr.json hasil dari api web exchangerate-api.com [pake "nonfasih"] [https://v6.exchangerate-api.com/v6/api-key/latest/idr])
 - **inputwebdash** (input webdash entri kegiatan, akan generate .json. kalo udah dieksekusi, delete aja)
 - **inputsbr** (input data sbr dari file csv)
 - **getdataPES** (function for getting data pes)
