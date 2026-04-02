@@ -81,44 +81,44 @@ def getdata(instance, var):
 
 
 def getkurs(instance, var):
-    '''Get kurs data dari input csv dari kurs web wise [Pake "NonFasih"]'''
+    '''Convert kurs data dari IDR.json hasil dari api web exchangerate-api.com [Pake "NonFasih"] [https://v6.exchangerate-api.com/v6/API-KEY/latest/IDR]'''
     instance.isdone = 0
     filename = instance.filename_entry.get()
-    driver = instance.driver
     try:
-        # read csv and add column 1
-        df = pd.read_csv(filename, sep=",")
-        df[1] = 0
-        instance.log_message(f"{len(df)} Data loaded succecssfully")
-        # loop per row
-        for i in range(len(df)):
-            try:
-                curr = df.loc[i,0].lower() #get nama id currency
-                xpat = "id('calculator')//div[@class='_midMarketRateAmount_14arr_139']/span[2]" #template xpath web result
-                # goto web
-                driver.get(f"https://wise.com/id/currency-converter/{curr}-to-idr-rate")
-                WebDriverWait(driver, 5).until( 
-                    EC.presence_of_element_located((By.XPATH, xpat)) #wait till muncul
-                )
-                # get the result
-                res = driver.find_element(By.XPATH, xpat).text
-                if curr.upper() not in res:
-                    df.loc[i,1] = 'Tidak muncul'    
-                    instance.log_message(f"{i} {df.loc[i,0]} tidak muncul")
-                    continue
-                # preprocess
-                resint = float(res.replace("IDR","").split("=")[1].replace(".","").replace(",", "."))
-                # save
-                df.loc[i,1] = resint
-                instance.log_message(f"{i} {df.loc[i,0]} done {resint}")
-            except:
-                df.loc[i,1] = 'Error tidak ketemu'    
-                instance.log_message(f"{i} {df.loc[i,0]} tidak ketemu")
-                continue
+        import json
+        import csv
+        from datetime import datetime
+        # Membaca file JSON
+        with open(filename, 'r') as f:
+            data = json.load(f)
 
-        # save to csv
-        df.to_csv(filename, index=False)
+        if data["result"] == "success":
+            rates = data["conversion_rates"]
+            last_update = data["time_last_update_utc"]
+            date_obj = datetime.strptime(data["time_last_update_utc"][:16].strip(), "%a, %d %b %Y")
 
+            # Menulis ke file CSV
+            with open('IDR.csv', 'w', newline='') as f_csv:
+                writer = csv.writer(f_csv)
+                writer.writerow(["Info", f"Last Update: {last_update}"])
+                writer.writerow(["kurs", date_obj.strftime("%B")])
+                # write idr n usd first
+                for code in ['IDR','USD']:
+                    if code in rates:
+                        # Rumus konversi balik karena base-nya IDR
+                        rate_to_idr = 1 / rates[code]
+                        writer.writerow([code, round(rate_to_idr, 2)])
+                # other
+                filteredkurs = [code for code in rates.keys() if code not in ["USD", "IDR"]]
+                for code in filteredkurs:
+                    if code in rates:
+                        # Rumus konversi balik karena base-nya IDR
+                        rate_to_idr = 1 / rates[code]
+                        writer.writerow([code, round(rate_to_idr, 2)])
+                
+            instance.log_message(f"Selesai! Data rapi sudah ada di: IDR.csv")
+        else:
+            instance.log_message("Data JSON tidak valid.")
     except Exception as e:
         instance.log_message(f'ERROR: {e}', tag="red_tag")
         instance.isdone = 1
