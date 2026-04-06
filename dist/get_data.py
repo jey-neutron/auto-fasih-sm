@@ -540,7 +540,7 @@ def assignselect(instance, var):
         end = len(df)
         gagal = 0
         rowgada = 0
-        count_gagal_sebelum_nyerah = 50 #perlu dicustom lagi si
+        count_gagal_sebelum_nyerah = 20 #perlu dicustom lagi si
         ## jika gagal loop terus :""
         listtimegagal = [] #untuk save time kegagalan
         listgagal = [] #untuk save index row yg gagal
@@ -683,7 +683,7 @@ def assignselect(instance, var):
                             
             ## jika gagal print error
             except Exception as e:
-                instance.log_message('Error terjadi: '+str(e).split("Stacktrace:")[0], tag="red_tag")
+                instance.log_message('\nError terjadi: '+str(e).split("Stacktrace:")[0], tag="red_tag")
                 listtimegagal.append(now)
                 listgagal.append(df.index[dfrow])
                 start = dfrow-1
@@ -696,7 +696,7 @@ def assignselect(instance, var):
                 if len(listtimegagal)>5:
                     listtimegagal.pop(0) #remove timegagal index pertama
                     listgagal.pop(0) #remove index row yang pertama yg gagal
-                    diff = listtimegagal[4]-listtimegagal[0] #itung delta time
+                    diff = listtimegagal[4]-listtimegagal[2] #itung delta time
                     #difftime = divmod(diff.days * seconds_in_day + diff.seconds, 1)[0]
                     difftime = diff.seconds
                 else: difftime = 4
@@ -704,7 +704,7 @@ def assignselect(instance, var):
                 if(len(set(listgagal))==1 and len(listgagal)>4): #jika gagal lebih dari 4x di index row itu, maka skip aja da
                     df.loc[df.index[dfrow], 'assigned'] = 'error'
                     start = dfrow+1
-                    instance.log_message('Continuing aja')
+                    instance.log_message(f'{dfrow} Err mulu, Continuing aja', "green_tag")
                     continue 
 
                 if ((gagal > count_gagal_sebelum_nyerah) or (difftime<3) ): # jika gagal lebih dari threshold maka errorin aja OR !! jika different time gagalnya gagal maka remove aja OR blabla nya
