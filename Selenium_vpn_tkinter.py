@@ -2,7 +2,7 @@
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 #from selenium.webdriver.common.action_chains import ActionChains
-from selenium.webdriver.chrome.service import Service
+#from selenium.webdriver.chrome.service import Service
 from selenium.common.exceptions import TimeoutException
 from datetime import datetime
 import time
@@ -43,7 +43,8 @@ def load_setting_file(instance, filename="get_data.py", load=True):
     
     # 2. Cek apakah file ada
     if not os.path.exists(file_path):
-        instance.log_message(message=f"ERROR: File konfigurasi tidak ditemukan: {filename}", tag="red_tag")
+        if load:
+            instance.log_message(message=f"ERROR: File konfigurasi tidak ditemukan: {filename}", tag="red_tag")
         return None
         
     if load:
@@ -75,6 +76,7 @@ class SimpleApp:
             time.sleep(10)
             root.destroy()
             return
+        sso = load_setting_file(self, "tempuser.txt", False)
         # 2. Ambil fungsi yang dibutuhkan
         global mainfunc
         global get_list_data
@@ -84,6 +86,7 @@ class SimpleApp:
         # konfigurasi variabel
         self.driver = None
         self.isdone = None
+        self.vars = None
 
         # Konfigurasi jendela utama
         self.master = master
@@ -102,11 +105,23 @@ class SimpleApp:
                                      fg="white", bg="blue", font=('Arial', 10, 'bold'), anchor='w')
         self.status_label.pack(fill=tk.X, pady=(0, 10))
 
+        # user n sso get
+        #if sso is None:
+        try:
+            path = os.path.join(os.getcwd(), 'tempuser.txt')
+            val = open(path).read() if os.path.exists(path) else None    
+            usersso = str(val).split("\n")[0]
+            passso = str(val).split("\n")[1]
+            msgsso = "load from tempuser.txt"
+        except:
+            usersso = "jimmy.nx"
+            passso = "pass"
+            msgsso = "placeholder"            
+
         # --- Input Fields (Field 1: Username) ---
-        self.create_input_field("Username SSO:", "jimmy.nx", "username_entry", self.main_frame)
-        
+        self.create_input_field("Username SSO:", usersso, "username_entry", self.main_frame)
         # --- Input Fields (Field 2: Password) ---
-        self.create_input_field("Password SSO:", "pass", "password_entry", self.main_frame, show='*')
+        self.create_input_field("Password SSO:", passso, "password_entry", self.main_frame, show='*')
         
         # --- Input Fields (Field 3: Link) ---
         self.create_input_field("Link target:", "https://fasih-sm.bps.go.id/", "link_entry", self.main_frame)
@@ -142,17 +157,17 @@ class SimpleApp:
         self.btn_func_1 = tk.Button(self.btn_frame_2, text="Get List Data", command=self.run_function_1, bg="#FFF2E6", relief=tk.RAISED)
         self.btn_func_1.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(10, 5))
 
-        #self.btn_func_2 = tk.Button(self.btn_frame_2, text="Run Approve", command=self.run_function_2, bg="#FFF2E6", relief=tk.RAISED)
+        #self.btn_func_2 = tk.Button(self.btn_frame_2, text="Run Function", command=self.run_function_2, bg="#FFF2E6", relief=tk.RAISED)
         #self.btn_func_2.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
         
         # --- SECTION : Input Fields Khusus Fungsi 2 (LabelFrame) ---
-        self.func2_frame = tk.LabelFrame(self.main_frame, text="Parameter Fungsi 'Run Approve'", padx=10, pady=5, bd=2, relief=tk.GROOVE)
+        self.func2_frame = tk.LabelFrame(self.main_frame, text="Parameter Fungsi 'Run Function'", padx=10, pady=5, bd=2, relief=tk.GROOVE)
         self.func2_frame.pack(fill=tk.X, pady=(10, 15))
 
         # Menggunakan func2_frame sebagai parent untuk input ini
         self.create_input_field("Baris Mulai:", "Cth: 0 (untuk mulai dari awal)", "start_row_entry", self.func2_frame)
         self.create_input_field("Nama File:", "data.csv", "filename_entry", self.func2_frame)
-        self.create_input_field("Input Tambahan:", "Input opsional...", "extra_input_entry", self.func2_frame)
+        self.create_input_field("Input Tambahan:", "Input opsional... (cth: help)", "extra_input_entry", self.func2_frame)
         
         # Variabel kontrol untuk menyimpan nilai radiobutton yang dipilih
         self.v = tk.IntVar(value=1)
@@ -164,12 +179,14 @@ class SimpleApp:
         self.rb1.pack(side=tk.LEFT, padx=0)
         self.rb2= tk.Radiobutton(self.func2_frame, text='False', variable=self.v, value=0, indicatoron=0, command=self.update_label)
         self.rb2.pack(side=tk.LEFT, padx=0)
+        self.rb3= tk.Radiobutton(self.func2_frame, text='NonApprov', variable=self.v, value=99, indicatoron=0, command=self.update_label)
+        self.rb3.pack(side=tk.LEFT, padx=0)
 
         # --- Tombol Baris 3: Close App & Exit App ---
         self.btn_frame_3 = tk.Frame(self.main_frame)
         self.btn_frame_3.pack(fill=tk.X, pady=15)
 
-        self.btn_func_2 = tk.Button(self.btn_frame_3, text="Run Approve", command=self.run_function_2, bg="#FFF2E6", relief=tk.RAISED)
+        self.btn_func_2 = tk.Button(self.btn_frame_3, text="Run Function", command=self.run_function_2, bg="#FFF2E6", relief=tk.RAISED)
         self.btn_func_2.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(1, 5))
 
         self.btn_close_app = tk.Button(self.btn_frame_3, text="Close Browser", command=self.close_browser, bg="#E6F7FF", relief=tk.RAISED)
@@ -186,8 +203,10 @@ class SimpleApp:
         self.log_area.tag_config("green_tag", foreground="green")
 
         # Log pesan awal
-        # Set pilihan awal
         self.log_message("Aplikasi dimulai. Selamat datang!")
+        self.log_message(f"Using sso {msgsso}")
+        # Set pilihan awal
+        #self.log_message("Aplikasi dimulai. Selamat datang!")
         self.rw1.select()
         self.update_label_vwrite()
         self.rb1.select()
@@ -272,15 +291,24 @@ class SimpleApp:
     def open_browser(self):
         self.log_message("Perintah: Membuka browser.")
         try:
-            service = Service(executable_path="chromedriver.exe") 
-            #service = Service(executable_path="geckodriver.exe") 
-            self.driver = webdriver.Chrome(service=service)
-            #self.driver = webdriver.Firefox(service=service)
+            self.driver = webdriver.Chrome() # Selenium akan otomatis mencari & mendownload ChromeDriver yang sesuai
             self.log_message("Ready for action.")
             self.change_status("STATUS: Browser Ready", color="green")
         except Exception as e:
             self.change_status("STATUS: Browser Error", color="red")
             self.log_message(f"ERROR: Gagal membuka browser. ({str(e).split('Stacktrace:')[0]})", tag="red_tag")    
+    #def open_browser(self):
+    #    self.log_message("Perintah: Membuka browser.")
+    #    try:
+    #        service = Service(executable_path="chromedriver.exe") 
+    #        #service = Service(executable_path="geckodriver.exe") 
+    #        self.driver = webdriver.Chrome(service=service)
+    #        #self.driver = webdriver.Firefox(service=service)
+    #        self.log_message("Ready for action.")
+    #        self.change_status("STATUS: Browser Ready", color="green")
+    #    except Exception as e:
+    #        self.change_status("STATUS: Browser Error", color="red")
+    #        self.log_message(f"ERROR: Gagal membuka browser. ({str(e).split('Stacktrace:')[0]})", tag="red_tag")    
 
     def close_browser(self):
         self.log_message("Perintah: Menutup browser.")
@@ -305,7 +333,7 @@ class SimpleApp:
                 # try login sso disini
                 # Validasi sederhana
                 if self.username_entry.get() in ["Masukkan Username...", "jimmy.nx" ,""]:
-                    self.log_message("ERROR: Fungsi 1 dibatalkan. Username tidak valid.")
+                    self.log_message("ERROR: Fungsi 1 dibatalkan. Username tidak valid.", "red_tag")
                     return
                 if "bps.go.id" in self.driver.current_url:
                     login_thread = threading.Thread(target=self.login_sso, args=(link,))
@@ -362,7 +390,7 @@ class SimpleApp:
     # --- Function 2 ---
     def run_function_2(self):
         self.isdone = 0
-        self.log_message("Perintah: Memulai proses approving...")
+        self.log_message("Perintah: Memulai running function...")
         self.change_status("STATUS: Running data...", color="blue")
 
         # Ambil input spesifik untuk Fungsi 2
@@ -372,13 +400,16 @@ class SimpleApp:
 
         # Validasi sederhana untuk baris mulai
         try:
-            row_num = int(start_row)
+            if start_row == 'Cth: 0 (untuk mulai dari awal)':
+                row_num = 0
+            else:
+                row_num = int(start_row)
             if row_num < 0:
                  raise ValueError
         except ValueError:
             self.isdone = 1
             self.change_status("STATUS: Running batal", color="blue")
-            self.log_message(f"ERROR: Fungsi 2 dibatalkan. Baris Mulai '{start_row}' harus berupa angka positif.")
+            self.log_message(f"ERROR: Fungsi 2 dibatalkan. Baris Mulai '{start_row}' harus berupa angka positif.", "red_tag")
             return
 
         self.log_message(f"--- Detail Fungsi 2 ---")
@@ -386,7 +417,7 @@ class SimpleApp:
         self.log_message(f"Nama File: {filename}")
         self.log_message(f"Input Tambahan: {extra_input}")
 
-        if extra_input == "Input opsional..." or extra_input.strip() == "":
+        if extra_input == "Input opsional... (cth: help)" or extra_input.strip() == "":
             self.log_message("Catatan: Tidak ada fungsi tambahan yang dipilih.")
             extra_input_fun = None 
         else:
@@ -394,7 +425,7 @@ class SimpleApp:
                 #import importlib
                 external_funcs = load_setting_file(self)
                 extra_input_fun = external_funcs.get(extra_input)
-                self.log_message(f"Modul '{extra_input}' berhasil dimuat untuk fungsi tambahan.")
+                self.log_message(f"Modul '{extra_input}' sukses diimpor, loading")
                 #importlib.import_module(extra_input)
             #except ModuleNotFoundError:
             #    self.log_message(f"ERROR: Modul '{extra_input}' tidak ditemukan. Pastikan file .py ada di direktori yang sama.", tag="red_tag")
@@ -405,12 +436,13 @@ class SimpleApp:
                 self.log_message( f"ERROR: Terjadi kesalahan saat import modul/file: {e}", tag="red_tag")
 
         try:
-            if extra_input == "getrandom":
+            #if extra_input == "getrandom":
+            if self.v.get() == 99:
                 #external_funcs = load_setting_file(self)
                 #mainfunc = external_funcs.get('getrandom')
                 fungsi2_thread = threading.Thread(target=extra_input_fun, args=(self,1))
             elif extra_input == "get_list_data" or extra_input == "mainfunc":
-                self.log_message(f"ERROR: Fungsi 2 dibatalkan. Input tambahan invalid.")
+                self.log_message(f"ERROR: Fungsi 2 dibatalkan. Input tambahan invalid.", "red_tag")
                 return
             else:
                 if self.v.get() == 1:
@@ -440,4 +472,3 @@ if __name__ == '__main__':
     root = tk.Tk()
     app = SimpleApp(root)
     root.mainloop()
-
