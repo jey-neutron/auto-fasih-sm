@@ -5,11 +5,15 @@
 Disini kita menggunakan Chromedriver untuk mengautomasi browser Chrome anda. Download aja folder [`dist`](/dist) dan jalankan file [`.exe`](/dist/Selenium_vpn_tkinter.exe)nya. 
 > **_[📝Update 28.01.26]_**
 > _Terdapat update di file [`get_data.py`](/dist/get_data.py), yaitu penambahan fitur bulk reject menggunakan file csv yang terpilih dengan template yang sama seperti hasil `GetListData`. Nanti `Input Tambahannya` diisi `reject`._
-> _Dan di section `Sekalian approve fasih` dipilih yang `NonFasih`, meskipun memang kerjanya di Fasih, (ya untuk versi sementara ini ikutin aja).
+> _Dan di section `Sekalian approve fasih` dipilih yang `NonApprov`, meskipun memang kerjanya di Fasih, (ya untuk versi sementara ini ikutin aja).
 [Lihat fitur](#fitur)_
 
 > **_[📝Update 30.03.26]_**
 > _Upgrade Selenium sehingga tidak memerlukan chromedriver_
+
+> **_[📝Update 06.04.26]_**
+> _Terdapat update di file [`get_data.py`](/dist/get_data.py), yaitu penambahan fitur assignselect (assign fasih-sm by selection) dari file csv yang terpilih dengan template hasil dari `GetListData`. Nanti `Input Tambahannya` diisi `assignselect`. Ada panduan nanti pas run pertama kali._
+> _Juga terdapat load user sso dari file `tempuser.txt`, buat aja filenya dan isi usersso + enter + pass sso_
 
 
 # Step-by-step 🚗
@@ -33,7 +37,7 @@ Ketika file [`Selenium_vpn_tkinter.exe`](/dist/Selenium_vpn_tkinter.exe) udah ja
 	- `"Input Tambahan"`, ini modul yang dapat anda modifikasi untuk mendapatkan data di Fasih-SM, atau web lain, contoh yang ada di sini adalah `getdataPES` (untuk mendapatkan isian Fasih PES) atau `inputsbr` (untuk menginput GC matchapro dari excel, tapi perlu modheader).
 		> Jika kosong, maka program akan tetap jalan tanpa mengambil data, misal mau approve aja
 		
-		> Jika ingin menjalankan program diluar Fasih-SM, maka di bawahnya pilih `NonFasih`
+		> Jika ingin menjalankan program diluar Fasih-SM, maka di bawahnya pilih `NonApprov`
 
 		> Anda bisa menambahkan function sendiri di [`get_data.py`](/dist/get_data.py) kemudian memasukkan nama functionnya itu di field ini
 	-  `Sekalian approve Fasih` jika terpilih `True` maka akan auto-approve dengan user SSO yang udah login. Kalau `False` maka ya ngga approve, misal jika ingin mengambil datanya aja (perlu code tambahan jika di survei lain).
@@ -51,11 +55,11 @@ Fitur yang sudah tersedia di [`get_data.py`](/dist/get_data.py) untuk saat ini:
 - **clear** (clear log message)
 - **gettime** (get current time)
 - **getrandom** (get a random number)
-- **getdata** (get detail data pada csv dan index data terpilih [Pake "NonFasih"])
-- **getkurs** (convert kurs data dari idr.json hasil dari api web exchangerate-api.com [pake "nonfasih"] [https://v6.exchangerate-api.com/v6/api-key/latest/idr])
+- **getdata** (get detail data pada csv dan index data terpilih [Pake "NonApprov"])
+- **getkurs** (convert kurs data dari idr.json hasil dari api web exchangerate-api.com [pake "NonApprov"] [https://v6.exchangerate-api.com/v6/api-key/latest/idr])
 - **inputwebdash** (input webdash entri kegiatan, akan generate .json. kalo udah dieksekusi, delete aja)
 - **inputsbr** (input data sbr dari file csv)
+- **assignselect** (assign fasih-sm by selection, tapi upload dulu petugas ke fasih-sm, [pake "nonapprov" ya])
 - **getdataPES** (function for getting data pes)
-- **getdataSAKpemut** (function for getting data sakernas pemutakhiran)
 - **reject** (reject di fasih-sm berdasarkan file yang dipilih)
 
