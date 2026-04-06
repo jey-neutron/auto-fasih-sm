@@ -1,15 +1,61 @@
-# Welcome to Auto-Fasih-sm🤖
+# Welcome to Auto-Fasih-SM🤖
 
-(Program auto approve Fasih-sm)
+(Program auto approve Fasih-SM kerjaan B P S)
 
-Here, we'll be using Chromedriver with Google Chrome version 142.0.7444.176, so make sure you're using that version for smooth operation.
-Just download the [`dist`](/dist) folder and run the [`.exe`](/dist/Selenium_vpn_tkinter.exe) file.
-1. Enter your `username` and `password` to log in to fasih-sm. The default target link is the fasih-sm homepage.
-2. The program will open your chrome browser and go to the link. Then search/click for the survey **manually** until you reach the **data tab**.
-3. Get List data to retrieve the dataframe there (this is to get the link). The program will run automatically and be exported as `data.csv`, see there.
-4. If you want to run auto-approve, you can enter parameters, such as 
+Disini kita menggunakan Chromedriver untuk mengautomasi browser Chrome anda. Download aja folder [`dist`](/dist) dan jalankan file [`.exe`](/dist/Selenium_vpn_tkinter.exe)nya. 
+> **_[📝Update 28.01.26]_**
+> _Terdapat update di file [`get_data.py`](/dist/get_data.py), yaitu penambahan fitur bulk reject menggunakan file csv yang terpilih dengan template yang sama seperti hasil `GetListData`. Nanti `Input Tambahannya` diisi `reject`._
+> _Dan di section `Sekalian approve fasih` dipilih yang `NonFasih`, meskipun memang kerjanya di Fasih, (ya untuk versi sementara ini ikutin aja).
+[Lihat fitur](#fitur)_
 
-> - "Baris mulai" / start line, with integer value, `0,1,2,...`
-> - "Nama file" / file name (this is the name of the file used; if you're using the data from the get list, you'll use `data.csv`),
-> - and "Input Tambahan" / optional additional input (this can be modified if you want to **retrieve data** as well, or something else, you can modify it in get_data.py, then just fill the field with the created function, for example, `getrandom`).
-5. Then hit `Run Approve` and the program will do it for u
+> **_[📝Update 30.03.26]_**
+> _Upgrade Selenium sehingga tidak memerlukan chromedriver_
+
+
+# Step-by-step 🚗
+> **👼Tutorial versi "Bahasa Bayi" [`disini`](/STEP-BY-STEP-%20AUTO-FASIH.pdf)**
+
+Ketika file [`Selenium_vpn_tkinter.exe`](/dist/Selenium_vpn_tkinter.exe) udah jalan, maka muncul window aplikasi baru:
+1. Masukkan `username` dan `password` untuk login SSO. Kemudian di bawahnya ada `Link target`. Default target link-nya adalah web Fasih-SM.
+2. Kemudian `Open Browser` dan aplikasi akan auto membuka browser. `Goto Link` maka browser akan menuju link sesuai `Link target` yang terisi pada langkah 1. 
+	> Target link  jika terisi default (fasih-sm.bps.go.id) atau sso.bps.go.id maka akan auto login ke SSO. Biarin browsernya jalan sendiri gausah diganggu. 
+3. Fitur `Get List Data` akan mengambil list row pada tab data di Fasih-SM dan akan menyimpannya di file `data.csv` di folder yang sama. 
+	> Jika anda menggunakan fitur ini, maka setelah browser menuju link, anda perlu search/click survei **manual** sampai ke **tab data** di Fasih-SM, baru klik `Get List Data`
+
+	> Tujuan fitur ini adalah mendapatkan link per row di Fasih-SM (perlu dilakukan jika mau auto-approve/get-data di Fasih-SM)
+
+	- `Rewrite` data.csv: membuat file baru (jika file belum ada) atau menimpa data.csv (jika sebelumnya udah ada file ini)
+	- `Append` data.csv: menambahkan list data pada data.csv yang udah ada
+
+4. Jika ingin run auto-approve, ada beberapa parameter yang perlu dimasukkan:
+	- `"Baris mulai"`, diisi bilangan bulat `0,1,2,...`, isi `0` jika mulai dari awal atau biar dia ga error,
+	- `"Nama file"`, adalah nama file csv yang ingin dipake. Jika tadi pake file data dari fitur `Get List Data` (dan ga merename file outputnya) maka isi `data.csv`,
+	- `"Input Tambahan"`, ini modul yang dapat anda modifikasi untuk mendapatkan data di Fasih-SM, atau web lain, contoh yang ada di sini adalah `getdataPES` (untuk mendapatkan isian Fasih PES) atau `inputsbr` (untuk menginput GC matchapro dari excel, tapi perlu modheader).
+		> Jika kosong, maka program akan tetap jalan tanpa mengambil data, misal mau approve aja
+		
+		> Jika ingin menjalankan program diluar Fasih-SM, maka di bawahnya pilih `NonFasih`
+
+		> Anda bisa menambahkan function sendiri di [`get_data.py`](/dist/get_data.py) kemudian memasukkan nama functionnya itu di field ini
+	-  `Sekalian approve Fasih` jika terpilih `True` maka akan auto-approve dengan user SSO yang udah login. Kalau `False` maka ya ngga approve, misal jika ingin mengambil datanya aja (perlu code tambahan jika di survei lain).
+
+5. Klik `Run Function` and the program will do it for u.
+	> Data yang udah dieksekusi biasanya akan ada perubahan value suatu kolom di file dengan `Nama File` yang terpilih tadi. Tergantung code anda juga.
+
+Semoga tidak membingung 🍵😇
+
+
+# Fitur📱
+Fitur yang sudah tersedia di [`get_data.py`](/dist/get_data.py) untuk saat ini:
+
+- **help** (get list of functions)
+- **clear** (clear log message)
+- **gettime** (get current time)
+- **getrandom** (get a random number)
+- **getdata** (get detail data pada csv dan index data terpilih [Pake "NonFasih"])
+- **getkurs** (convert kurs data dari idr.json hasil dari api web exchangerate-api.com [pake "nonfasih"] [https://v6.exchangerate-api.com/v6/api-key/latest/idr])
+- **inputwebdash** (input webdash entri kegiatan, akan generate .json. kalo udah dieksekusi, delete aja)
+- **inputsbr** (input data sbr dari file csv)
+- **getdataPES** (function for getting data pes)
+- **getdataSAKpemut** (function for getting data sakernas pemutakhiran)
+- **reject** (reject di fasih-sm berdasarkan file yang dipilih)
+

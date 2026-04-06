@@ -179,7 +179,11 @@ class SimpleApp:
         self.rb1.pack(side=tk.LEFT, padx=0)
         self.rb2= tk.Radiobutton(self.func2_frame, text='False', variable=self.v, value=0, indicatoron=0, command=self.update_label)
         self.rb2.pack(side=tk.LEFT, padx=0)
+<<<<<<< HEAD
         self.rb3= tk.Radiobutton(self.func2_frame, text='NonApprov', variable=self.v, value=99, indicatoron=0, command=self.update_label)
+=======
+        self.rb3= tk.Radiobutton(self.func2_frame, text='NonFasih', variable=self.v, value=99, indicatoron=0, command=self.update_label)
+>>>>>>> 609e1c8071ec0b7c803220160160d814be2fedc2
         self.rb3.pack(side=tk.LEFT, padx=0)
 
         # --- Tombol Baris 3: Close App & Exit App ---
