@@ -1,29 +1,39 @@
-# Library
-from selenium import webdriver
-from selenium.webdriver.common.keys import Keys
-#from selenium.webdriver.common.action_chains import ActionChains
-#from selenium.webdriver.chrome.service import Service
-from selenium.common.exceptions import TimeoutException
-from datetime import datetime
 import time
-import importlib
-import os
-import pandas as pd
 import tkinter as tk
+from tkinter import ttk
 import threading
-from tkinter import scrolledtext
-from selenium.webdriver.support.ui import Select
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.common.by import By
-import csv
-import numpy as np
 import sys
+import os
 
-# import fungsi dari file lain
-#from get_data import mainfunc
-#from get_data import get_list_data
-#CONFIG_FILE = "setting_kode.py"
+def initlib(callback):
+    # var global
+    global webdriver; global Keys; global TimeoutException
+    global datetime; global pd; global scrolledtext
+    global Select; global EC
+    global WebDriverWait; global By; global np
+    # Library
+    from selenium import webdriver
+    from selenium.webdriver.common.keys import Keys
+    #from selenium.webdriver.common.action_chains import ActionChains
+    #from selenium.webdriver.chrome.service import Service
+    from selenium.common.exceptions import TimeoutException
+    from datetime import datetime
+    import importlib
+    import pandas as pd
+    from tkinter import scrolledtext
+    from selenium.webdriver.support.ui import Select
+    from selenium.webdriver.support import expected_conditions as EC
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.common.by import By
+    import csv
+    import numpy as np
+
+    # import fungsi dari file lain
+    #from get_data import mainfunc
+    #from get_data import get_list_data
+    #CONFIG_FILE = "setting_kode.py"
+    time.sleep(1)
+    callback()
 
 #####
 # --- Bagian A: Membaca dan Menjalankan Skrip Relatif ---
@@ -74,7 +84,7 @@ class SimpleApp:
         external_funcs = load_setting_file(self)
         if external_funcs is None:
             time.sleep(10)
-            root.destroy()
+            master.destroy()
             return
         sso = load_setting_file(self, "tempuser.txt", False)
         # 2. Ambil fungsi yang dibutuhkan
@@ -179,11 +189,7 @@ class SimpleApp:
         self.rb1.pack(side=tk.LEFT, padx=0)
         self.rb2= tk.Radiobutton(self.func2_frame, text='False', variable=self.v, value=0, indicatoron=0, command=self.update_label)
         self.rb2.pack(side=tk.LEFT, padx=0)
-<<<<<<< HEAD
         self.rb3= tk.Radiobutton(self.func2_frame, text='NonApprov', variable=self.v, value=99, indicatoron=0, command=self.update_label)
-=======
-        self.rb3= tk.Radiobutton(self.func2_frame, text='NonFasih', variable=self.v, value=99, indicatoron=0, command=self.update_label)
->>>>>>> 609e1c8071ec0b7c803220160160d814be2fedc2
         self.rb3.pack(side=tk.LEFT, padx=0)
 
         # --- Tombol Baris 3: Close App & Exit App ---
@@ -472,7 +478,40 @@ class SimpleApp:
             self.log_message(f"Running program berhasil diproses. Cek file output", tag="green_tag")
             self.change_status("STATUS: DONE! Running selesai", color="green")
 
+def jalankan_aplikasi():
+    splash = tk.Tk()
+    splash.title("Loading")
+    # Atur ukuran dan posisi di tengah layar
+    lebar, tinggi = 300, 150
+    layar_lebar = splash.winfo_screenwidth()
+    layar_tinggi = splash.winfo_screenheight()
+    x = (layar_lebar // 2) - (lebar // 2)
+    y = (layar_tinggi // 2) - (tinggi // 2)
+    splash.geometry(f'{lebar}x{tinggi}+{x}+{y}')
+    splash.overrideredirect(True) # Tanpa bingkai
+
+    tk.Label(splash, text="Sedang Memuat Aplikasi...").pack(pady=10)
+    
+    progress = ttk.Progressbar(splash, mode="indeterminate", length=200)
+    progress.pack(pady=10)
+    progress.start(10)
+
+    def pindah_ke_utama():
+        """Fungsi untuk menutup splash dan buka aplikasi utama."""
+        progress.stop()
+        splash.destroy()
+        root_utama = tk.Tk()
+        app = SimpleApp(root_utama)
+        root_utama.mainloop()
+
+    # Jalankan proses berat di THREAD TERPISAH agar UI tidak membeku
+    thread = threading.Thread(target=initlib, args=(lambda: splash.after(0, pindah_ke_utama),))
+    thread.start()
+
+    splash.mainloop()
+
 if __name__ == '__main__':
-    root = tk.Tk()
-    app = SimpleApp(root)
-    root.mainloop()
+    #root = tk.Tk()
+    #app = SimpleApp(root)
+    #root.mainloop()
+    jalankan_aplikasi()
