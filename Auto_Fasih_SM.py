@@ -352,8 +352,8 @@ class AutoApp:
                     self.log_message("ERROR: Fungsi 1 dibatalkan. Username tidak valid.", "red_tag")
                     return
                 if "bps.go.id" in self.driver.current_url:
-                    thread = threading.Thread(target=self.login_sso, args=(link,))
-                    thread.start()
+                    self.thread = threading.Thread(target=self.login_sso, args=(link,))
+                    self.thread.start()
                 else:
                     pass
                 # end try login sso
@@ -385,6 +385,12 @@ class AutoApp:
 
     # --- Function 1 ---
     def run_function_1(self):
+        # check thread
+        if self.thread and self.thread.is_alive():
+            self.log_message("ERROR: Running Get_List_Data dibatalkan. Masih ada proses yang berjalan.", "red_tag")
+            return
+        self.stop_event.clear() #reset signal
+        #
         self.isdone = 0
         try:
             self.log_message("Perintah: Memulai Get list data...")
@@ -394,14 +400,8 @@ class AutoApp:
                 mode = 'w'
             elif self.vwrite.get() == 0:
                 mode = 'a'
-            # check thread
-            if self.thread and self.thread.is_alive():
-                self.log_message("ERROR: Fungsi 1 dibatalkan. Masih ada proses yang berjalan.", "red_tag")
-                return
-            self.stop_event.clear() #reset signal
-            #
-            thread = threading.Thread(target=get_list_data, args=(self, "data.csv",mode))
-            thread.start()
+            self.thread = threading.Thread(target=get_list_data, args=(self, "data.csv",mode))
+            self.thread.start()
             #thread.join()  # Tunggu hingga thread selesai
         except Exception as e:
             self.isdone = 1
@@ -411,6 +411,12 @@ class AutoApp:
 
     # --- Function 2 ---
     def run_function_2(self):
+        # check thread
+        if self.thread and self.thread.is_alive():
+            self.log_message("ERROR: Running Function dibatalkan. Masih ada proses yang berjalan.", "red_tag")
+            return
+        self.stop_event.clear() #reset signal
+        #
         self.isdone = 0
         self.log_message("Perintah: Memulai running function...")
         self.change_status("STATUS: Running data...", color="blue")
@@ -451,17 +457,11 @@ class AutoApp:
                 self.log_message( f"ERROR: Terjadi kesalahan saat import modul/file: {e}", tag="red_tag")
 
         try:
-            # check thread
-            if self.thread and self.thread.is_alive():
-                self.log_message("ERROR: Fungsi 1 dibatalkan. Masih ada proses yang berjalan.", "red_tag")
-                return
-            self.stop_event.clear() #reset signal
-            #
             #if extra_input == "getrandom":
             if self.v.get() == 99:
                 #external_funcs = load_setting_file(self)
                 #mainfunc = external_funcs.get('getrandom')
-                thread = threading.Thread(target=extra_input_fun, args=(self,1))
+                self.thread = threading.Thread(target=extra_input_fun, args=(self,1))
             elif extra_input == "get_list_data" or extra_input == "mainfunc":
                 self.log_message(f"ERROR: Fungsi 2 dibatalkan. Input tambahan invalid.", "red_tag")
                 return
@@ -470,8 +470,8 @@ class AutoApp:
                     cekapprove = True
                 elif self.v.get() == 0:
                     cekapprove = False
-                thread = threading.Thread(target=mainfunc, args=(self, filename, row_num, extra_input_fun, cekapprove))
-            thread.start()
+                self.thread = threading.Thread(target=mainfunc, args=(self, filename, row_num, extra_input_fun, cekapprove))
+            self.thread.start()
             #thread.join()  # Tunggu hingga thread selesai
 
         except Exception as e:
