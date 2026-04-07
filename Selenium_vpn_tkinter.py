@@ -6,7 +6,7 @@ import sys
 import os
 
 def initlib(callback):
-    # var global
+    # var global to store library var
     global webdriver; global Keys; global TimeoutException
     global datetime; global pd; global scrolledtext
     global Select; global EC
@@ -14,24 +14,16 @@ def initlib(callback):
     # Library
     from selenium import webdriver
     from selenium.webdriver.common.keys import Keys
-    #from selenium.webdriver.common.action_chains import ActionChains
-    #from selenium.webdriver.chrome.service import Service
     from selenium.common.exceptions import TimeoutException
     from datetime import datetime
-    import importlib
     import pandas as pd
     from tkinter import scrolledtext
     from selenium.webdriver.support.ui import Select
     from selenium.webdriver.support import expected_conditions as EC
     from selenium.webdriver.support.ui import WebDriverWait
     from selenium.webdriver.common.by import By
-    import csv
     import numpy as np
 
-    # import fungsi dari file lain
-    #from get_data import mainfunc
-    #from get_data import get_list_data
-    #CONFIG_FILE = "setting_kode.py"
     time.sleep(1)
     callback()
 
@@ -73,11 +65,10 @@ def load_setting_file(instance, filename="get_data.py", load=True):
             instance.log_message(message=f"ERROR: Gagal memuat file konfigurasi: {e}", tag="red_tag")
             return None
     return True
-
 #####
 
 # Main app
-class SimpleApp:
+class AutoApp:
     def __init__(self, master):
         # konfigurasi import fungsi dari get_data.py
         # 1. Load fungsi dari file eksternal
@@ -87,6 +78,7 @@ class SimpleApp:
             master.destroy()
             return
         sso = load_setting_file(self, "tempuser.txt", False)
+
         # 2. Ambil fungsi yang dibutuhkan
         global mainfunc
         global get_list_data
@@ -96,11 +88,14 @@ class SimpleApp:
         # konfigurasi variabel
         self.driver = None
         self.isdone = None
-        self.vars = None
+        self.vars = None #var kosong buat next if needed
+        self.stop_event = threading.Event() # Event untuk menghentikan thread
+        self.thread = None
 
         # Konfigurasi jendela utama
         self.master = master
-        master.title("Aplikasi AutoFasih")
+        #master.iconbitmap("ikonku.ico")
+        master.title("Aplikasi Auto-Fasih-SM\U0001F916")
         master.geometry("450x700") # Ukuran awal
         master.attributes("-topmost", True) # Selalu di atas
         master.resizable(True, True) # Memungkinkan resize
@@ -122,10 +117,12 @@ class SimpleApp:
             val = open(path).read() if os.path.exists(path) else None    
             usersso = str(val).split("\n")[0]
             passso = str(val).split("\n")[1]
+            approv = str(val).split("\n")[2]
             msgsso = "load from tempuser.txt"
         except:
-            usersso = "jimmy.nx"
+            usersso = "jey.neutron"
             passso = "pass"
+            approv = "approv1"
             msgsso = "placeholder"            
 
         # --- Input Fields (Field 1: Username) ---
@@ -199,6 +196,9 @@ class SimpleApp:
         self.btn_func_2 = tk.Button(self.btn_frame_3, text="Run Function", command=self.run_function_2, bg="#FFF2E6", relief=tk.RAISED)
         self.btn_func_2.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(1, 5))
 
+        self.btn_stop_app = tk.Button(self.btn_frame_3, text="Stop Running", command=self.stop_thread, bg="#FFF2E6", relief=tk.RAISED)
+        self.btn_stop_app.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 1))
+
         self.btn_close_app = tk.Button(self.btn_frame_3, text="Close Browser", command=self.close_browser, bg="#E6F7FF", relief=tk.RAISED)
         self.btn_close_app.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 1))
 
@@ -219,7 +219,9 @@ class SimpleApp:
         #self.log_message("Aplikasi dimulai. Selamat datang!")
         self.rw1.select()
         self.update_label_vwrite()
-        self.rb1.select()
+        if approv == "approv3":
+            self.rb3.select()
+        else: self.rb1.select()
         self.update_label()
 
     # --- Utility Function untuk membuat field input berulang ---
@@ -297,6 +299,10 @@ class SimpleApp:
         self.log_area.insert(tk.END, f"[{timestamp}] {message}\n", tag)
         self.log_area.see(tk.END) # Scroll otomatis ke bawah
 
+    # --- Stop Thread Function ---
+    def stop_thread(self):
+        self.stop_event.set() # Kirim sinyal untuk berhenti
+
     # --- Browser App Functions ---
     def open_browser(self):
         self.log_message("Perintah: Membuka browser.")
@@ -342,12 +348,12 @@ class SimpleApp:
                 self.log_message("Sukses: link target terbuka.")
                 # try login sso disini
                 # Validasi sederhana
-                if self.username_entry.get() in ["Masukkan Username...", "jimmy.nx" ,""]:
+                if self.username_entry.get() in ["Masukkan Username...", "jey.neutron" ,""]:
                     self.log_message("ERROR: Fungsi 1 dibatalkan. Username tidak valid.", "red_tag")
                     return
                 if "bps.go.id" in self.driver.current_url:
-                    login_thread = threading.Thread(target=self.login_sso, args=(link,))
-                    login_thread.start()
+                    thread = threading.Thread(target=self.login_sso, args=(link,))
+                    thread.start()
                 else:
                     pass
                 # end try login sso
@@ -388,9 +394,15 @@ class SimpleApp:
                 mode = 'w'
             elif self.vwrite.get() == 0:
                 mode = 'a'
-            fungsi1_thread = threading.Thread(target=get_list_data, args=(self, "data.csv",mode))
-            fungsi1_thread.start()
-            #fungsi1_thread.join()  # Tunggu hingga thread selesai
+            # check thread
+            if self.thread and self.thread.is_alive():
+                self.log_message("ERROR: Fungsi 1 dibatalkan. Masih ada proses yang berjalan.", "red_tag")
+                return
+            self.stop_event.clear() #reset signal
+            #
+            thread = threading.Thread(target=get_list_data, args=(self, "data.csv",mode))
+            thread.start()
+            #thread.join()  # Tunggu hingga thread selesai
         except Exception as e:
             self.isdone = 1
             self.log_message(f"ERROR: {e}...", tag="red_tag")
@@ -432,25 +444,24 @@ class SimpleApp:
             extra_input_fun = None 
         else:
             try:
-                #import importlib
                 external_funcs = load_setting_file(self)
                 extra_input_fun = external_funcs.get(extra_input)
                 self.log_message(f"Modul '{extra_input}' sukses diimpor, loading")
-                #importlib.import_module(extra_input)
-            #except ModuleNotFoundError:
-            #    self.log_message(f"ERROR: Modul '{extra_input}' tidak ditemukan. Pastikan file .py ada di direktori yang sama.", tag="red_tag")
-            #    return
-            #except FileNotFoundError:
-            #    self.log_message(f"ERROR: File '{extra_input}' tidak ditemukan di lokasi .exe.", tag="red_tag")
             except Exception as e:
                 self.log_message( f"ERROR: Terjadi kesalahan saat import modul/file: {e}", tag="red_tag")
 
         try:
+            # check thread
+            if self.thread and self.thread.is_alive():
+                self.log_message("ERROR: Fungsi 1 dibatalkan. Masih ada proses yang berjalan.", "red_tag")
+                return
+            self.stop_event.clear() #reset signal
+            #
             #if extra_input == "getrandom":
             if self.v.get() == 99:
                 #external_funcs = load_setting_file(self)
                 #mainfunc = external_funcs.get('getrandom')
-                fungsi2_thread = threading.Thread(target=extra_input_fun, args=(self,1))
+                thread = threading.Thread(target=extra_input_fun, args=(self,1))
             elif extra_input == "get_list_data" or extra_input == "mainfunc":
                 self.log_message(f"ERROR: Fungsi 2 dibatalkan. Input tambahan invalid.", "red_tag")
                 return
@@ -459,9 +470,9 @@ class SimpleApp:
                     cekapprove = True
                 elif self.v.get() == 0:
                     cekapprove = False
-                fungsi2_thread = threading.Thread(target=mainfunc, args=(self, filename, row_num, extra_input_fun, cekapprove))
-            fungsi2_thread.start()
-            #fungsi2_thread.join()  # Tunggu hingga thread selesai
+                thread = threading.Thread(target=mainfunc, args=(self, filename, row_num, extra_input_fun, cekapprove))
+            thread.start()
+            #thread.join()  # Tunggu hingga thread selesai
 
         except Exception as e:
             self.isdone = 1
@@ -490,18 +501,21 @@ def jalankan_aplikasi():
     splash.geometry(f'{lebar}x{tinggi}+{x}+{y}')
     splash.overrideredirect(True) # Tanpa bingkai
 
-    tk.Label(splash, text="Sedang Memuat Aplikasi...").pack(pady=10)
+    tk.Label(splash, text="\U0001F916Auto-Fasih-SM", font=('Arial', 22, 'bold')).pack(pady=(10, 0))
+    tk.Label(splash, text="Sedang Memuat Aplikasi...").pack(pady=(0, 10))
     
     progress = ttk.Progressbar(splash, mode="indeterminate", length=200)
     progress.pack(pady=10)
     progress.start(10)
+
+    tk.Label(splash, text="By: jey.neutron", font=('Arial', 7)).pack(padx=1,pady=(0, 10))
 
     def pindah_ke_utama():
         """Fungsi untuk menutup splash dan buka aplikasi utama."""
         progress.stop()
         splash.destroy()
         root_utama = tk.Tk()
-        app = SimpleApp(root_utama)
+        app = AutoApp(root_utama)
         root_utama.mainloop()
 
     # Jalankan proses berat di THREAD TERPISAH agar UI tidak membeku
@@ -512,6 +526,6 @@ def jalankan_aplikasi():
 
 if __name__ == '__main__':
     #root = tk.Tk()
-    #app = SimpleApp(root)
+    #app = AutoApp(root)
     #root.mainloop()
     jalankan_aplikasi()
