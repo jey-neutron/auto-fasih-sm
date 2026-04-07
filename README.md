@@ -2,7 +2,7 @@
 
 (Program auto approve Fasih-SM kerjaan B P S)
 
-Disini kita menggunakan Chromedriver untuk mengautomasi browser Chrome anda. Download aja folder [`dist`](/dist) dan jalankan file [`.exe`](/dist/Selenium_vpn_tkinter.exe)nya. 
+Disini kita menggunakan Chromedriver untuk mengautomasi browser Chrome anda. Download aja folder [`dist`](/dist) dan jalankan file [`.exe`](/dist/Auto_Fasih_SM.exe)nya. 
 > **_[📝Update 28.01.26]_**
 > _Terdapat update di file [`get_data.py`](/dist/get_data.py), yaitu penambahan fitur bulk reject menggunakan file csv yang terpilih dengan template yang sama seperti hasil `GetListData`. Nanti `Input Tambahannya` diisi `reject`._
 > _Dan di section `Sekalian approve fasih` dipilih yang `NonApprov`, meskipun memang kerjanya di Fasih, (ya untuk versi sementara ini ikutin aja).
@@ -19,7 +19,7 @@ Disini kita menggunakan Chromedriver untuk mengautomasi browser Chrome anda. Dow
 # Step-by-step 🚗
 > **👼Tutorial versi "Bahasa Bayi" [`disini`](/STEP-BY-STEP-%20AUTO-FASIH.pdf)**
 
-Ketika file [`Selenium_vpn_tkinter.exe`](/dist/Selenium_vpn_tkinter.exe) udah jalan, maka muncul window aplikasi baru:
+Ketika file [`Auto_Fasih_SM.exe`](/dist/Auto_Fasih_SM.exe) udah jalan, maka muncul window aplikasi baru:
 1. Masukkan `username` dan `password` untuk login SSO. Kemudian di bawahnya ada `Link target`. Default target link-nya adalah web Fasih-SM.
 2. Kemudian `Open Browser` dan aplikasi akan auto membuka browser. `Goto Link` maka browser akan menuju link sesuai `Link target` yang terisi pada langkah 1. 
 	> Target link  jika terisi default (fasih-sm.bps.go.id) atau sso.bps.go.id maka akan auto login ke SSO. Biarin browsernya jalan sendiri gausah diganggu. 
