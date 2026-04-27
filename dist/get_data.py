@@ -772,7 +772,7 @@ def getdataPES(instance):
             [f"r{i}" for i in range(14,18)] + \
             [f"r18a_{k}" for k in ['arrival','departure']] + [f"r18b_{k}" for k in ['arrival','departure']] + [f"r18c_{k}" for k in ['arrival','departure']] + \
             [f"r19_{j}" for j in range(1,15)] +\
-            [f"r{i}" for i in range(20,26)]
+            [f"r{i}" for i in range(20,27)]
         d = dict.fromkeys(col_list, '--')
         #5b,9ac,9b[1,6],9b[1,6]c,10.[1,13], 11.[1,5], ids4, r18[a,b,c]_[arrival,departure], r19_[1,15], 
 
@@ -931,6 +931,11 @@ def getdataPES(instance):
         #
         d['r24'] = driver.find_element(By.XPATH,f"//div[@id='note']//textarea").get_attribute('value')
         d['r25'] = driver.find_element(By.XPATH,f"//div[@id='impression']//textarea").get_attribute('value')
+        radios26 = driver.find_elements(By.XPATH, f"//div[@id='viplounge']//input[@type='radio']")
+        for r in radios26:
+            if r.is_selected(): break
+        d['r26'] = r.get_attribute('value')
+        
     except Exception as e:
         instance.log_message(f'Terjadi error: {e}')
 
