@@ -58,7 +58,6 @@ Fitur yang sudah tersedia di [`get_data.py`](/dist/get_data.py) untuk saat ini:
 - **getdata** (get detail data pada csv dan index data terpilih [Pake "NonApprov"])
 - **getkurs** (convert kurs data dari idr.json hasil dari api web exchangerate-api.com [pake "NonApprov"] [https://v6.exchangerate-api.com/v6/api-key/latest/idr])
 - **inputwebdash** (input webdash entri kegiatan, akan generate .json. kalo udah dieksekusi, delete aja)
-- **inputsbr** (input data sbr dari file csv)
 - **assignselect** (assign fasih-sm by selection, tapi upload dulu petugas ke fasih-sm, [pake "nonapprov" ya])
 - **getdataPES** (function for getting data pes)
 - **reject** (reject di fasih-sm berdasarkan file yang dipilih)
