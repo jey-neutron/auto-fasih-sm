@@ -312,10 +312,30 @@ def run():
             # d['r3'] = page.locator("//div[@id='sex']").locator("input[type='radio']:checked").get_attribute('value')
             # d['r4'] = page.locator("//div[@id='nationality']//button[@aria-haspopup='dialog']").inner_text()
             #
+            def cek_inner():
+                # 1. Kunci elemen tombol dropdown
+                tombol_r4 = page.locator("//div[@id='nationality']//button[@aria-haspopup='dialog']")
+
+                # 2. Tunggu maksimal 5 detik sampai teksnya BUKAN "Select an option" atau ""
+                # Jika setelah 5 detik tetap kosong/default, skrip akan lanjut tanpa error!
+                try:
+                    page.wait_for_function(
+                        "el => el.innerText.strip() !== '' && el.innerText.strip() !== 'Select an option' && el.innerText.strip() !== 'Pilih salah satu'",
+                        arg=tombol_r4.element_handle(),
+                        timeout=5000
+                    )
+                except Exception:
+                    pass  # Abaikan error timeout jika memang halaman web sengaja mengosongkannya
+
+                # 3. Ambil nilai akhirnya dengan aman
+                d['r4'] = tombol_r4.inner_text().strip()
+
             d['r1'] = page.locator("//div[@id='name']//input[@type='text']").input_value()
             d['r2'] = page.locator("//div[@id='age']//input[@type='text']").input_value()
             d['r3'] = page.locator("//div[@id='sex']").locator("input[type='radio']:checked").get_attribute('value')
             d['r4'] = page.locator("//div[@id='nationality']//button[@aria-haspopup='dialog']").inner_text()
+            # log_message(f'hasil = {d['r4']}')
+            # page.pause()
             d['r5'] = page.locator("//div[@id='country_residence']//button[@aria-haspopup='dialog']").inner_text()
             d['r5b'] = page.locator("//div[@id='city_residence']//button[@aria-haspopup='dialog']").inner_text()
             d['r6'] = page.locator("//div[@id='main_purpose']").locator("input[type='radio']:checked").get_attribute('value')
@@ -331,10 +351,12 @@ def run():
             #     expect(page.locator(f"//div[@id='other_destination_prov_{i}']//button/div")).not_to_be_empty()
             # #
             d['r7'] = page.locator("//div[@id='port_entry']//button[@aria-haspopup='dialog']").inner_text()
+            log_message(f'hasil = {d['r7']}')
+            page.pause()
             d['r8'] = page.locator("//div[@id='length_of_stay']//input[@type='text']").input_value()
             # main dest
             #d['r9'] = page.locator("//div[@id='main_destination_prov']//button/div").text
-            d['r9aa'] = page.locator("//div[@id='main_destination_kab']//button[@aria-haspopup='dialog']").inner_text()
+            d['r9ab'] = page.locator("//div[@id='main_destination_kab']//button[@aria-haspopup='dialog']").inner_text()
             d['r9ac'] = page.locator("//div[@id='len_stay_main_dest']//input[@type='text']").input_value()
             # other dest
             for i in range(1, 6):
