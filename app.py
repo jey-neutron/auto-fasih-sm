@@ -260,9 +260,11 @@ def run():
 
 
         # --- GET PES ---
+        log_message('here')
         from playwright.sync_api import expect
         import re
         try:
+        
             #instance.log_message("Masuk ke fungsi get data PES")
             # list id blok 4
             ids4 = ['number_group_member', 'currency_spending', 'details_spending', 'var_spending', 'local_package_tour_spending', 'accommodation_spending', 'food_spending', 'domestic_flight_spending', 'local_transport_bus', 'local_transport_train', 'local_transport_water_transport', 'other_local_transportation_spending', 'vehicle_rent_spending', 'shopping_spending', 'entertainment_spending', 'health_spending', 'training_spending', 'charity_spending', 'others_spending', ]
@@ -283,6 +285,7 @@ def run():
 
             # BLOK1, click tab di sidebar
             blok = 1
+            log_message('blok1')
             page.locator(f'xpath=//div[@id="fasih-form"]/DIV[1]/DIV[1]/ASIDE[1]/DIV[2]/DIV[{blok}]/DIV[1]').click()
             # wait biar isiannya muncul dulu
             # expect(page.locator("//div[@id='nationality']//button/div")).not_to_be_empty()
@@ -319,6 +322,7 @@ def run():
 
             # BLOK2
             blok = 2
+            log_message('blok2')
             page.locator(f'xpath=//div[@id="fasih-form"]/DIV[1]/DIV[1]/ASIDE[1]/DIV[2]/DIV[{blok}]/DIV[1]').click()
             # # wait biar isiannya muncul dulu
             # expect(page.locator("//div[@id='port_entry']//button/div")).not_to_be_empty()
@@ -335,7 +339,7 @@ def run():
             # other dest
             for i in range(1, 6):
                 a = page.locator(f"//div[@id='other_destination_prov_{i}']//button[@aria-haspopup='dialog']").inner_text()
-                if a == 'Select an option': continue
+                if a in ["", "Select an option", "Pilih salah satu"]: continue
                 
                 # ERRRRRR
                 d[f"r9b{i}"] = page.locator(f"//div[@id='other_destination_kab_{i}']//button[@aria-haspopup='dialog']").inner_text()
