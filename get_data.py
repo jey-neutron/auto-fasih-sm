@@ -1099,200 +1099,117 @@ def get_list_data(instance, namadf,  mode="w", maxrow=0, sep=","):
 
 # Function approv (and get data)
 def mainfunc(instance, filename, mulai=0, func=None, cekapprov=True, idlog='Kode Identitas', sep=','):
-    '''Get data dari Fasih dengan membuka linknya dari dataframe df, kemudian export ke csv. Kemudian jika ada cekapprov, maka jika sudah approv akan skip'''
+    '''Get data dari Fasih dengan membuka linknya dari dataframe df, kemudian export ke csv. Kemudian akan approv juga jika tercentang sekalian approv'''
     # konfig
-    driver
-    instance.log_message("Maaf, fitur belum 100%")
-    return
     import sys
     instance.isdone = 0
-    # GETTING DATA FROM FASIH OPEN DETAIL
+
+    # read data csv result from get list data
     try:
         df = pd.read_csv(filename, sep=sep)
         if 'approved' not in df.columns:
             df['approved'] = ""
-        # Get all window handles & Switch to the first window (index 0)
-        all_window_handles = driver.window_handles
-        driver.switch_to.window(all_window_handles[0])
     except Exception as e:
         instance.log_message(f'ERROR: {e}', tag="red_tag")
-        instance.isdone = 1
+        df = None
+        isdone = 1
         return
+    
+    # cek approv or not
+    msgapprov = ' and approving' if cekapprov else ''
+    instance.log_message(f"# Loading for {len(df)-int(mulai)} data, length dataframe: {len(df)} data{msgapprov}...")
 
-    #timestamp = datetime.now().strftime("%H:%M:%S")
-    if cekapprov == True:
-        #print(f"# Loading for {len(df)-int(mulai)} data, length dataframe: {len(df)} data and approving...")
-        instance.log_message(f"# Loading for {len(df)-int(mulai)} data, length dataframe: {len(df)} data and approving...")
-    else :
-        #print(f"# Loading for {len(df)-int(mulai)} data, length dataframe: {len(df)} data ...")
-        instance.log_message(f"# Loading for {len(df)-int(mulai)} data, length dataframe: {len(df)} data ...")
-
+    # start loop per df
     if mulai <0 : i=-1
     else: i = mulai-1
     while True: 
         check_stop(instance)
-        # Pastikan tampilan menggulir ke bagian paling bawah
-        #instance.log_area.see(tk.END)
-        #timestamp = datetime.now().strftime("%H:%M:%S")
+        # LOOOOOOOOOP
         i += 1
         if i >= len(df):
-            #printwarn("# DONEEE ---------------------------------", color='red', font_weight='bold', font_size="30px")
             instance.log_message(f"# DONEEE file {filename} updated ---------------------------------")
-            #change_text(label_status, f"Running Selesai {adaerr}", "green")
             break
         try:
-            # CEK DAH APPROVED LOM ke0 (cek dari hasil csv)------------------------------------------------------------
+            # CEK DAH APPROVED LOM ke1 (cek dari hasil csv)------------------------------------------------------------
             if df.loc[i, 'approved'] == True:
-                instance.log_message(f"# {i,str(df[idlog][i])[:20]} | Dah approved admin, skip")
+                instance.log_message(f"# {i,str(df[idlog][i])[:20]} | Dah approved, skip")
                 continue
 
-            ## goto web
-            page.goto(df.link[i])
-            driver.execute_script("document.body.style.zoom='50%'")
-            #change_text(label_status, f"Processin data {i}/{len(df)}")
-            
-            # CEK DAH APPROVED LOM ke1 (cek dari assignment detail fasih) ------------------------------------------------------------
-            #if cekapprov:
-            #    try:
-            #        WebDriverWait(instance.driver, 10).until(
-            #            EC.presence_of_element_located((By.XPATH, 'id("datatable")')) )
-            #        approvtxt = driver.find_element(By.XPATH, 'id("datatable")').text
-            #        # Pola Regex:
-            #        # \d+           -> Mencari angka urutan (misal: 12)
-            #        # \s+           -> Spasi setelah angka
-            #        # (.*?)         -> Group 1: Ini adalah status yang kita ambil (non-greedy)
-            #        # \s+           -> Spasi sebelum tanggal
-            #        # \d{2}/\d{2}/  -> Pola tanggal (DD/MM/YYYY)
-            #        pattern = r"\d+\s+(.*?)\s+\d{2}/\d{2}/\d{4}"
-            #        matches = re.findall(pattern, approvtxt)
-            #        if matches:
-            #            if 'APPROVED' in matches[-1]:
-            #                #print(i,df[idlog][i],'| Dah approved admin, skip')
-            #                instance.log_message(f"# {i,str(df[idlog][i])[:20]} | Dah terapprov, skip")
-            #                continue
-            #    except TimeoutException:
-            #        pass
-        
-            ## click btn review
-            time.sleep(3)
-            WebDriverWait(instance.driver, 30).until(EC.presence_of_element_located((By.CSS_SELECTOR, "a.btn-primary")) ).click()
-            ## wait till loading nya ilang
-            time.sleep(2) #5
-            WebDriverWait(instance.driver, 100).until(EC.invisibility_of_element_located((By.CSS_SELECTOR, '.loading-text > .ng-tns-c4183080771-2')))
-            ## wait till rendering form
-            time.sleep(2) #3
-            WebDriverWait(instance.driver, 100).until(EC.invisibility_of_element_located((By.CSS_SELECTOR, 'p.mb-2')))
-            driver.execute_script("document.body.style.zoom='50%'")
+            # goto web
+            instance.page.goto(df.link[i])
+            # tapi ada error disini biasanya gamau load page, hmm. tpi klo load normal haruse pass
+            instance.page.wait_for_load_state("networkidle", timeout=5000) #stabil sebelum cek field
+            instance.page.evaluate("document.body.style.zoom='0.5'")
 
-            # CEK DAH APPROVED LOM ke2 (cek dari adakah button approve fasih) ------------------------------------------------------------
+            # perlukah cek approv yg ke2? ======
+
+            # function tambahan here
+            if func:
+                try:
+                    resultDict = func(instance)
+                    # get a dict value per row from web (init dict from func)
+                    for key,value in resultDict.items():
+                        df.loc[i, key] = value
+                    df.to_csv(filename, index=False)
+                    
+                except ValueError as e:
+                    instance.instance.log_message(f"# Terjadi error: ")
+                    instance.instance.log_message(str(e).split("Stacktrace:")[0], "red_tag")
+                    # logging
+                    df.loc[i, 'approved'] = str(e).split("Stacktrace:")[0]
+                    df.to_csv(filename, index=False)
+                    continue
+            # 
+
+            # mulai approve jika approv 
             if cekapprov:
                 try:
-                    WebDriverWait(instance.driver, 10).until(
-                        EC.presence_of_element_located((By.XPATH, 'id("buttonApprove")'))
+                    cekbtn = instance.page.get_by_role("button", name="Open menu") 
+                    cekbtn.first.wait_for( #cek jika visible juga
+                        state="visible", 
+                        timeout=10000
                     )
-                except TimeoutException:
-                    #print("# Approve button not found or not loaded yet")
-                    #print(i,df[idlog][i],'| Not Found Approve button, skip')
+                    cekbtn.click() #click btuton menu
+                    instance.page.locator("button[class*='rounded-full'][class*='bg-success']").click() #approv
+                    instance.page.get_by_role("button", name="Konfirmasi").click() #konfirm modal
+                    # wait
+                    instance.page.wait_for_timeout(1500)
+                    time.sleep(2)
+
+                except:
                     instance.log_message(f"# {i,str(df[idlog][i])[:20]} | Not Found Approve button, skip")
                     # logging
                     df.loc[i, 'approved'] = True
                     df.to_csv(filename, index=False)
                     continue
 
-            if func:
-                try:
-                    # START GETTING DATA
-                    #modul = importlib.import_module(func.split(".")[0])
-                    #modulfunc = getattr(modul, func.split(".")[1])
-                    #instance.log_message(f"# Modul fungsi {func} terdeteksi")
-                    #modulfunc = globals()[func]
-                    #instance.log_message(f"# Modul fungsi {func} ready")
-                    #resultDict = modulfunc(instance)
-                    resultDict = func(instance)
-                    # export to csv
-                    #if not os.path.exists(namaexport):
-                    #    writetocsv([list(resultDict.keys())], filename=namaexport, sep=sep)
-                    #writetocsv([list(resultDict.values())], filename=namaexport, sep=sep)
-                    #df.loc[i,'koord'] = str(iters)
-                    for key,value in resultDict.items():
-                        df.loc[i, key] = value
-                    df.to_csv(filename, index=False)
-                except ValueError as e:
-                    #print(f'# Terjadi error {str(e)}')
-                    instance.log_message(f"# Terjadi error: ")
-                    instance.log_message(str(e).split("Stacktrace:")[0], "red_tag")
-                    # logging
-                    df.loc[i, 'approved'] = str(e).split("Stacktrace:")[0]
-                    df.to_csv(filename, index=False)
-                    continue
-
-            # APPROVE
-            if cekapprov:
-                ## klik approve
-                btn_approve = driver.find_element(By.XPATH,'id("buttonApprove")')
-                #btn_approve.location_once_scrolled_into_view
-                btn_approve.click()
-
-                #konfirmasi
-                driver.find_element(By.CSS_SELECTOR,'button.swal2-confirm').click()
-                time.sleep(1)
-                try:
-                    driver.find_element(By.CSS_SELECTOR,'button.swal2-confirm').click()
-                    time.sleep(1)
-                except: pass
-            
             # end result if success
             df.loc[i, 'approved'] = True
             df.to_csv(filename, index=False)
-
+            
         except Exception as e:
             # coba refresh n login ulang
-            # Login SSO
             try:
-                if 'Server Not Found' in driver.title: 
-                    #print('# Error server not found, CEK VPN -------------------------------------------')
-                    instance.log_message(f"# Error server not found, CEK VPN -------------------------------------------\n", "red_tag")
-                    #change_text(label_status, "Error, CEK VPN", "red")
+                if 'Server Not Found' in instance.page.title: 
+                    instance.instance.log_message(f"# Error server not found, CEK VPN -------------------------------------------\n", "red_tag")
                     break
-                #driver.refresh()
-                page.goto(df.link[i])
-                #i -= 1
+                # reload
+                instance.page.goto(df.link[i])
                 if i < -1: i=-1
-                #print(f'# error {str(e)}, reloading')
-                instance.log_message(f"# Terjadi error: ")
-                instance.log_message(str(e).split("Stacktrace:")[0]+"\n", "red_tag")
-                #change_text(label_status, "Running ERROR", "red")
-                try:
-                    WebDriverWait(instance.driver, 10).until( #using explicit wait for x seconds
-                        EC.presence_of_element_located((By.XPATH, "id('login-in')/A[2]")) #finding the element
-                    ).click()
-                    # input SSO
-                    WebDriverWait(instance.driver, 15).until( #using explicit wait for x seconds
-                        EC.presence_of_element_located((By.XPATH, 'id("kc-login")')) )
-                    driver.find_element(By.XPATH, '//*[@id="username"]').send_keys(instance.username_entry.get())
-                    driver.find_element(By.XPATH, '//*[@id="password"]').send_keys(instance.password_entry.get())
-                    driver.find_element(By.XPATH, '//*[@id="kc-login"]').send_keys(Keys.RETURN)
-                    WebDriverWait(instance.driver, 15).until( #using explicit wait for x seconds
-                        EC.presence_of_element_located((By.XPATH, 'id("Pencacahan")/TBODY[1]/TR[4]/TD[1]/A[1]')) )
-                    #print('# login sso ulang')
-                    instance.log_message(f"# Login SSO ulang ")
-                    adaerr = ""
-                except:
-                    pass
+                instance.instance.log_message(f"# Terjadi error: ")
+                instance.instance.log_message(str(e).split("Stacktrace:")[0]+"\n", "red_tag")
+                # try relogin sso ====== need update
+                #
                 continue
+
             except:
                 exc_type, exc_obj, exc_tb = sys.exc_info()
-                #print(f"{i,df[idlog][i]} | Err: {str(exc_tb.tb_lineno)} | {str(e)}"  ) 
-                #printwarn(f"{i,df[idlog][i]} | Err: {str(exc_tb.tb_lineno)} | {str(e)}", color='red', font_weight='bold', font_size="30px")
-                instance.log_message(f"# Terjadi error: {str(exc_tb.tb_lineno)} ")
-                instance.log_message(str(e).split("Stacktrace:")[0]+"\n", "red_tag")
-                #change_text(label_status, "Running ERRORRR", "red")
+                instance.instance.log_message(f"# Terjadi error: {str(exc_tb.tb_lineno)} ")
+                instance.instance.log_message(str(e).split("Stacktrace:")[0]+"\n", "red_tag")
                 continue
         
         # jika satu row dah selesai, entah error or sukses    
-        #print(i,df[idlog][i],'| Done')
-        instance.log_message(f"# {i,str(df[idlog][i])[:20]} | Done")
-        #instance.log_message.yview_moveto(1.0)
+        instance.instance.log_message(f"# {i,str(df[idlog][i])[:20]} | Done")
         continue
 
     instance.isdone = 1
