@@ -209,6 +209,7 @@ def run():
         #page.goto("https://fasih-sm.bps.go.id/app/assignment/061565d1-00f1-424a-88db-c3e06b4e5edf/c733a02a-7c82-4d21-b716-c6159ef4fee2")
         #print('5103BR1P1B51 - Rajiv - [IN] India')
         #page.goto("https://fasih-sm.bps.go.id/app/assignment/061565d1-00f1-424a-88db-c3e06b4e5edf/57697835-6725-49bf-9129-3aec4454c255")
+        #page.goto("https://fasih-sm.bps.go.id/app/assignment/061565d1-00f1-424a-88db-c3e06b4e5edf/a53e128c-3640-4e8d-8f02-a1cda2a0548e")
 
         # --- END MAIN FUNC ---
 
@@ -271,7 +272,7 @@ def run():
             # init a dict for data
             col_list = \
                 [f"r{i}" for i in range(1,6)] + \
-                ["r5b"] + [f"r{i}" for i in range(6,9)] + ["r9aa","r9ac"] + \
+                ["r5b"] + [f"r{i}" for i in range(6,9)] + ["r9ab","r9ac"] + \
                 [f"r9b{j}" for j in range(1,6)] + [f"r9b{j}c" for j in range(1,6)] + \
                 [f"r10.{j}.1" for j in range(1,14)] + \
                 [f"r10.{j}.2" for j in range(1,14)] + \
@@ -283,10 +284,14 @@ def run():
             d = dict.fromkeys(col_list, '--')
             #5b,9ac,9b[1,6],9b[1,6]c,10.[1,13], 11.[1,5], ids4, r18[a,b,c]_[arrival,departure], r19_[1,15], 
 
+            
+            def menubar(idblok):
+                time.sleep(2)
+                page.locator(f'xpath=//div[@id="fasih-form"]/DIV[1]/DIV[1]/ASIDE[1]/DIV[2]/DIV[{idblok}]/DIV[1]').click()
+
             # BLOK1, click tab di sidebar
-            blok = 1
             log_message('blok1')
-            page.locator(f'xpath=//div[@id="fasih-form"]/DIV[1]/DIV[1]/ASIDE[1]/DIV[2]/DIV[{blok}]/DIV[1]').click()
+            menubar(1)
             # wait biar isiannya muncul dulu
             # expect(page.locator("//div[@id='nationality']//button/div")).not_to_be_empty()
             # expect(page.locator("//div[@id='city_residence']//button/div")).not_to_be_empty()
@@ -311,172 +316,124 @@ def run():
             # d['r2'] = page.locator("//div[@id='age']//input[@type='text']").input_value()
             # d['r3'] = page.locator("//div[@id='sex']").locator("input[type='radio']:checked").get_attribute('value')
             # d['r4'] = page.locator("//div[@id='nationality']//button[@aria-haspopup='dialog']").inner_text()
+            # d['r4'] = cek_inner("//div[@id='nationality']//button[@aria-haspopup='dialog']")
             #
-            def cek_inner():
+            
+            def cek_inner( location, timeout=5000):
                 # 1. Kunci elemen tombol dropdown
-                tombol_r4 = page.locator("//div[@id='nationality']//button[@aria-haspopup='dialog']")
-
-                # 2. Tunggu maksimal 5 detik sampai teksnya BUKAN "Select an option" atau ""
-                # Jika setelah 5 detik tetap kosong/default, skrip akan lanjut tanpa error!
+                elem = page.locator(location)
+                # 2. Tunggu maksimal t detik sampai teksnya BUKAN "Select an option" atau ""
                 try:
                     page.wait_for_function(
                         "el => el.innerText.strip() !== '' && el.innerText.strip() !== 'Select an option' && el.innerText.strip() !== 'Pilih salah satu'",
-                        arg=tombol_r4.element_handle(),
-                        timeout=5000
-                    )
+                        arg=elem.element_handle(),
+                        timeout=timeout )
                 except Exception:
                     pass  # Abaikan error timeout jika memang halaman web sengaja mengosongkannya
-
-                # 3. Ambil nilai akhirnya dengan aman
-                d['r4'] = tombol_r4.inner_text().strip()
+                return elem.inner_text().strip()
 
             d['r1'] = page.locator("//div[@id='name']//input[@type='text']").input_value()
             d['r2'] = page.locator("//div[@id='age']//input[@type='text']").input_value()
             d['r3'] = page.locator("//div[@id='sex']").locator("input[type='radio']:checked").get_attribute('value')
-            d['r4'] = page.locator("//div[@id='nationality']//button[@aria-haspopup='dialog']").inner_text()
-            # log_message(f'hasil = {d['r4']}')
-            # page.pause()
-            d['r5'] = page.locator("//div[@id='country_residence']//button[@aria-haspopup='dialog']").inner_text()
-            d['r5b'] = page.locator("//div[@id='city_residence']//button[@aria-haspopup='dialog']").inner_text()
+            
+            d['r4'] = cek_inner( "//div[@id='nationality']//button[@aria-haspopup='dialog']",10000)
+            d['r5'] = cek_inner("//div[@id='country_residence']//button[@aria-haspopup='dialog']",10000)
+            d['r5b'] = cek_inner("//div[@id='city_residence']//button[@aria-haspopup='dialog']",10000)
+            
             d['r6'] = page.locator("//div[@id='main_purpose']").locator("input[type='radio']:checked").get_attribute('value')
 
             # BLOK2
-            blok = 2
+            menubar(2)
             log_message('blok2')
-            page.locator(f'xpath=//div[@id="fasih-form"]/DIV[1]/DIV[1]/ASIDE[1]/DIV[2]/DIV[{blok}]/DIV[1]').click()
-            # # wait biar isiannya muncul dulu
-            # expect(page.locator("//div[@id='port_entry']//button/div")).not_to_be_empty()
-            # expect(page.locator("//div[@id='main_destination_kab']//button/div")).not_to_be_empty()
-            # for i in range(1, 5):
-            #     expect(page.locator(f"//div[@id='other_destination_prov_{i}']//button/div")).not_to_be_empty()
-            # #
-            d['r7'] = page.locator("//div[@id='port_entry']//button[@aria-haspopup='dialog']").inner_text()
-            log_message(f'hasil = {d['r7']}')
-            page.pause()
+            
+            d['r7'] = cek_inner( "//div[@id='port_entry']//button[@aria-haspopup='dialog']")
             d['r8'] = page.locator("//div[@id='length_of_stay']//input[@type='text']").input_value()
+            
             # main dest
             #d['r9'] = page.locator("//div[@id='main_destination_prov']//button/div").text
-            d['r9ab'] = page.locator("//div[@id='main_destination_kab']//button[@aria-haspopup='dialog']").inner_text()
+            d['r9ab'] = cek_inner( "//div[@id='main_destination_kab']//button[@aria-haspopup='dialog']")
             d['r9ac'] = page.locator("//div[@id='len_stay_main_dest']//input[@type='text']").input_value()
+            
             # other dest
             for i in range(1, 6):
-                a = page.locator(f"//div[@id='other_destination_prov_{i}']//button[@aria-haspopup='dialog']").inner_text()
+                #a = page.locator(f"//div[@id='other_destination_prov_{i}']//button[@aria-haspopup='dialog']").inner_text()
+                a = cek_inner(f"//div[@id='other_destination_prov_{i}']//button[@aria-haspopup='dialog']", 10000)
                 if a in ["", "Select an option", "Pilih salah satu"]: continue
                 
-                # ERRRRRR
-                d[f"r9b{i}"] = page.locator(f"//div[@id='other_destination_kab_{i}']//button[@aria-haspopup='dialog']").inner_text()
+                d[f"r9b{i}"] = cek_inner(f"//div[@id='other_destination_kab_{i}']//button[@aria-haspopup='dialog']")
                 d[f"r9b{i}c"] = page.locator(f"//div[@id='len_stay_other_dest_{i}']//input[@type='text']").input_value()
             
-            # # BLOK3
-            # # get radio: tourism_attraction_05
-            # blok = 3
-            # page.locator(f'id("fasih-form")/DIV[1]/DIV[1]/ASIDE[1]/DIV[2]/DIV[{blok}]/DIV[1]').click()
+            # BLOK3
+            # get radio: tourism_attraction_05
+            menubar(3)
+            log_message('blok3')
             
-            # for i in range(1,14):
-            #     # get radio value
-            #     radios10 = page.find_elements(By.XPATH, f"//div[@id='tourism_attraction_{i:02}']//input[@type='radio']")
-            #     for r in radios10:
-            #         if r.is_selected(): break
-            #     # jika ada terpilih
-            #     if r.get_attribute('value') == '1':
-            #         d[f"r10.{i}.2"] = page.locator(f"//div[@id='len_stay_tourism_{i}']//input[@type='text']").get_attribute('value')
-            #     d[f"r10.{i}.1"] = r.get_attribute('value')
+            for i in range(1,14):
+                d[f"r10.{i}.1"] = page.locator(f"//div[@id='tourism_attraction_{i:02}']").locator("input[type='radio']:checked").get_attribute('value')
+                # jika ada terpilih
+                if d[f"r10.{i}.1"] == '1':
+                    d[f"r10.{i}.2"] = page.locator(f"//div[@id='len_stay_tourism_{i}']//input[@type='text']").input_value()
                 
-            #     # for switch
-            #     #d[f"r10.{i}"] = page.locator(f"//div[@id='tourism_attraction_{i:02}']//input[@type='checkbox']").is_selected()
+                # for switch
+                #d[f"r10.{i}"] = page.locator(f"//div[@id='tourism_attraction_{i:02}']//input[@type='checkbox']").is_selected()
 
-            # #BLOK4
-            # blok = 4
-            # page.locator(f'id("fasih-form")/DIV[1]/DIV[1]/ASIDE[1]/DIV[2]/DIV[{blok}]/DIV[1]').click()
-            # # tidak semua datanya diambil sih
-            # for i in range(1,5):
-            #     radios12 = page.find_elements(By.XPATH, f"//div[@id='accommodation_{i:02}']//input[@type='radio']")
-            #     for r in radios12:
-            #         if r.is_selected(): break
-            #     d[f"r11.{i}"] = r.get_attribute('value')
-            #     #d[f"r11.{i}"] = page.locator(f"//div[@id='accommodation_{i:02}']//input[@type='checkbox']").is_selected()
-            # radios12 = page.find_elements(By.XPATH, f"//div[@id='use_tour_package']//input[@type='radio']")
-            # for r in radios12:
-            #     if r.is_selected(): break
-            # d[f"r12"] = r.get_attribute('value')
+            #BLOK4
+            menubar(4)
+            log_message('blok4')
+            # tidak semua datanya diambil sih
+            for i in range(1,5):
+                d[f"r11.{i}"] = page.locator(f"//div[@id='accommodation_{i:02}']").locator("input[type='radio']:checked").get_attribute('value')
+            d[f"r12"] = page.locator(f"//div[@id='use_tour_package']").locator("input[type='radio']:checked").get_attribute('value')
 
-            # #BLOK5
-            # blok = 5
-            # page.locator(f'id("fasih-form")/DIV[1]/DIV[1]/ASIDE[1]/DIV[2]/DIV[{blok}]/DIV[1]').click()
-            # # wait biar isiannya muncul dulu
-            # WebpageWait(page, 10).until(
-            #     lambda d: d.locator("//div[@id='currency_spending']//button/div").text.strip() != ""
-            # )
-            # #
-            # ids4 = ['number_group_member', 'currency_spending', 'details_spending', 'var_spending', 'local_package_tour_spending', 'accommodation_spending', 'food_spending', 'domestic_flight_spending', 'local_transport_bus', 'local_transport_train', 'local_transport_water_transport', 'other_local_transportation_spending', 'vehicle_rent_spending', 'shopping_spending', 'entertainment_spending', 'health_spending', 'training_spending', 'charity_spending', 'others_spending', ]
-            # for id4 in ids4:
-            #     #try:
-            #     if id4 == 'currency_spending':
-            #         d[id4] = page.locator(f"//div[@id='{id4}']//button/div").text 
-            #     else: d[id4] = page.locator(f"//div[@id='{id4}']//input[@type='text']").get_attribute('value')
+            #BLOK5
+            menubar(5)
+            log_message('blok5')
 
-            # #BLOK6
-            # blok = 6
-            # page.locator(f'id("fasih-form")/DIV[1]/DIV[1]/ASIDE[1]/DIV[2]/DIV[{blok}]/DIV[1]').click()
-            # # wait biar isiannya muncul dulu
-            # WebpageWait(page, 10).until(
-            #     lambda d: d.locator("//div[@id='airline_departure']//button/div").text.strip() != "" and
-            #             d.locator("//div[@id='airline_arrival']//button/div").text.strip() != ""
-            # )
-            # #
-            # radios14 = page.find_elements(By.XPATH, f"//div[@id='main_occupation']//input[@type='radio']")
-            # for r in radios14:
-            #     if r.is_selected(): break
-            # d['r14'] = r.get_attribute('value')
-            # # r15 skip 
-            # d['r16'] = page.locator("//div[@id='freq_visit']//input[@type='text']").get_attribute('value')
-            # #
-            # for i in ['arrival', 'departure']:
-            #     d[f'r18a_{i}'] = page.locator(f"//div[@id='airline_{i}']//button/div").text 
-            #     d[f'r18b_{i}'] = page.locator(f"//div[@id='currency_{i}']//button/div").text 
-            #     d[f'r18c_{i}'] = page.locator(f"//div[@id='value_{i}']//input[@type='text']").get_attribute('value') 
+            # wait biar isiannya muncul dulu            
+            ids4 = ['number_group_member', 'currency_spending', 'details_spending', 'var_spending', 'local_package_tour_spending', 'accommodation_spending', 'food_spending', 'domestic_flight_spending', 'local_transport_bus', 'local_transport_train', 'local_transport_water_transport', 'other_local_transportation_spending', 'vehicle_rent_spending', 'shopping_spending', 'entertainment_spending', 'health_spending', 'training_spending', 'charity_spending', 'others_spending', ]
+            for id4 in ids4:
+                #try:
+                if id4 == 'currency_spending':
+                    d[id4] = cek_inner(f"//div[@id='{id4}']//button[@aria-haspopup='dialog']")
+                else: d[id4] = page.locator(f"//div[@id='{id4}']//input[@type='text']").input_value()
 
-            # #BLOK7
-            # blok = 7
-            # page.locator(f'id("fasih-form")/DIV[1]/DIV[1]/ASIDE[1]/DIV[2]/DIV[{blok}]/DIV[1]').click()
-            # #
-            # # get switch: activities_06
-            # for i in range(1,15):
-            #     radios19 = page.find_elements(By.XPATH, f"//div[@id='activities_{i:02}']//input[@type='radio']")
-            #     for r in radios19:
-            #         if r.is_selected(): break
-            #     d[f'r19_{i}'] = r.get_attribute('value')
-            #     #d[f'r19_{i}'] = page.locator(f"//div[@id='activities_{i:02}']//input[@type='checkbox']").is_selected()
-            # radios20 = page.find_elements(By.XPATH, f"//div[@id='wonderful_indonesia']//input[@type='radio']")
-            # for r in radios20:
-            #     if r.is_selected(): break
-            # d['r20'] = r.get_attribute('value')
-            # #
-            # radios21 = page.find_elements(By.XPATH, f"//div[@id='ecofriendly_principle']//input[@type='radio']")
-            # for r in radios21:
-            #     if r.is_selected(): break
-            # d['r21'] = r.get_attribute('value')
-            # #
-            # radios22 = page.find_elements(By.XPATH, f"//div[@id='satisfaction_lvl']//input[@type='radio']")
-            # for r in radios22:
-            #     if r.is_selected(): break
-            # d['r22'] = r.get_attribute('value')
-            # #
-            # radios23 = page.find_elements(By.XPATH, f"//div[@id='intention_to_visit']//input[@type='radio']")
-            # for r in radios23:
-            #     if r.is_selected(): break
-            # d['r23'] = r.get_attribute('value')
+            #BLOK6
+            menubar(6)
+            log_message('blok6')
+            
+            d['r14'] = page.locator(f"//div[@id='main_occupation']").locator("input[type='radio']:checked").get_attribute('value')
+            # r15 skip 
+            d['r16'] = page.locator("//div[@id='freq_visit']//input[@type='text']").input_value()
+            #
+            for i in ['arrival', 'departure']:
+                d[f'r18a_{i}'] = cek_inner(f"//div[@id='airline_{i}']//button[@aria-haspopup='dialog']")
+                d[f'r18b_{i}'] = cek_inner(f"//div[@id='currency_{i}']//button[@aria-haspopup='dialog']")
+                d[f'r18c_{i}'] = page.locator(f"//div[@id='value_{i}']//input[@type='text']").input_value()
 
-            # #BLOK8
-            # blok = 8
-            # page.locator(f'id("fasih-form")/DIV[1]/DIV[1]/ASIDE[1]/DIV[2]/DIV[{blok}]/DIV[1]').click()
-            # #
-            # d['r24'] = page.find_element(By.XPATH,f"//div[@id='note']//textarea").get_attribute('value')
-            # d['r25'] = page.find_element(By.XPATH,f"//div[@id='impression']//textarea").get_attribute('value')
-            # radios26 = page.find_elements(By.XPATH, f"//div[@id='viplounge']//input[@type='radio']")
-            # for r in radios26:
-            #     if r.is_selected(): break
-            # d['r26'] = r.get_attribute('value')
+            #BLOK7
+            menubar(7)
+            log_message('blok7')
+            #
+            # get switch: activities_06
+            for i in range(1,15):
+                d[f'r19_{i}'] = page.locator(f"//div[@id='activities_{i:02}']").locator("input[type='radio']:checked").get_attribute('value')
+                #d[f'r19_{i}'] = page.locator(f"//div[@id='activities_{i:02}']//input[@type='checkbox']").is_selected()
+
+            d['r20'] = page.locator(f"//div[@id='wonderful_indonesia']").locator("input[type='radio']:checked").get_attribute('value')
+            #
+            d['r21'] = page.locator(f"//div[@id='ecofriendly_principle']").locator("input[type='radio']:checked").get_attribute('value')
+            #
+            d['r22'] = page.locator(f"//div[@id='satisfaction_lvl']").locator("input[type='radio']:checked").get_attribute('value')
+            #
+            d['r23'] = page.locator(f"//div[@id='intention_to_visit']").locator("input[type='radio']:checked").get_attribute('value')
+
+            #BLOK8
+            menubar(8)
+            log_message('blok8')
+            #
+            d['r24'] = page.locator(f"//div[@id='note']//textarea").input_value()
+            d['r25'] = page.locator(f"//div[@id='impression']//textarea").input_value()
+            d['r26'] = page.locator(f"//div[@id='viplounge']").locator("input[type='radio']:checked").get_attribute('value')
 
             # return d
             # Write to file
