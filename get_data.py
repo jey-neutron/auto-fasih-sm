@@ -12,7 +12,7 @@ import time
 import random
 import os
 import json
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import sync_playwright, expect
 
 def get_playwright_page(cdp_url="http://localhost:9222"):
     """
@@ -43,7 +43,7 @@ def help(instance,var):
     for nama, objek in globals().items():
         if (callable(objek) and 
             not nama.startswith("__") and 
-            nama not in ["mainfunc", "get_list_data", "update_temp_value", "Action", "datetime","check_stop", "handle_response", 'mergejson','get_playwright_page'] ):
+            nama not in ["mainfunc", "get_list_data", "update_temp_value", "Action", "datetime", "sync_playwright","check_stop", "handle_response", 'mergejson','get_playwright_page'] ):
             
             # Ambil docstring-nya, kalau kosong kasih teks default
             deskripsi = objek.__doc__ if objek.__doc__ else ""# "Tidak ada deskripsi."
@@ -166,6 +166,7 @@ def inputwebdash(instance, var):
     # cek if file ada, klo gada generate new, abistu delete deh klo dah diup
     import os
     import json
+    page = instance.page
 
     if not os.path.exists("data-webdash.json"):
         # jika file tidak ada, buat file baru dengan struktur dasar
@@ -618,13 +619,13 @@ def assignselect(instance, var):
         df.to_csv(filename, index=False)
     instance.isdone = 1
 
-def getdataPES(instance):
+def getdataPES(page):
     '''FUNCTION FOR GETTING DATA PES'''
     try:
         #instance.log_message("Masuk ke fungsi get data PES")
-        page = instance.page
+        #page = instance.page
         # list id blok 4
-        ids4 = ['n#umber_group_member', 'currency_spending', 'details_spending', 'var_spending', 'local_package_tour_spending', 'accommodation_spending', 'food_spending', 'domestic_flight_spending', 'local_transport_bus', 'local_transport_train', 'local_transport_water_transport', 'other_local_transportation_spending', 'vehicle_rent_spending', 'shopping_spending', 'entertainment_spending', 'health_spending', 'training_spending', 'charity_spending', 'others_spending', ]
+        ids4 = ['number_group_member', 'currency_spending', 'details_spending', 'var_spending', 'local_package_tour_spending', 'accommodation_spending', 'food_spending', 'domestic_flight_spending', 'local_transport_bus', 'local_transport_train', 'local_transport_water_transport', 'other_local_transportation_spending', 'vehicle_rent_spending', 'shopping_spending', 'entertainment_spending', 'health_spending', 'training_spending', 'charity_spending', 'others_spending', ]
         # init a dict for data
         col_list = \
             [f"r{i}" for i in range(1,6)] + \
@@ -640,21 +641,29 @@ def getdataPES(instance):
         d = dict.fromkeys(col_list, '--')
         #5b,9ac,9b[1,6],9b[1,6]c,10.[1,13], 11.[1,5], ids4, r18[a,b,c]_[arrival,departure], r19_[1,15], 
 
-        def cek_inner( location, timeout=5000):
+        def cek_inner( location, timeout=10000):
             # 1. Kunci elemen tombol dropdown
             elem = page.locator(location)
             # 2. Tunggu maksimal t detik sampai teksnya BUKAN "Select an option" atau ""
             try:
-                page.wait_for_function(
-                    "el => el.innerText.strip() !== '' && el.innerText.strip() !== 'Select an option' && el.innerText.strip() !== 'Pilih salah satu'",
-                    arg=elem.element_handle(),
-                    timeout=timeout )
-            except Exception:
+                # page.wait_for_function(
+                #     #"el => el.innerText.strip() !== '' && el.innerText.strip() !== 'Select an option' && el.innerText.strip() !== 'Pilih salah satu'",
+                #     """(el) => {
+                #         const text = el.innerText.trim();
+                #         return text !== "" && text !== "Select an option" && text !== "Pilih salah satu";
+                #     }""",
+                #     arg=elem.element_handle(),
+                #     timeout=timeout )
+                expect(elem).not_to_have_text("", timeout=timeout)
+                expect(elem).not_to_have_text("Select an option", timeout=timeout)
+                expect(elem).not_to_have_text("Pilih salah satu", timeout=timeout)
+            # except Exception:
+            except AssertionError:
                 pass  # Abaikan error timeout jika memang halaman web sengaja mengosongkannya
             return elem.inner_text().strip()
         
         def menubar(idblok):
-            time.sleep(2)
+            time.sleep(1)
             page.locator(f'xpath=//div[@id="fasih-form"]/DIV[1]/DIV[1]/ASIDE[1]/DIV[2]/DIV[{idblok}]/DIV[1]').click()
 
         # BLOK1, click tab di sidebar
@@ -684,10 +693,10 @@ def getdataPES(instance):
         # other dest
         for i in range(1, 6):
             #a = page.locator(f"//div[@id='other_destination_prov_{i}']//button[@aria-haspopup='dialog']").inner_text()
-            a = cek_inner(f"//div[@id='other_destination_prov_{i}']//button[@aria-haspopup='dialog']", 10000)
+            a = cek_inner(f"//div[@id='other_destination_prov_{i}']//button[@aria-haspopup='dialog']", 2000)
             if a in ["", "Select an option", "Pilih salah satu"]: continue
             
-            d[f"r9b{i}"] = cek_inner(f"//div[@id='other_destination_kab_{i}']//button[@aria-haspopup='dialog']")
+            d[f"r9b{i}"] = cek_inner(f"//div[@id='other_destination_kab_{i}']//button[@aria-haspopup='dialog']", 2000)
             d[f"r9b{i}c"] = page.locator(f"//div[@id='len_stay_other_dest_{i}']//input[@type='text']").input_value()
         
         # BLOK3
@@ -755,15 +764,17 @@ def getdataPES(instance):
 
         
     except Exception as e:
-        instance.log_message(f'Terjadi error: {e}')
+        import sys
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+        raise SyntaxError(f"Error waktu ngambil data PES on line ({str(exc_tb.tb_lineno)}): {e}")
 
     # FINISH
     return d
 
 
 # Function reject data Fasih
-def reject(instance, var, mulai=0, func=None, cekapprov=True, idlog='Kode Identitas', sep=','):
-    #(instance, filename, mulai=0, func=None, cekapprov=True, idlog='Kode Identitas', sep=',')
+def reject(instance, var, mulai=0, func=None, cekapprov=True, idlog='codeIdentity', sep=','):
+    #(instance, filename, mulai=0, func=None, cekapprov=True, idlog='codeIdentity', sep=',')
     '''Reject di fasih-sm berdasarkan file yang dipilih'''
     driver
     instance.log_message("Maaf, fitur belum 100%")
@@ -979,7 +990,7 @@ def get_list_data(instance, namadf,  mode="w", maxrow=0, sep=","):
         # wait n getting response
         namejson = 'data_survey.json'
         target_url = "https://fasih-sm.bps.go.id/app/api/analytic/api/v2/assignment/datatable-all-user-survey-periode"
-        page.on("response", lambda response: handle_response(response, response, namejson, target_url))
+        page.on("response", lambda response: handle_response(instance, response, namejson, target_url))
 
         # page.goto("https://fasih-sm.bps.go.id/app/surveys?page=0&perPage=10&layout=list")
         page.reload()
@@ -1034,133 +1045,152 @@ def get_list_data(instance, namadf,  mode="w", maxrow=0, sep=","):
         #change_text(label_status, "Running Selesai", "green")
         #df.tail()
         
-        instance.isdone = 1
         return (df)
     
     except Exception as e:
-        instance.log_message(f"Error di thread data: {e}", tag="red_tag")
+        instance.log_message(f"Error di thread data getlistdata: {e}", tag="red_tag")
     finally:
+        instance.isdone = 1
         # Selalu tutup p_instance di blok 'finally' agar tidak hang
         try:
             p_instance.stop()
             instance.log_message("Koneksi Playwright di thread ditutup.")
         except NameError:
-            # Terjadi jika get_playwright_page() gagal total di awal
+            # Terjadi jika get playwright page() gagal total di awal
             pass
 
 # Function approv (and get data)
-def mainfunc(instance, filename, mulai=0, func=None, cekapprov=True, idlog='Kode Identitas', sep=','):
+def mainfunc(instance, filename, mulai=0, func=None, cekapprov=True, idlog='codeIdentity', sep=','):
     '''Get data dari Fasih dengan membuka linknya dari dataframe df, kemudian export ke csv. Kemudian akan approv juga jika tercentang sekalian approv'''
     # konfig
     import sys
     instance.isdone = 0
 
-    # read data csv result from get list data
     try:
-        df = pd.read_csv(filename, sep=sep)
-        if 'approved' not in df.columns:
-            df['approved'] = ""
-    except Exception as e:
-        instance.log_message(f'ERROR: {e}', tag="red_tag")
-        df = None
-        isdone = 1
-        return
-    
-    # cek approv or not
-    msgapprov = ' and approving' if cekapprov else ''
-    instance.log_message(f"# Loading for {len(df)-int(mulai)} data, length dataframe: {len(df)} data{msgapprov}...")
-
-    # start loop per df
-    if mulai <0 : i=-1
-    else: i = mulai-1
-    while True: 
-        check_stop(instance)
-        # LOOOOOOOOOP
-        i += 1
-        if i >= len(df):
-            instance.log_message(f"# DONEEE file {filename} updated ---------------------------------")
-            break
+        p_instance, browser, page = get_playwright_page() #konek ke playwr
+        # read data csv result from get list data
         try:
-            # CEK DAH APPROVED LOM ke1 (cek dari hasil csv)------------------------------------------------------------
-            if df.loc[i, 'approved'] == True:
-                instance.log_message(f"# {i,str(df[idlog][i])[:20]} | Dah approved, skip")
-                continue
+            df = pd.read_csv(filename, sep=sep)
+            df = df.astype(str)
+            if 'approved' not in df.columns:
+                df['approved'] = ""
+        except Exception as e:
+            instance.log_message(f'ERROR: {e}', tag="red_tag")
+            df = None
+            instance.isdone = 1
+            return
+        
+        # cek approv or not
+        msgapprov = ' and approving' if cekapprov else ''
+        instance.log_message(f"# Loading for {len(df)-int(mulai)} data, length dataframe: {len(df)} data{msgapprov}...")
 
-            # goto web
-            instance.page.goto(df.link[i])
-            # tapi ada error disini biasanya gamau load page, hmm. tpi klo load normal haruse pass
-            instance.page.wait_for_load_state("networkidle", timeout=5000) #stabil sebelum cek field
-            instance.page.evaluate("document.body.style.zoom='0.5'")
-
-            # perlukah cek approv yg ke2? ======
-
-            # function tambahan here
-            if func:
-                try:
-                    resultDict = func(instance)
-                    # get a dict value per row from web (init dict from func)
-                    for key,value in resultDict.items():
-                        df.loc[i, key] = value
-                    df.to_csv(filename, index=False)
-                    
-                except ValueError as e:
-                    instance.instance.log_message(f"# Terjadi error: ")
-                    instance.instance.log_message(str(e).split("Stacktrace:")[0], "red_tag")
-                    # logging
-                    df.loc[i, 'approved'] = str(e).split("Stacktrace:")[0]
-                    df.to_csv(filename, index=False)
+        # start loop per df
+        if mulai <0 : i=-1
+        else: i = mulai-1
+        while True: 
+            check_stop(instance)
+            # LOOOOOOOOOP
+            i += 1
+            if i >= len(df):
+                instance.log_message(f"# DONEEE file {filename} updated ---------------------------------")
+                break
+            try:
+                # CEK DAH APPROVED LOM ke1 (cek dari hasil csv)------------------------------------------------------------
+                if df.loc[i, 'approved'] == True or df.loc[i, 'approved'] == "True":
+                    instance.log_message(f"# {i,str(df[idlog][i])[:20]} | Dah approved, skip")
                     continue
-            # 
 
-            # mulai approve jika approv 
-            if cekapprov:
+                # goto web
+                page.goto(df.link[i])
+                # tapi ada error disini biasanya gamau load page, hmm. tpi klo load normal haruse pass
+                # alt1 
+                # page.wait_for_load_state("networkidle", timeout=30000) #stabil sebelum cek field
+                # alt2
+                page.locator("h1").wait_for(state="visible", timeout=30000)
+                #page.evaluate("document.body.style.zoom='0.5'")
+
+                # perlukah cek approv yg ke2? ======
+
+                # function tambahan here
+                if func:
+                    try:
+                        resultDict = func(page)
+                        # get a dict value per row from web (init dict from func)
+                        for key,value in resultDict.items():
+                            df.loc[i, key] = value
+                        df.to_csv(filename, index=False)
+                        
+                    except ValueError as e:
+                        instance.log_message(f"# Terjadi error: ")
+                        instance.log_message(str(e).split("Stacktrace:")[0], "red_tag")
+                        # logging
+                        df.loc[i, 'approved'] = str(e).split("Stacktrace:")[0]
+                        df.to_csv(filename, index=False)
+                        continue
+                # 
+
+                # mulai approve jika approv 
+                if cekapprov:
+                    try:
+                        cekbtn = page.get_by_role("button", name="Open menu") 
+                        cekbtn.first.wait_for( #cek jika visible juga
+                            state="visible", 
+                            timeout=5000
+                        )
+                        cekbtn.click() #click btuton menu
+                        page.locator("button[class*='rounded-full'][class*='bg-success']").click() #approv
+                        page.get_by_role("button", name="Konfirmasi").click() #konfirm modal
+                        # wait
+                        page.wait_for_timeout(1500)
+                        time.sleep(2)
+
+                    except:
+                        instance.log_message(f"# {i,str(df[idlog][i])[:20]} | Skip gada approv")
+                        # logging
+                        df.loc[i, 'approved'] = True 
+                        df.to_csv(filename, index=False)
+                        continue
+
+                # end result if success
+                df.loc[i, 'approved'] = True
+                df.to_csv(filename, index=False)
+                
+            except Exception as e:
+                # coba refresh n login ulang
                 try:
-                    cekbtn = instance.page.get_by_role("button", name="Open menu") 
-                    cekbtn.first.wait_for( #cek jika visible juga
-                        state="visible", 
-                        timeout=10000
-                    )
-                    cekbtn.click() #click btuton menu
-                    instance.page.locator("button[class*='rounded-full'][class*='bg-success']").click() #approv
-                    instance.page.get_by_role("button", name="Konfirmasi").click() #konfirm modal
-                    # wait
-                    instance.page.wait_for_timeout(1500)
-                    time.sleep(2)
+                    if 'Server Not Found' in page.title: 
+                        instance.log_message(f"# Error server not found, CEK VPN -------------------------------------------\n", "red_tag")
+                        break
+                    # reload
+                    page.goto(df.link[i])
+                    if i < -1: i=-1
+                    instance.log_message(f"# Terjadi error: ")
+                    instance.log_message(str(e).split("Stacktrace:")[0]+"\n", "red_tag")
+                    # try relogin sso ====== need update
+                    #
+                    continue
 
                 except:
-                    instance.log_message(f"# {i,str(df[idlog][i])[:20]} | Not Found Approve button, skip")
-                    # logging
-                    df.loc[i, 'approved'] = True
-                    df.to_csv(filename, index=False)
+                    exc_type, exc_obj, exc_tb = sys.exc_info()
+                    instance.log_message(f"# Terjadi error: {str(exc_tb.tb_lineno)} ")
+                    instance.log_message(str(e).split("Stacktrace:")[0]+"\n", "red_tag")
                     continue
-
-            # end result if success
-            df.loc[i, 'approved'] = True
-            df.to_csv(filename, index=False)
             
-        except Exception as e:
-            # coba refresh n login ulang
-            try:
-                if 'Server Not Found' in instance.page.title: 
-                    instance.instance.log_message(f"# Error server not found, CEK VPN -------------------------------------------\n", "red_tag")
-                    break
-                # reload
-                instance.page.goto(df.link[i])
-                if i < -1: i=-1
-                instance.instance.log_message(f"# Terjadi error: ")
-                instance.instance.log_message(str(e).split("Stacktrace:")[0]+"\n", "red_tag")
-                # try relogin sso ====== need update
-                #
-                continue
+            # jika satu row dah selesai, entah error or sukses    
+            instance.log_message(f"# {i,str(df[idlog][i])[:20]} | Done")
+            continue
 
-            except:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                instance.instance.log_message(f"# Terjadi error: {str(exc_tb.tb_lineno)} ")
-                instance.instance.log_message(str(e).split("Stacktrace:")[0]+"\n", "red_tag")
-                continue
-        
-        # jika satu row dah selesai, entah error or sukses    
-        instance.instance.log_message(f"# {i,str(df[idlog][i])[:20]} | Done")
-        continue
 
-    instance.isdone = 1
+    except Exception as e:
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+        instance.log_message(f"# Terjadi error: {str(exc_tb.tb_lineno)} ")
+        instance.log_message(f"Error di thread data mainfunc: {e}", tag="red_tag")
+    finally:
+        # Selalu tutup p_instance di blok 'finally' agar tidak hang
+        instance.isdone = 1
+        try:
+            p_instance.stop()
+            instance.log_message("Koneksi Playwright di thread ditutup.")
+        except NameError:
+            # Terjadi jika get playwright page() gagal total di awal
+            pass

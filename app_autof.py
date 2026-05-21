@@ -653,29 +653,45 @@ class AutoApp:
     # --- Login SSO Function ---
     def login_sso(self, link):
         self.log_message("Mencoba login SSO...")
-        # try: #waiting login sso button
-        #     WebDriverWait(self.driver, 10).until( #using explicit wait for x seconds
-        #         EC.presence_of_element_located((By.XPATH, "id('login-in')/A[2]")) #finding the element
-        #     ).click()
-        # except:
-        #     pass
-        # WebDriverWait(self.driver, 15).until( #using explicit wait for x seconds
-        #     EC.presence_of_element_located((By.XPATH, 'id("kc-login")')) )
-        # self.driver.find_element(By.XPATH, '//*[@id="username"]').send_keys(self.username_entry.get())
-        # self.driver.find_element(By.XPATH, '//*[@id="password"]').send_keys(self.password_entry.get())
-        # self.driver.find_element(By.XPATH, '//*[@id="kc-login"]').send_keys(Keys.RETURN)
-        self.page.get_by_role("link", name="Login SSO BPS").click()
-        self.page.get_by_role("textbox", name="Username or email").click()
-        self.page.get_by_role("textbox", name="Username or email").fill(self.username_entry.get())
-        self.page.get_by_role("textbox", name="Password").click()
-        self.page.get_by_role("textbox", name="Password").fill(self.password_entry.get())
-        self.page.get_by_role("button", name="Log In").click()
-        time.sleep(5) #wait for redirect
-        self.log_message('Login SSO done')
-        # self.driver.get(link) #reopen the link after login
-        self.page.goto(link)
-        self.change_status("STATUS: Target link ready, waiting your action...", color="green")
-        self.log_message("Silakan memilih survei sendiri sampai ke halaman list tabel data.")
+        try:
+            # 1. Coba hubungkan ke browser yang sudah ada
+            p = sync_playwright().start()
+            browser = p.chromium.connect_over_cdp("http://localhost:9222")                    
+            page = browser.contexts[0].pages[0]
+            # try: #waiting login sso button
+            #     WebDriverWait(self.driver, 10).until( #using explicit wait for x seconds
+            #         EC.presence_of_element_located((By.XPATH, "id('login-in')/A[2]")) #finding the element
+            #     ).click()
+            # except:
+            #     pass
+            # WebDriverWait(self.driver, 15).until( #using explicit wait for x seconds
+            #     EC.presence_of_element_located((By.XPATH, 'id("kc-login")')) )
+            # self.driver.find_element(By.XPATH, '//*[@id="username"]').send_keys(self.username_entry.get())
+            # self.driver.find_element(By.XPATH, '//*[@id="password"]').send_keys(self.password_entry.get())
+            # self.driver.find_element(By.XPATH, '//*[@id="kc-login"]').send_keys(Keys.RETURN)
+            page.get_by_role("link", name="Login SSO BPS").click()
+            page.get_by_role("textbox", name="Username or email").click()
+            page.get_by_role("textbox", name="Username or email").fill(self.username_entry.get())
+            page.get_by_role("textbox", name="Password").click()
+            page.get_by_role("textbox", name="Password").fill(self.password_entry.get())
+            page.get_by_role("button", name="Log In").click()
+            time.sleep(5) #wait for redirect
+            self.log_message('Login SSO done')
+            # self.driver.get(link) #reopen the link after login
+            page.goto(link)
+            self.change_status("STATUS: Target link ready, waiting your action...", color="green")
+            self.log_message("Silakan memilih survei sendiri sampai ke halaman list tabel data.")
+        except Exception as e:
+            self.log_message(f"Error di thread data loginsso: {e}", tag="red_tag")
+            self.isdone= 1
+        finally:
+            # Selalu tutup p_instance di blok 'finally' agar tidak hang
+            try:
+                p.stop()
+                #self.log_message("Koneksi Playwright di thread ditutup.")
+            except NameError:
+                # Terjadi jika get playwright page() gagal total di awal
+                pass
 
     # --- Function 1 ---
     def run_function_1(self):
