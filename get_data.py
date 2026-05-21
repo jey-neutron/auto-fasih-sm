@@ -963,7 +963,9 @@ def handle_response(instance, response, namejson='data_survey.json', target_url=
             # Simpan data ke file lokal agar bisa Anda cek di VS Code
             with open(namejson, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=4, ensure_ascii=False)
-            instance.log_message(f"[✓] (Status {response.status}). Data disimpan ke '{namejson}'")
+            #instance.log_message(f"[✓] (Status {response.status}). Data disimpan ke '{namejson}'")
+            stat = 'OK' if response.status == 200 else 'ERR'
+            instance.log_message(f"# Status {stat}")
             
         except Exception as e:
             # Jika respon bukan JSON (misal HTML/Text)
@@ -1031,6 +1033,7 @@ def get_list_data(instance, namadf,  mode="w", maxrow=0, sep=","):
         time.sleep(2)
         # ngerapiin
         df = pd.DataFrame(dflist)
+        instance.log_message(f"# Get {len(df)} rows of data")
         df['link'] = 'https://fasih-sm.bps.go.id/app/assignment/'+ df['surveyPeriodId'].astype(str) + "/" + df['id'].astype(str)
         #page.pause() #debugging, open recorder on playwright
                 
@@ -1042,6 +1045,10 @@ def get_list_data(instance, namadf,  mode="w", maxrow=0, sep=","):
 
         #print(f"# Link data saved to {namadf}")
         instance.log_message(f"# Done. Link data saved to {namadf}")
+        with open(namadf, 'r', encoding='utf-8') as f: #ngitung jml row only
+            next(f)
+            totrow = sum(1 for line in f)
+        instance.log_message(f"# Total rows now: {totrow}")
         #change_text(label_status, "Running Selesai", "green")
         #df.tail()
         
