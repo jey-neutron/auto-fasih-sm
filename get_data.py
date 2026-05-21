@@ -1138,8 +1138,8 @@ def mainfunc(instance, filename, mulai=0, func=None, cekapprov=True, idlog='code
                             timeout=2000
                         )
                         cekbtn.click() #click btuton menu
-                        page.locator("button[class*='rounded-full'][class*='bg-success']").click() #approv
-                        page.get_by_role("button", name="Konfirmasi").click() #konfirm modal
+                        page.locator("button[class*='rounded-full'][class*='bg-success']").click(timeout=1500) #approv
+                        page.get_by_role("button", name="Konfirmasi").click(timeout=10000) #konfirm modal
                         # wait
                         page.wait_for_timeout(1500)
                         time.sleep(1)
