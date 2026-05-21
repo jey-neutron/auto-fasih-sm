@@ -663,7 +663,7 @@ def getdataPES(page):
             return elem.inner_text().strip()
         
         def menubar(idblok):
-            time.sleep(1)
+            #time.sleep(1)
             page.locator(f'xpath=//div[@id="fasih-form"]/DIV[1]/DIV[1]/ASIDE[1]/DIV[2]/DIV[{idblok}]/DIV[1]').click()
 
         # BLOK1, click tab di sidebar
