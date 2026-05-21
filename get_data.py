@@ -693,10 +693,10 @@ def getdataPES(page):
         # other dest
         for i in range(1, 6):
             #a = page.locator(f"//div[@id='other_destination_prov_{i}']//button[@aria-haspopup='dialog']").inner_text()
-            a = cek_inner(f"//div[@id='other_destination_prov_{i}']//button[@aria-haspopup='dialog']", 2000)
+            a = cek_inner(f"//div[@id='other_destination_prov_{i}']//button[@aria-haspopup='dialog']", 1500)
             if a in ["", "Select an option", "Pilih salah satu"]: continue
             
-            d[f"r9b{i}"] = cek_inner(f"//div[@id='other_destination_kab_{i}']//button[@aria-haspopup='dialog']", 2000)
+            d[f"r9b{i}"] = cek_inner(f"//div[@id='other_destination_kab_{i}']//button[@aria-haspopup='dialog']", 1500)
             d[f"r9b{i}c"] = page.locator(f"//div[@id='len_stay_other_dest_{i}']//input[@type='text']").input_value()
         
         # BLOK3
@@ -1097,7 +1097,7 @@ def mainfunc(instance, filename, mulai=0, func=None, cekapprov=True, idlog='code
             try:
                 # CEK DAH APPROVED LOM ke1 (cek dari hasil csv)------------------------------------------------------------
                 if df.loc[i, 'approved'] == True or df.loc[i, 'approved'] == "True":
-                    instance.log_message(f"# {i,str(df[idlog][i])[:20]} | Dah approved, skip")
+                    instance.log_message(f"# {i,str(df[idlog][i])[:20]} | Approv'd, skip")
                     continue
 
                 # goto web
@@ -1135,14 +1135,14 @@ def mainfunc(instance, filename, mulai=0, func=None, cekapprov=True, idlog='code
                         cekbtn = page.get_by_role("button", name="Open menu") 
                         cekbtn.first.wait_for( #cek jika visible juga
                             state="visible", 
-                            timeout=5000
+                            timeout=2000
                         )
                         cekbtn.click() #click btuton menu
                         page.locator("button[class*='rounded-full'][class*='bg-success']").click() #approv
                         page.get_by_role("button", name="Konfirmasi").click() #konfirm modal
                         # wait
                         page.wait_for_timeout(1500)
-                        time.sleep(2)
+                        time.sleep(1)
 
                     except:
                         instance.log_message(f"# {i,str(df[idlog][i])[:20]} | Skip gada approv")
