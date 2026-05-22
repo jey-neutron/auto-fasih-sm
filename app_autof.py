@@ -570,6 +570,7 @@ class AutoApp:
                 self.log_message("Mengecek browser yang terbuka...")
                 self.browser = self.playwright_instance.chromium.connect_over_cdp("http://localhost:9222")                    
                 self.page = self.browser.contexts[0].pages[0]
+                self.page.goto('https://www.google.com')
                 self.log_message("Berhasil terhubung ke browser yang sudah ada!")
                 
             except Exception:
@@ -579,10 +580,12 @@ class AutoApp:
                 # Opsional: Jika ingin otomatis membuka Chrome asli Anda lewat script,
                 # gunakan baris di bawah ini menggantikan p.chromium.launch:
                 subprocess.Popen(r'start chrome.exe --remote-debugging-port=9222 --user-data-dir="C:\chrometemp"', shell=True)
-                time.sleep(2)
+                time.sleep(5)
                 try:
-                    self.browser = self.playwright_instance.chromium.connect_over_cdp("http://localhost:9222")
-                    self.page = self.browser.contexts[0].pages[0]
+                    self.browser = playwright_instance.chromium.connect_over_cdp("http://localhost:9222")
+                    context = browser.contexts[0] if browser.contexts else browser.new_context()
+                    self.page = context.pages[0] if context.pages else context.new_page()
+                    self.log_message("Berhasil terhubung ke browser baru!")
                 except Exception:
                     self.log_message("Gagal terhubung ke Chrome. Pastikan port 9222 tidak diblokir.")
                 

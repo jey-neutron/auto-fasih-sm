@@ -1165,7 +1165,7 @@ def mainfunc(instance, filename, mulai=0, func=None, cekapprov=True, idlog='code
             except Exception as e:
                 # coba refresh n login ulang
                 try:
-                    if 'Server Not Found' in page.title: 
+                    if 'Server Not Found' in page.title(): 
                         instance.log_message(f"# Error server not found, CEK VPN -------------------------------------------\n", "red_tag")
                         break
                     # reload
