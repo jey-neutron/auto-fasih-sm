@@ -1,4 +1,5 @@
 # app.py, kode coba2 get response, mungkin bisa updated
+# find ====== for needed update or needed parsing to main py (app_autof.py -> Auto_Fasih_SM.py // get_data.py -> willbe in dist)
 import subprocess
 
 from playwright.sync_api import sync_playwright
@@ -79,7 +80,11 @@ def run():
         #     page.get_by_role("button", name="Log In").click()
         # print('# Logged in')
 
-        # --- MAIN FUNC ---
+        def log_message(txt, tag=''): #fungsi biar jalan aja dulu
+            print('# '+ str(txt))
+
+
+        # --- HEADER MAIN FUNC ---
         
         # var2 mainfunc
         # filename = 'data.csv'
@@ -89,8 +94,6 @@ def run():
         # cekapprov = True
         # idlog = 'Kode Identitas'
         # sep = ','
-        def log_message(txt, tag=''): #fungsi biar jalan aja dulu
-            print('# '+ str(txt))
         # def check_stop(instance):
         #     print('# '+instance)
         # isdone = 0
@@ -152,6 +155,7 @@ def run():
         #         # 
 
         #         # mulai approve jika approv 
+        #         # OR MUNGKIN BISA PAKE HEADER APPROV ======
         #         if cekapprov:
         #             try:
         #                 cekbtn = page.get_by_role("button", name="Open menu") 
@@ -216,7 +220,7 @@ def run():
         # --- END MAIN FUNC ---
 
 
-        # --- GET LIST DATA ---
+        # ---HEADER GET LIST DATA ---
         # wait n getting response 
         # namejson = 'data_survey.json'
         # target_url = "https://fasih-sm.bps.go.id/app/api/analytic/api/v2/assignment/datatable-all-user-survey-periode"
@@ -262,7 +266,7 @@ def run():
         # --- END GET LIST DATA ---
 
 
-        # --- GET PES ---
+        # --- HEADER GET PES ---
         # log_message('here')
         # from playwright.sync_api import expect
         # import re
@@ -426,70 +430,146 @@ def run():
         #     log_message(f'Terjadi error: {e}')
         # --- END ---
 
-        print(page.title())
+        print('Title page: ', page.title())
         
-        # --- EMAIL FASIH BC---
-        #id = "5103020002000305 - UMK - 26"
-        #id = "5103010006001218 - UMK - 10"
-        #email="niluhsekarastuti96@gmail.com"
+        # --- HEADER EMAIL FASIH BC---
+        def emailbc():
+            #id = "5103020002000305 - UMK - 26"
+            #id = "5103010006001218 - UMK - 10"
+            #email="niluhsekarastuti96@gmail.com"
 
-        ggl = 1
-        df = pd.read_csv('tempdatasmp.csv')
-        
-        if 'approved' not in df.columns:
-            df['approved'] = ""
-        # print(df.head(5))
-
-        for i in range(len(df)):
-            # cek done yet
-            if df.loc[i, 'approved'] == 'done':
-                log_message(f"# {i,str(df['nama'][i])[:20]} | Dah dieksekusi, skip")
-                continue
-            if df.loc[i, 'idsbr'] == '' or pd.isna(df.loc[i, 'idsbr']):
-                log_message(f"# {i,str(df['nama'][i])[:20]} | Not found idsbr")
-                continue
+            ggl = 1
+            df = pd.read_csv('tempdatasmp.csv')
             
-            log_message(f"# {i,str(df['nama'][i])[:20]} | {df['idsbr'][i]} {df['email'][i]}")
+            if 'approved' not in df.columns:
+                df['approved'] = ""
+            # print(df.head(5))
 
-            id = df['idsbr'][i]
-            email = df['email'][i]
+            for i in range(len(df)):
+                # cek done yet
+                if df.loc[i, 'approved'] == 'done':
+                    log_message(f"# {i,str(df['nama'][i])[:20]} | Dah dieksekusi, skip")
+                    continue
+                if df.loc[i, 'idsbr'] == '' or pd.isna(df.loc[i, 'idsbr']):
+                    log_message(f"# {i,str(df['nama'][i])[:20]} | Not found idsbr")
+                    continue
+                
+                log_message(f"# {i,str(df['nama'][i])[:20]} | {df['idsbr'][i]} {df['email'][i]}")
 
+                id = df['idsbr'][i]
+                email = df['email'][i]
+
+                try:
+                    page.get_by_role("textbox", name="Cari...").click()
+                    page.get_by_role("textbox", name="Cari...").fill(id)
+                    time.sleep(2)
+                    #page.get_by_role("button", name=id).click()
+                    page.get_by_role("cell", name=id).click(button="right")
+                    page.get_by_role("menuitem", name="Pengaturan Email").click()
+                    page.get_by_role("button", name="Ganti Email").click()
+                    page.get_by_role("textbox", name="Ganti Email").click()
+                    page.get_by_role("textbox", name="Ganti Email").fill(email)
+                    time.sleep(1)
+                    page.get_by_role("button", name="Ganti Email").click()
+                    page.get_by_role("button", name="Broadcast Email").click()
+                    page.get_by_role("button", name="Broadcast Email").click()
+                    # ESCCCCC gbasi
+                    #page.get_by_role("button", name="Close").click()
+                    page.keyboard.press("Escape")
+                    time.sleep(2)
+                    df.loc[i, 'approved'] = 'done'
+
+                except Exception as e:
+                    ggl += 1
+                    if ggl%5 == 0:
+                        break
+
+                    log_message(f"# {i,str(df['nama'][i])[:20]} | ERRR")
+                    log_message(f"Error: {e}")
+                    df.loc[i, 'approved'] = 'error'
+                    time.sleep(2)
+                    continue
+
+                finally:
+                    df.to_csv('tempdatasmp.csv', index=False)
+
+            # --- ENDEMAIL FASIH BC ---
+
+        # --- HEADER APPROV ---
+        def approv():
             try:
-                page.get_by_role("textbox", name="Cari...").click()
-                page.get_by_role("textbox", name="Cari...").fill(id)
-                time.sleep(2)
-                #page.get_by_role("button", name=id).click()
-                page.get_by_role("cell", name=id).click(button="right")
-                page.get_by_role("menuitem", name="Pengaturan Email").click()
-                page.get_by_role("button", name="Ganti Email").click()
-                page.get_by_role("textbox", name="Ganti Email").click()
-                page.get_by_role("textbox", name="Ganti Email").fill(email)
-                time.sleep(1)
-                page.get_by_role("button", name="Ganti Email").click()
-                page.get_by_role("button", name="Broadcast Email").click()
-                page.get_by_role("button", name="Broadcast Email").click()
-                # ESCCCCC gbasi
-                #page.get_by_role("button", name="Close").click()
-                page.keyboard.press("Escape")
-                time.sleep(2)
-                df.loc[i, 'approved'] = 'done'
+                from urllib.parse import unquote
+                namejson = 'data_survey.json'
+                id = "6a4f9604-dba9-4ef3-a284-7b1c56f127fa"
 
-            except Exception as e:
-                ggl += 1
-                if ggl%5 == 0:
-                    break
+                # try aja
+                h3 = page.locator("h1").first.wait_for(state="visible", timeout=10000)
+                log_message(f'Judul: {h3}')
 
-                log_message(f"# {i,str(df['nama'][i])[:20]} | ERRR")
-                log_message(f"Error: {e}")
-                df.loc[i, 'approved'] = 'error'
-                time.sleep(2)
-                continue
+                #target_url = "https://fasih-sm.bps.go.id/app/api/assignment-approval/api/v2/revoke-approval"
+                target_url = "https://fasih-sm.bps.go.id/app/api/assignment-approval/api/v2/approval"
+                # blm nyoba reject by api ======
 
-            finally:
-                df.to_csv('tempdatasmp.csv', index=False)
+                # 1. AMBIL COOKIE CSRF DARI BROWSER CONTEXT
+                cookies = page.context.cookies()
+                csrf_token = ""
+                for cookie in cookies:
+                    # Biasanya nama cookienya 'XSRF-TOKEN' atau 'csrf_token'
+                    if cookie['name'] == 'XSRF-TOKEN': 
+                        csrf_token = unquote(cookie['value']) # Decode jika token mengandung %3D atau karakter khusus
+                        break
+                
+                a = 'revoking' if 'revoke' in target_url else 'approving'
+                status_approv = 'false' if 'revoke' in target_url else 'true'
+                log_message(f'TRY "{a}" with api instead of button pushing')
 
-        # --- ENDEMAIL FASIH BC ---
+                # 1. Siapkan data body/payload JSON yang diminta oleh API BPS
+                headers = {
+                    "Content-Type": "application/json",
+                    "X-XSRF-TOKEN": csrf_token, # Ini kunci utamanya!
+                    "Referer": "https://bps.go.id"
+                }
+                payload_data = {
+                    "assignmentId": id,
+                    "statusApproval": status_approv,
+                    "comment": "\"\""
+                }
 
+                # 2. Eksekusi POST request memanfaatkan session browser
+                log_message(f"Mengirim POST request ke {target_url}...")
+                response = page.request.post(
+                    target_url,
+                    headers=headers,
+                    data=payload_data # Playwright otomatis mengubah dict ini menjadi JSON string
+                )
+
+                # 3. Handle respon dari server
+                if response.ok:
+                    response_json = response.json()
+                    log_message(f"POST Berhasil! Status: {response.status}")
+                    
+                    # Simpan hasil respon ke file data_survey.json
+                    #with open(namejson, 'w', encoding='utf-8') as f:
+                    #    json.dump(response_json, f, indent=4)
+                    #log_message(f'# written to {namejson}')
+
+                    # 4. Refresh halaman untuk melihat perubahan di UI
+                    page.reload()
+                    page.locator("h1").first.wait_for(state="visible", timeout=10000)
+
+                else:
+                    log_message(f"POST Gagal! Status: {response.status} - {response.text()}")
+
+            except Exception as e :
+                log_message(f'Error: {e}')
+
+            # --- END APPROv ---
+
+
+        # --- CHANGE THIS ---
+        # emailbc()
+        approv()
+        # ---
         page.pause() #debugging, open recorder on playwright
         
         page.wait_for_timeout(5000)
