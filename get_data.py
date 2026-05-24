@@ -13,6 +13,7 @@ import random
 import os
 import json
 from playwright.sync_api import sync_playwright, expect
+from urllib.parse import unquote
 
 def get_playwright_page(cdp_url="http://localhost:9222"):
     """
@@ -619,154 +620,133 @@ def assignselect(instance, var):
         df.to_csv(filename, index=False)
     instance.isdone = 1
 
-def getdataPES(page):
+def getdataPES(namafile='data_survey.json'):
     '''FUNCTION FOR GETTING DATA PES'''
-    try:
-        #instance.log_message("Masuk ke fungsi get data PES")
-        #page = instance.page
-        # list id blok 4
-        ids4 = ['number_group_member', 'currency_spending', 'details_spending', 'var_spending', 'local_package_tour_spending', 'accommodation_spending', 'food_spending', 'domestic_flight_spending', 'local_transport_bus', 'local_transport_train', 'local_transport_water_transport', 'other_local_transportation_spending', 'vehicle_rent_spending', 'shopping_spending', 'entertainment_spending', 'health_spending', 'training_spending', 'charity_spending', 'others_spending', ]
-        # init a dict for data
-        col_list = \
-            [f"r{i}" for i in range(1,6)] + \
-            ["r5b"] + [f"r{i}" for i in range(6,9)] + ["r9ab","r9ac"] + \
-            [f"r9b{j}" for j in range(1,6)] + [f"r9b{j}c" for j in range(1,6)] + \
-            [f"r10.{j}.1" for j in range(1,14)] + \
-            [f"r10.{j}.2" for j in range(1,14)] + \
-            [f"r11.{j}" for j in range(1,5)] + ['r12'] + ids4 + \
-            [f"r{i}" for i in range(14,18)] + \
-            [f"r18a_{k}" for k in ['arrival','departure']] + [f"r18b_{k}" for k in ['arrival','departure']] + [f"r18c_{k}" for k in ['arrival','departure']] + \
-            [f"r19_{j}" for j in range(1,15)] +\
-            [f"r{i}" for i in range(20,27)]
-        d = dict.fromkeys(col_list, '--')
-        #5b,9ac,9b[1,6],9b[1,6]c,10.[1,13], 11.[1,5], ids4, r18[a,b,c]_[arrival,departure], r19_[1,15], 
+    # Open the file and load its content
+    with open(namafile, 'r') as file:
+        df = json.load(file)
+    dff = json.loads(df['data']['data'])['answers']
+    dffT = {item["dataKey"]: item for item in dff}
 
-        def cek_inner( location, timeout=10000):
-            # 1. Kunci elemen tombol dropdown
-            elem = page.locator(location)
-            # 2. Tunggu maksimal t detik sampai teksnya BUKAN "Select an option" atau ""
-            try:
-                # page.wait_for_function(
-                #     #"el => el.innerText.strip() !== '' && el.innerText.strip() !== 'Select an option' && el.innerText.strip() !== 'Pilih salah satu'",
-                #     """(el) => {
-                #         const text = el.innerText.trim();
-                #         return text !== "" && text !== "Select an option" && text !== "Pilih salah satu";
-                #     }""",
-                #     arg=elem.element_handle(),
-                #     timeout=timeout )
-                expect(elem).not_to_have_text("", timeout=timeout)
-                expect(elem).not_to_have_text("Select an option", timeout=timeout)
-                expect(elem).not_to_have_text("Pilih salah satu", timeout=timeout)
-            # except Exception:
-            except AssertionError:
-                pass  # Abaikan error timeout jika memang halaman web sengaja mengosongkannya
-            return elem.inner_text().strip()
-        
-        def menubar(idblok):
-            #time.sleep(1)
-            page.locator(f'xpath=//div[@id="fasih-form"]/DIV[1]/DIV[1]/ASIDE[1]/DIV[2]/DIV[{idblok}]/DIV[1]').click()
+    ids4 = ['number_group_member', 'currency_spending', 'details_spending', 'var_spending', 'local_package_tour_spending', 'accommodation_spending', 'food_spending', 'domestic_flight_spending', 'local_transport_bus', 'local_transport_train', 'local_transport_water_transport', 'other_local_transportation_spending', 'vehicle_rent_spending', 'shopping_spending', 'entertainment_spending', 'health_spending', 'training_spending', 'charity_spending', 'others_spending', ]
+    # init a dict for data
+    col_list = \
+        [f"r{i}" for i in range(1,6)] + \
+        ["r5b"] + [f"r{i}" for i in range(6,9)] + ["r9ab","r9ac"] + \
+        [f"r9b{j}" for j in range(1,6)] + [f"r9b{j}c" for j in range(1,6)] + \
+        [f"r10.{j}.1" for j in range(1,14)] + \
+        [f"r10.{j}.2" for j in range(1,14)] + \
+        [f"r11.{j}" for j in range(1,5)] + ['r12'] + ids4 + \
+        [f"r{i}" for i in range(14,18)] + \
+        [f"r18a_{k}" for k in ['arrival','departure']] + [f"r18b_{k}" for k in ['arrival','departure']] + [f"r18c_{k}" for k in ['arrival','departure']] + \
+        [f"r19_{j}" for j in range(1,15)] +\
+        [f"r{i}" for i in range(20,27)]
+    d = dict.fromkeys(col_list, '--')
 
-        # BLOK1, click tab di sidebar
-        menubar(1) 
-        # 
-        d['r1'] = page.locator("//div[@id='name']//input[@type='text']").input_value()
-        d['r2'] = page.locator("//div[@id='age']//input[@type='text']").input_value()
-        d['r3'] = page.locator("//div[@id='sex']").locator("input[type='radio']:checked").get_attribute('value')
-        
-        d['r4'] = cek_inner( "//div[@id='nationality']//button[@aria-haspopup='dialog']",10000)
-        d['r5'] = cek_inner("//div[@id='country_residence']//button[@aria-haspopup='dialog']",10000)
-        d['r5b'] = cek_inner("//div[@id='city_residence']//button[@aria-haspopup='dialog']",10000)
-        
-        d['r6'] = page.locator("//div[@id='main_purpose']").locator("input[type='radio']:checked").get_attribute('value')
+    d['r1'] = dffT['name']['answer'] if 'name' in dffT else '--'
+    d['r2'] = dffT['age']['answer'] if 'age' in dffT else '--'
+    d['r3'] = dffT['sex']['answer'][0]['value'] if 'sex' in dffT and dffT['sex'].get('answer') else '--'
+    d['r4'] = dffT['nationality']['answer'][0]['label'] if 'nationality' in dffT and dffT['nationality'].get('answer') else '--'
+    d['r5'] = dffT['country_residence']['answer'][0]['label'] if 'country_residence' in dffT and dffT['country_residence'].get('answer') else '--'
+    d['r5b'] = dffT['city_residence']['answer'][0]['label'] if 'city_residence' in dffT and dffT['city_residence'].get('answer') else '--'
+    d['r6'] = dffT['main_purpose']['answer'][0]['value'] if 'main_purpose' in dffT and dffT['main_purpose'].get('answer') else '--'
 
-        # BLOK2
-        menubar(2)
-        
-        d['r7'] = cek_inner( "//div[@id='port_entry']//button[@aria-haspopup='dialog']")
-        d['r8'] = page.locator("//div[@id='length_of_stay']//input[@type='text']").input_value()
-        
-        # main dest
-        #d['r9'] = page.locator("//div[@id='main_destination_prov']//button/div").text
-        d['r9ab'] = cek_inner( "//div[@id='main_destination_kab']//button[@aria-haspopup='dialog']")
-        d['r9ac'] = page.locator("//div[@id='len_stay_main_dest']//input[@type='text']").input_value()
-        
-        # other dest
-        for i in range(1, 6):
-            #a = page.locator(f"//div[@id='other_destination_prov_{i}']//button[@aria-haspopup='dialog']").inner_text()
-            a = cek_inner(f"//div[@id='other_destination_prov_{i}']//button[@aria-haspopup='dialog']", 1500)
-            if a in ["", "Select an option", "Pilih salah satu"]: continue
-            
-            d[f"r9b{i}"] = cek_inner(f"//div[@id='other_destination_kab_{i}']//button[@aria-haspopup='dialog']", 1500)
-            d[f"r9b{i}c"] = page.locator(f"//div[@id='len_stay_other_dest_{i}']//input[@type='text']").input_value()
-        
-        # BLOK3
-        # get radio: tourism_attraction_05
-        menubar(3)
-        
-        for i in range(1,14):
-            d[f"r10.{i}.1"] = page.locator(f"//div[@id='tourism_attraction_{i:02}']").locator("input[type='radio']:checked").get_attribute('value')
-            # jika ada terpilih
-            if d[f"r10.{i}.1"] == '1':
-                d[f"r10.{i}.2"] = page.locator(f"//div[@id='len_stay_tourism_{i}']//input[@type='text']").input_value()
-            
-            # for switch
-            #d[f"r10.{i}"] = page.locator(f"//div[@id='tourism_attraction_{i:02}']//input[@type='checkbox']").is_selected()
+    # BLOK2
+    d['r7'] = dffT['port_entry']['answer'][0]['label'] if 'port_entry' in dffT and dffT['port_entry'].get('answer') else '--'
+    d['r8'] = dffT['length_of_stay']['answer'] if 'length_of_stay' in dffT else '--'
 
-        #BLOK4
-        menubar(4)
-        # tidak semua datanya diambil sih
-        for i in range(1,5):
-            d[f"r11.{i}"] = page.locator(f"//div[@id='accommodation_{i:02}']").locator("input[type='radio']:checked").get_attribute('value')
-        d[f"r12"] = page.locator(f"//div[@id='use_tour_package']").locator("input[type='radio']:checked").get_attribute('value')
+    # main dest
+    main_dest_kab_key = 'main_destination_kab'
+    d['r9ab'] = dffT[main_dest_kab_key]['answer'][0]['label'] if main_dest_kab_key in dffT and dffT[main_dest_kab_key].get('answer') else '--'
+    len_stay_main_dest_key = 'len_stay_main_dest'
+    d['r9ac'] = dffT[len_stay_main_dest_key]['answer'] if len_stay_main_dest_key in dffT else '--'
 
-        #BLOK5
-        menubar(5)
+    # other dest
+    for i in range(1, 6):
+        prov_key = f"other_destination_prov_{i}"
+        # Check if the key exists and has a non-empty 'answer' list before attempting to access
+        if prov_key not in dffT or not dffT[prov_key].get('answer'):
+            continue
 
-        # wait biar isiannya muncul dulu            
-        ids4 = ['number_group_member', 'currency_spending', 'details_spending', 'var_spending', 'local_package_tour_spending', 'accommodation_spending', 'food_spending', 'domestic_flight_spending', 'local_transport_bus', 'local_transport_train', 'local_transport_water_transport', 'other_local_transportation_spending', 'vehicle_rent_spending', 'shopping_spending', 'entertainment_spending', 'health_spending', 'training_spending', 'charity_spending', 'others_spending', ]
-        for id4 in ids4:
-            #try:
+        # a = dffT[prov_key]['answer'][0]['label']
+        # Keeping the original logic for skipping if label is default/empty, though direct `dffT` access might reduce this need
+        # if a in ["", "Select an option", "Pilih salah satu"]:
+        #    continue
+        kab_key = f"other_destination_kab_{i}"
+        d[f"r9b{i}"] = dffT[kab_key]['answer'][0]['label'] if kab_key in dffT and dffT[kab_key].get('answer') else '--'
+
+        len_key = f"len_stay_other_dest_{i}"
+        d[f"r9b{i}c"] = dffT[len_key]['answer'] if len_key in dffT else '--'
+
+    # BLOK3
+    for i in range(1,14):
+        key_attr = f"tourism_attraction_{i:02}"
+        d[f"r10.{i}.1"] = dffT[key_attr]['answer'][0]['value'] if key_attr in dffT and dffT[key_attr].get('answer') else '--'
+        # jika ada terpilih
+        if d[f"r10.{i}.1"] == '1':
+            key_len = f"len_stay_tourism_{i}"
+            d[f"r10.{i}.2"] = dffT[key_len]['answer'] if key_len in dffT else '--'
+
+    #BLOK4
+    # tidak semua datanya diambil sih
+    for i in range(1,5):
+        key_accom = f"accommodation_{i:02}"
+        d[f"r11.{i}"] = dffT[key_accom]['answer'][0]['value'] if key_accom in dffT and dffT[key_accom].get('answer') else '--'
+    use_tour_package_key = 'use_tour_package'
+    d[f"r12"] = dffT[use_tour_package_key]['answer'][0]['value'] if use_tour_package_key in dffT and dffT[use_tour_package_key].get('answer') else '--'
+
+    #BLOK5
+    ids4 = ['number_group_member', 'currency_spending', 'details_spending', 'var_spending', 'local_package_tour_spending', 'accommodation_spending', 'food_spending', 'domestic_flight_spending', 'local_transport_bus', 'local_transport_train', 'local_transport_water_transport', 'other_local_transportation_spending', 'vehicle_rent_spending', 'shopping_spending', 'entertainment_spending', 'health_spending', 'training_spending', 'charity_spending', 'others_spending', ]
+    for id4 in ids4:
+        if id4 in dffT: # Check if id4 exists in dffT
             if id4 == 'currency_spending':
-                d[id4] = cek_inner(f"//div[@id='{id4}']//button[@aria-haspopup='dialog']")
-            else: d[id4] = page.locator(f"//div[@id='{id4}']//input[@type='text']").input_value()
+                d[id4] = dffT[id4]['answer'][0]['label'] if dffT[id4].get('answer') else '--'
+            elif id4 == 'var_spending':
+                d[id4] = int(dffT[id4]['answer'].replace(',','')) if dffT[id4].get('answer') else '--'
+            else:
+                d[id4] = dffT[id4]['answer']
+        else:
+            d[id4] = '--' # Assign '--' if key not found in dffT
 
-        #BLOK6
-        menubar(6)
-        
-        d['r14'] = page.locator(f"//div[@id='main_occupation']").locator("input[type='radio']:checked").get_attribute('value')
-        # r15 skip 
-        d['r16'] = page.locator("//div[@id='freq_visit']//input[@type='text']").input_value()
-        #
-        for i in ['arrival', 'departure']:
-            d[f'r18a_{i}'] = cek_inner(f"//div[@id='airline_{i}']//button[@aria-haspopup='dialog']")
-            d[f'r18b_{i}'] = cek_inner(f"//div[@id='currency_{i}']//button[@aria-haspopup='dialog']")
-            d[f'r18c_{i}'] = page.locator(f"//div[@id='value_{i}']//input[@type='text']").input_value()
+    #BLOK6
+    main_occupation_key = 'main_occupation'
+    d['r14'] = dffT[main_occupation_key]['answer'][0]['value'] if main_occupation_key in dffT and dffT[main_occupation_key].get('answer') else '--'
+    # r15 skip (original comment)
+    freq_visit_key = 'freq_visit'
+    d['r16'] = dffT[freq_visit_key]['answer'] if freq_visit_key in dffT else '--'
+    #
+    for i in ['arrival', 'departure']:
+        key_airline = f'airline_{i}'
+        d[f'r18a_{i}'] = dffT[key_airline]['answer'][0]['label'] if key_airline in dffT and dffT[key_airline].get('answer') else '--'
 
-        #BLOK7
-        menubar(7)
-        #
-        # get switch: activities_06
-        for i in range(1,15):
-            d[f'r19_{i}'] = page.locator(f"//div[@id='activities_{i:02}']").locator("input[type='radio']:checked").get_attribute('value')
-            #d[f'r19_{i}'] = page.locator(f"//div[@id='activities_{i:02}']//input[@type='checkbox']").is_selected()
+        key_currency = f'currency_{i}'
+        d[f'r18b_{i}'] = dffT[key_currency]['answer'][0]['label'] if key_currency in dffT and dffT[key_currency].get('answer') else '--'
 
-        d['r20'] = page.locator(f"//div[@id='wonderful_indonesia']").locator("input[type='radio']:checked").get_attribute('value')
-        d['r21'] = page.locator(f"//div[@id='ecofriendly_principle']").locator("input[type='radio']:checked").get_attribute('value')
-        d['r22'] = page.locator(f"//div[@id='satisfaction_lvl']").locator("input[type='radio']:checked").get_attribute('value')
-        d['r23'] = page.locator(f"//div[@id='intention_to_visit']").locator("input[type='radio']:checked").get_attribute('value')
+        key_value = f'value_{i}'
+        d[f'r18c_{i}'] = dffT[key_value]['answer'] if key_value in dffT else '--'
 
-        #BLOK8
-        menubar(8)
-        #
-        d['r24'] = page.locator(f"//div[@id='note']//textarea").input_value()
-        d['r25'] = page.locator(f"//div[@id='impression']//textarea").input_value()
-        d['r26'] = page.locator(f"//div[@id='viplounge']").locator("input[type='radio']:checked").get_attribute('value')
+    #BLOK7
+    for i in range(1,15):
+        key_activities = f'activities_{i:02}'
+        d[f'r19_{i}'] = dffT[key_activities]['answer'][0]['value'] if key_activities in dffT and dffT[key_activities].get('answer') else '--'
+        #d[f'r19_{i}'] = page.locator(f"//div[@id='activities_{i:02}']//input[@type='checkbox']").is_selected() # Original commented out
 
-        
-    except Exception as e:
-        import sys
-        exc_type, exc_obj, exc_tb = sys.exc_info()
-        raise SyntaxError(f"Error waktu ngambil data PES on line ({str(exc_tb.tb_lineno)}): {e}")
+    wonderful_indonesia_key = 'wonderful_indonesia'
+    d['r20'] = dffT[wonderful_indonesia_key]['answer'][0]['value'] if wonderful_indonesia_key in dffT and dffT[wonderful_indonesia_key].get('answer') else '--'
+    ecofriendly_principle_key = 'ecofriendly_principle'
+    d['r21'] = dffT[ecofriendly_principle_key]['answer'][0]['value'] if ecofriendly_principle_key in dffT and dffT[ecofriendly_principle_key].get('answer') else '--'
+    satisfaction_lvl_key = 'satisfaction_lvl'
+    d['r22'] = dffT[satisfaction_lvl_key]['answer'][0]['value'] if satisfaction_lvl_key in dffT and dffT[satisfaction_lvl_key].get('answer') else '--'
+    intention_to_visit_key = 'intention_to_visit'
+    d['r23'] = dffT[intention_to_visit_key]['answer'][0]['value'] if intention_to_visit_key in dffT and dffT[intention_to_visit_key].get('answer') else '--'
+
+    #BLOK8
+    note_key = 'note'
+    d['r24'] = dffT[note_key]['answer'] if note_key in dffT else '--'
+    impression_key = 'impression'
+    d['r25'] = dffT[impression_key]['answer'] if impression_key in dffT else '--'
+    viplounge_key = 'viplounge'
+    d['r26'] = dffT[viplounge_key]['answer'][0]['value'] if viplounge_key in dffT and dffT[viplounge_key].get('answer') else '--'
 
     # FINISH
     return d
@@ -953,14 +933,12 @@ def reject(instance, var, mulai=0, func=None, cekapprov=True, idlog='codeIdentit
 
 
 # Function penunjang to get list data
-def handle_response(instance, response, namejson='data_survey.json', target_url="https://fasih-sm.bps.go.id/app/api/analytic/api/v2/assignment/datatable-all-user-survey-periode"):
+def handle_response(instance, response, target_url, namejson='data_survey.json'):
     # Filter URL spesifik yang ingin Anda ambil datanya
     
     if target_url in response.url:
         try:
-            # Ambil data dalam bentuk JSON
             data = response.json()
-            # Simpan data ke file lokal agar bisa Anda cek di VS Code
             with open(namejson, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=4, ensure_ascii=False)
             #instance.log_message(f"[✓] (Status {response.status}). Data disimpan ke '{namejson}'")
@@ -984,7 +962,7 @@ def mergejson(dictlist, listcol, namejson='data_survey.json'):
 
 # Function to get list data
 def get_list_data(instance, namadf,  mode="w", maxrow=0, sep=","):
-    '''Get dataframe dari prelist link fasih untuk dijadikan bahan, kemudian export ke csv juga. Update ngambilnya dari response URL API'''
+    '''Get dataframe dari prelist link fasih untuk dijadikan bahan, kemudian export ke csv juga. '''
     instance.isdone = 0
     try:
         p_instance, browser, page = get_playwright_page() #konek ke playwr
@@ -992,7 +970,7 @@ def get_list_data(instance, namadf,  mode="w", maxrow=0, sep=","):
         # wait n getting response
         namejson = 'data_survey.json'
         target_url = "https://fasih-sm.bps.go.id/app/api/analytic/api/v2/assignment/datatable-all-user-survey-periode"
-        page.on("response", lambda response: handle_response(instance, response, namejson, target_url))
+        page.on("response", lambda response: handle_response(instance, response, target_url, namejson))
 
         # page.goto("https://fasih-sm.bps.go.id/app/surveys?page=0&perPage=10&layout=list")
         page.reload()
@@ -1021,7 +999,7 @@ def get_list_data(instance, namadf,  mode="w", maxrow=0, sep=","):
             if next_button.is_visible() and next_button.is_enabled():
                 next_button.click()
                 ipage += 1
-                page.wait_for_timeout(2000) # Jeda 1 detik nunggu halaman muat
+                page.wait_for_timeout(2000) # Jeda detik nunggu halaman muat
                 instance.log_message(f'# Get response data from page {ipage}')
                 dflist = mergejson(dflist, listcol, namejson)
             else:
@@ -1035,7 +1013,7 @@ def get_list_data(instance, namadf,  mode="w", maxrow=0, sep=","):
         df = pd.DataFrame(dflist)
         instance.log_message(f"# Get {len(df)} rows of data")
         df['link'] = 'https://fasih-sm.bps.go.id/app/assignment/'+ df['surveyPeriodId'].astype(str) + "/" + df['id'].astype(str)
-        #page.pause() #debugging, open recorder on playwright
+        # page.pause() #debugging, open recorder on playwright
                 
         # save as csv
         if mode=="w":
@@ -1049,8 +1027,6 @@ def get_list_data(instance, namadf,  mode="w", maxrow=0, sep=","):
             next(f)
             totrow = sum(1 for line in f)
         instance.log_message(f"# Total rows now: {totrow}")
-        #change_text(label_status, "Running Selesai", "green")
-        #df.tail()
         
         return (df)
     
@@ -1065,6 +1041,82 @@ def get_list_data(instance, namadf,  mode="w", maxrow=0, sep=","):
         except NameError:
             # Terjadi jika get playwright page() gagal total di awal
             pass
+
+# Function penunjang approv (and get data)
+def run_api_request(instance, page, method, target_url, target_id, msg="", payload=None, filename="data_survey.json"):
+    """
+    Fungsi tunggal untuk menangani GET dan POST request ke API BPS.
+    method: 'GET' atau 'POST'
+    """
+    log_message = instance.log_message
+    try:
+        method = method.upper()
+        msg = method if msg == "" else msg
+        
+        # 1. AMBIL COOKIE CSRF (Dipakai bersama)
+        csrf_token = ""
+        for cookie in page.context.cookies():
+            if cookie['name'] == 'XSRF-TOKEN': 
+                csrf_token = unquote(cookie['value'])
+                break
+        
+        # 2. SELEKSI HEADERS BERDASARKAN METHOD
+        headers = {
+            "X-XSRF-TOKEN": csrf_token,
+            "Referer": "https://bps.go.id"
+        }
+        if method == "POST":
+            headers["Content-Type"] = "application/json"
+
+        log_message(f"- Try {msg} request...")
+
+        # 3. EKSEKUSI REQUEST (GET vs POST)
+        if method == "POST":
+            # Jika payload tidak diisi manual, buat payload default approval
+            if not payload:
+                status_approv = 'false' if 'revoke' in target_url else 'true' # ====== buat juga misal ada reject
+                payload = {
+                    "assignmentId": target_id,
+                    "statusApproval": status_approv,
+                    "comment": "\"\""
+                }
+            response = page.request.post(target_url, headers=headers, data=payload)
+            
+        elif method == "GET":
+            # Jika target_id dimasukkan sebagai Query Parameter (?assignmentId=123)
+            response = page.request.get(target_url, headers=headers, params={"assignmentId": target_id}) # ====== gaperlukah payload di GET? next
+            # Jika ID dimasukkan langsung di dalam URL path (misal: /api/data/123)
+            # url_with_id = f"{target_url}/{target_id}"
+            # response = page.request.get(url_with_id, headers=headers)
+        
+        else:
+            log_message(f"- Method {method} tidak didukung.")
+            return None
+
+        # 4. HANDLE RESPONSE (Dipakai bersama)
+        if response.ok:
+            response_json = response.json()
+            log_message(f"- {msg} success!")
+            
+            # Jika GET, simpan ke file JSON
+            if method == "GET":
+                with open(filename, "w", encoding="utf-8") as f:
+                    json.dump(response_json, f, indent=4, ensure_ascii=False)
+                #log_message(f"- Data disimpan ke '{filename}'")
+            
+            # Jika POST, lakukan UI refresh halaman
+            # elif method == "POST":
+            #     page.reload()
+            #     page.locator("h1").first.wait_for(state="visible", timeout=10000)
+                
+            return response_json
+        else:
+            log_message(f"- {method} Gagal! Status: {response.status} - {response.text()}")
+            return None
+
+    except Exception as e:
+        log_message(f'- Error pada {method} request: {e}')
+        return None
 
 # Function approv (and get data)
 def mainfunc(instance, filename, mulai=0, func=None, cekapprov=True, idlog='codeIdentity', sep=','):
@@ -1107,60 +1159,75 @@ def mainfunc(instance, filename, mulai=0, func=None, cekapprov=True, idlog='code
                     instance.log_message(f"# {i,str(df[idlog][i])[:20]} | Approv'd, skip")
                     continue
 
-                # goto web
-                page.goto(df.link[i])
-                # tapi ada error disini biasanya gamau load page, hmm. tpi klo load normal haruse pass
-                # alt1 
-                # page.wait_for_load_state("networkidle", timeout=30000) #stabil sebelum cek field
-                # alt2
-                page.locator("h1").wait_for(state="visible", timeout=30000)
-                #page.evaluate("document.body.style.zoom='0.5'")
-
                 # perlukah cek approv yg ke2? ======
 
                 # function tambahan here
+                target_id = df.loc[i, 'id']
                 if func:
                     try:
-                        resultDict = func(page)
+                        # send and get response (get data detail all)
+                        base_url = "https://fasih-sm.bps.go.id/app/api/assignment-general/api/assignment/get-by-assignment-id"
+                        response = run_api_request(instance, page, method="get", target_url=base_url, target_id=target_id, msg=f"GetData-row-{i}")
+                        if response is None:
+                            raise ValueError("API tidak mengembalikan data (Response is None)")
+                        if response['success'] == False or response['success'] == "False":
+                            raise ValueError(response['message'])
+                        
+                        # ketika apireq get nya success, maka kesini, jika ga, skip. 
+                        resultDict = func()
                         # get a dict value per row from web (init dict from func)
                         for key,value in resultDict.items():
                             df.loc[i, key] = value
                         df.to_csv(filename, index=False)
+
+                        # kasih jeda
+                        time.sleep(random.uniform(1, 3))
                         
                     except ValueError as e:
-                        instance.log_message(f"# Terjadi error: ")
+                        instance.log_message(f"# Terjadi error on GetData: ")
                         instance.log_message(str(e).split("Stacktrace:")[0], "red_tag")
                         # logging
                         df.loc[i, 'approved'] = str(e).split("Stacktrace:")[0]
                         df.to_csv(filename, index=False)
-                        continue
+                        #continue
+                        break
                 # 
 
                 # mulai approve jika approv 
                 if cekapprov:
                     try:
-                        cekbtn = page.get_by_role("button", name="Open menu") 
-                        cekbtn.first.wait_for( #cek jika visible juga
-                            state="visible", 
-                            timeout=2000
-                        )
-                        cekbtn.click() #click btuton menu
-                        page.locator("button[class*='rounded-full'][class*='bg-success']").click(timeout=1500) #approv
-                        page.get_by_role("button", name="Konfirmasi").click(timeout=10000) #konfirm modal
-                        # wait
-                        page.wait_for_timeout(1500)
-                        time.sleep(1)
+                        # send and get response (approv)
+                        target_url = "https://fasih-sm.bps.go.id/app/api/assignment-approval/api/v2/approval" #approv
+                        # target_url = "https://fasih-sm.bps.go.id/app/api/assignment-approval/api/v2/revoke-approval" #revoke
+                        # target_url = blm nyoba reject by api ====== blm nyoba juga kalo misal dah approv gimana
+                        response = run_api_request(instance, page, method="post", target_url=target_url, target_id=target_id, msg=f"Approving-row-{i}") 
+                        if response is None:
+                            raise ValueError("API tidak mengembalikan data (Response is None)")
+                        if response['success'] == False or response['success'] == "False":
+                            raise ValueError(response['message'])
 
-                    except:
-                        instance.log_message(f"# {i,str(df[idlog][i])[:20]} | Skip gada approv")
+                        # kasih jeda
+                        time.sleep(random.uniform(1, 3))
+
+                    except Exception as e:
+                        instance.log_message(f"# {i,str(df[idlog][i])[:20]} | Skip gabisa approv")
+                        instance.log_message(f"Error approv {e}", "red_tag")
                         # logging
-                        df.loc[i, 'approved'] = True 
+                        df.loc[i, 'approved'] = str(e).split("Stacktrace:")[0]
                         df.to_csv(filename, index=False)
                         continue
+
+                if not cekapprov and not func:
+                    instance.log_message('NGAPAIN BRUH?', 'red_tag')
+                    break
 
                 # end result if success
                 df.loc[i, 'approved'] = True
                 df.to_csv(filename, index=False)
+                
+                # kasih jeda
+                if i%10 == 0: time.sleep(30)
+                if i%100 == 0: time.sleep(60)
                 
             except Exception as e:
                 # coba refresh n login ulang
@@ -1171,7 +1238,8 @@ def mainfunc(instance, filename, mulai=0, func=None, cekapprov=True, idlog='code
                     # reload
                     page.goto(df.link[i])
                     if i < -1: i=-1
-                    instance.log_message(f"# Terjadi error: ")
+                    exc_type, exc_obj, exc_tb = sys.exc_info()
+                    instance.log_message(f"# Terjadi error: {str(exc_tb.tb_lineno)} ")
                     instance.log_message(str(e).split("Stacktrace:")[0]+"\n", "red_tag")
                     # try relogin sso ====== need update
                     #
@@ -1195,6 +1263,10 @@ def mainfunc(instance, filename, mulai=0, func=None, cekapprov=True, idlog='code
     finally:
         # Selalu tutup p_instance di blok 'finally' agar tidak hang
         instance.isdone = 1
+        try: 
+            instance.log_message('Removing temporary file')
+            os.remove('data_survey.json')
+        except: instance.log_message("Ups, File emang gada")
         try:
             p_instance.stop()
             instance.log_message("Koneksi Playwright di thread ditutup.")

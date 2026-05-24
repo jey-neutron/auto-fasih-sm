@@ -698,9 +698,9 @@ class AutoApp:
             self.log_message("Silakan memilih survei sendiri sampai ke halaman list tabel data.")
         except Exception as e:
             self.log_message(f"Error di thread data loginsso: {e}", tag="red_tag")
-            self.isdone= 1
         finally:
             # Selalu tutup p_instance di blok 'finally' agar tidak hang
+            self.isdone= 1
             try:
                 p.stop()
                 #self.log_message("Koneksi Playwright di thread ditutup.")

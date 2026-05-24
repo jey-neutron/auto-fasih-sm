@@ -436,14 +436,18 @@ def run():
         # run_api_request(page, method="post", target_url=target_url, target_id=target_id, msg="Approving")
         # 
         # RUN Get detail data
-        # base_url = "https://fasih-sm.bps.go.id/app/api/assignment-general/api/assignment/get-by-assignment-id"
-        # target_id = "5451c1cc-5cb3-444e-9696-72b457aa00e8"
-        # run_api_request(page, method="get", target_url=base_url, target_id=target_id, msg="GetData")
+        base_url = "https://fasih-sm.bps.go.id/app/api/assignment-general/api/assignment/get-by-assignment-id"
+        target_id = "f2ad1748-8b8b-4af4-a1a0-c3af0ed0bdd9"
+        response = run_api_request(page, method="get", target_url=base_url, target_id=target_id, msg="GetData")
+        print(response)
+        if response['success'] == False or response['success'] == "False":
+            print(response['message'])
         # 
         # Udah get detail data kan, abistu convert per data survei yg sesuai
         # RUN Get PES
         # ====== ketika apireq get nya success, maka kesini, jika ga, skip. ketika dah selese loop, delete data_survey.json
         resultDict = run_getdataPES()    
+        print(resultDict)
         # plan A
         # for key,value in resultDict.items():
         #     df.loc[i, key] = value
