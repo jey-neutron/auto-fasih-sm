@@ -1,4 +1,5 @@
 import subprocess
+import socket
 import time
 import tkinter as tk
 from tkinter import ttk
@@ -571,26 +572,37 @@ class AutoApp:
                 self.browser = self.playwright_instance.chromium.connect_over_cdp("http://localhost:9222")                    
                 self.page = self.browser.contexts[0].pages[0]
                 self.page.goto('https://www.google.com')
+                self.change_status("STATUS: Browser Ready", color="green")
                 self.log_message("Berhasil terhubung ke browser yang sudah ada!")
+                self.log_message("Ready for action.")
                 
             except Exception:
                 # 2. Jika gagal (browser belum dibuka), luncurkan browser baru dari nol
-                self.log_message("Browser tidak ditemukan. Membuka browser baru...")
+                self.log_message("Browser not found. Open new...")
                 # self.browser = p.chromium.launch(headless=False)
                 # Opsional: Jika ingin otomatis membuka Chrome asli Anda lewat script,
                 # gunakan baris di bawah ini menggantikan p.chromium.launch:
                 subprocess.Popen(r'start chrome.exe --remote-debugging-port=9222 --user-data-dir="C:\chrometemp"', shell=True)
-                time.sleep(5)
+                time.sleep(2)
+                # Loop sampai port aktif
+                port_siap = False
+                while not port_siap:
+                    try:
+                        with socket.create_connection(("127.0.0.1", 9222), timeout=1):
+                            port_siap = True
+                    except (ConnectionRefusedError, socket.timeout):
+                        time.sleep(0.5) # Cek ulang setiap 0.5 detik
                 try:
-                    self.browser = playwright_instance.chromium.connect_over_cdp("http://localhost:9222")
-                    context = browser.contexts[0] if browser.contexts else browser.new_context()
+                    self.browser = self.playwright_instance.chromium.connect_over_cdp("http://localhost:9222")
+                    context = self.browser.contexts[0] if self.browser.contexts else self.browser.new_context()
                     self.page = context.pages[0] if context.pages else context.new_page()
+                    self.change_status("STATUS: Browser Ready", color="green")
                     self.log_message("Berhasil terhubung ke browser baru!")
+                    self.log_message("Ready for action.")
                 except Exception:
-                    self.log_message("Gagal terhubung ke Chrome. Pastikan port 9222 tidak diblokir.")
+                    self.log_message("Gagal terhubung ke Chrome. Pastikan port 9222 tidak diblokir. Coba Start Browser lagi")
+                    self.change_status("STATUS: Browser not terhubung", color="red")
                 
-            self.log_message("Ready for action.")
-            self.change_status("STATUS: Browser Ready", color="green")
         except Exception as e:
             self.change_status("STATUS: Browser Error", color="red")
             self.log_message(f"ERROR: Gagal membuka browser. ({str(e).split('Stacktrace:')[0]})", tag="red_tag")    
@@ -740,10 +752,10 @@ class AutoApp:
 
         # Validasi sederhana untuk baris mulai
         try:
-            if start_row == 'Cth: 0 (untuk mulai dari awal)':
-                row_num = 0
-            else:
-                row_num = int(start_row)
+            #if start_row == 'Cth: 0 (untuk mulai dari awal)':
+            #    row_num = 0
+            #else:
+            row_num = int(start_row)
             if row_num < 0:
                  raise ValueError
         except ValueError:
@@ -760,6 +772,7 @@ class AutoApp:
         if extra_input == "Input opsional... (cth: help)" or extra_input.strip() == "":
             self.log_message("Catatan: Tidak ada fungsi tambahan yang dipilih.")
             extra_input_fun = None 
+            self.isdone = 1
         else:
             try:
                 external_funcs = load_setting_file(self)

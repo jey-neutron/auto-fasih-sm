@@ -997,7 +997,7 @@ def get_list_data(instance, namadf,  mode="w", maxrow=0, sep=","):
         # page.goto("https://fasih-sm.bps.go.id/app/surveys?page=0&perPage=10&layout=list")
         page.reload()
         page.wait_for_timeout(2000) 
-        page.evaluate("document.body.style.zoom='0.5'")
+        #page.evaluate("document.body.style.zoom='0.5'")
         page.locator("h3").first.wait_for(
             state="visible", 
             timeout=10000
