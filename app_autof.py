@@ -81,6 +81,7 @@ def load_setting_file(instance, filename="get_data.py", load=True):
     return True
 #####
 
+
 # Main app
 class AutoApp:
     def __init__(self, master):
@@ -166,7 +167,7 @@ class AutoApp:
         
         # --- Tombol Baris 1: Buka Aplikasi & Buka Link ---
         self.btn_frame_1 = tk.Frame(self.main_frame, bg=self.BG_MAIN)
-        self.btn_frame_1.pack(fill=tk.X, pady=(15, 5))
+        self.btn_frame_1.pack(fill=tk.X, pady=(7, 5))
 
         self.btn_open_app = tk.Button(
             self.btn_frame_1, 
@@ -202,7 +203,7 @@ class AutoApp:
 
         # --- Tombol Baris 2: Fungsi 1 & Fungsi 2 ---
         self.btn_frame_2 = tk.Frame(self.main_frame, bg=self.BG_MAIN)
-        self.btn_frame_2.pack(fill=tk.X, pady=10)
+        self.btn_frame_2.pack(fill=tk.X, pady=7)
 
         # Variabel kontrol untuk menyimpan nilai radiobutton yang dipilih
         self.vwrite = tk.IntVar(value=1)
@@ -340,6 +341,26 @@ class AutoApp:
         self.rb2.pack(side=tk.LEFT, padx=2)
         self.rb3= tk.Radiobutton(
             self.radio_container, 
+            text='Reject', 
+            variable=self.v, 
+            value=2, 
+            indicatoron=0, 
+            command=self.update_label,
+            bg=self.BG_INPUT,
+            #fg=self.FG_MUTED,
+            fg='#c7c7c7',
+            selectcolor=self.ACCENT_TEAL,
+            activebackground=self.ACCENT_TEAL,
+            activeforeground=self.FG_MAIN,
+            relief=tk.FLAT,
+            font=('Segoe UI', 8, 'bold'),
+            padx=8,
+            pady=3,
+            cursor="hand2"
+        )
+        self.rb3.pack(side=tk.LEFT, padx=2)
+        self.rb4= tk.Radiobutton(
+            self.radio_container, 
             text='NonApprov', 
             variable=self.v, 
             value=99, 
@@ -357,11 +378,11 @@ class AutoApp:
             pady=3,
             cursor="hand2"
         )
-        self.rb3.pack(side=tk.LEFT, padx=2)
+        self.rb4.pack(side=tk.LEFT, padx=2)
 
         # --- Tombol Baris 3: Close App & Exit App ---
         self.btn_frame_3 = tk.Frame(self.main_frame, bg=self.BG_MAIN)
-        self.btn_frame_3.pack(fill=tk.X, pady=15)
+        self.btn_frame_3.pack(fill=tk.X, pady=5)
 
         self.btn_func_2 = tk.Button(
             self.btn_frame_3, 
@@ -412,12 +433,30 @@ class AutoApp:
         self.btn_close_app.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(4, 4))
 
         # --- Log Area ---
-        tk.Label(self.main_frame, text="Log Aktivitas:", anchor='w', bg=self.BG_MAIN, fg=self.FG_MAIN, font=('Segoe UI', 9, 'bold')).pack(fill=tk.X, pady=(10, 5))
+        # 1. Buat frame horizontal untuk menampung Label dan Tombol Clear
+        log_header_frame = tk.Frame(self.main_frame, bg=self.BG_MAIN)
+        log_header_frame.pack(fill=tk.X, pady=(5, 5))
+
+        # 2. Label ditaruh di dalam log_header_frame (pack ke KIRI)
+        tk.Label(log_header_frame, text="Log Aktivitas:", anchor='w', bg=self.BG_MAIN, fg=self.FG_MAIN, font=('Segoe UI', 9, 'bold')).pack(side=tk.LEFT, fill=tk.X)
+        # 3. Tombol Clear ditaruh di dalam log_header_frame (pack ke KANAN)
+        clear_btn = tk.Button(
+            log_header_frame,
+            text="Clear",
+            font=('Segoe UI', 8, 'bold'),
+            bg="#2A2A38", 
+            fg=self.FG_MAIN,         # Menyesuaikan tema warna Anda
+            relief=tk.SOLID,
+            bd=1,
+            cursor="hand2",          # Mengubah cursor saat hover
+            command=self.clear_log   # Fungsi yang dijalankan saat diklik
+        )
+        clear_btn.pack(side=tk.LEFT)
         self.log_area = scrolledtext.ScrolledText(
             self.main_frame, 
             wrap=tk.WORD, 
             height=20, 
-            font=('Consolas', 9),
+            font=('Consolas', 8),
             bg=self.BG_CARD,
             fg=self.FG_MAIN,
             insertbackground=self.FG_MAIN, # cursor color
@@ -443,7 +482,7 @@ class AutoApp:
         self.rw1.select()
         self.update_label_vwrite()
         if approv == "approv3":
-            self.rb3.select()
+            self.rb4.select()
         else: self.rb1.select()
         self.update_label()
 
@@ -487,10 +526,16 @@ class AutoApp:
     # --update untuk radiobtn
     def update_label(self):
         """Fungsi yang dipanggil saat radiobutton diklik."""
-        if self.v.get() == 1:
-            self.log_message(f"Pilihan approve: Ya, sekalian diapprove")
-        else :
-            self.log_message(f"Pilihan approve: Gausa diapprove")
+
+        match self.v.get():
+            case 1:
+                self.log_message(f"Pilihan approve: Ya, sekalian diapprove")
+            case 0:
+                self.log_message(f"Pilihan approve: Gausa diapprove")
+            case 2: 
+                self.log_message(f"Pilihan approve: Reject")
+            case 99:  
+                self.log_message(f"Pilihan approve: Bukan approval")
         pass
 
     # --update untuk radiobtn vwrite
@@ -558,6 +603,22 @@ class AutoApp:
     # --- Stop Thread Function ---
     def stop_thread(self):
         self.stop_event.set() # Kirim sinyal untuk berhenti
+
+    # --- Clear log message ---
+    def clear_log(self):
+        # Hapus dari index '1.0' (awal) sampai 'end' (akhir)
+        self.isdone = 1
+        self.log_area.delete('1.0', "end")
+        self.log_message("Cleared! Aplikasi dimulai. Selamat datang!")
+        if self.vwrite.get() == 1:
+            self.log_message(f"Pilihan Write data.csv: Rewrite")
+        else:
+            self.log_message(f"Pilihan Write data.csv: Append")
+        if self.v.get() == 1:
+            self.log_message(f"Pilihan approve: Ya, sekalian diapprove")
+        else :
+            self.log_message(f"Pilihan approve: Gausa diapprove")
+
 
     # --- Browser App Functions ---
     def open_browser(self):
@@ -752,12 +813,12 @@ class AutoApp:
 
         # Validasi sederhana untuk baris mulai
         try:
-            #if start_row == 'Cth: 0 (untuk mulai dari awal)':
-            #    row_num = 0
-            #else:
-            row_num = int(start_row)
+            if (start_row == 'Cth: 0 (untuk mulai dari awal)') and (self.v.get() == 99):
+               row_num = 0
+            else:            
+                row_num = int(start_row)
             if row_num < 0:
-                 raise ValueError
+                raise ValueError
         except ValueError:
             self.isdone = 1
             self.change_status("STATUS: Running batal", color="blue")
@@ -792,7 +853,9 @@ class AutoApp:
                     cekapprove = True
                 elif self.v.get() == 0:
                     cekapprove = False
-                self.thread = threading.Thread(target=mainfunc, args=(self, filename, row_num, extra_input_fun, cekapprove))
+                elif self.v.get() == 2:
+                    cekapprove = "Reject"
+                self.thread = threading.Thread(target=mainfunc, args=(self, filename, cekapprove, row_num, extra_input_fun))
             self.thread.start()
 
         except Exception as e:

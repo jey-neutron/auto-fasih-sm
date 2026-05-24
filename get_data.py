@@ -44,7 +44,7 @@ def help(instance,var):
     for nama, objek in globals().items():
         if (callable(objek) and 
             not nama.startswith("__") and 
-            nama not in ["mainfunc", "get_list_data", "update_temp_value", "Action", "datetime", "sync_playwright","check_stop", "handle_response", 'mergejson','get_playwright_page'] ):
+            nama not in ["mainfunc", "get_list_data", "update_temp_value", "Action", "datetime", "sync_playwright","check_stop", "handle_response", 'mergejson','get_playwright_page','expect','unquote'] ):
             
             # Ambil docstring-nya, kalau kosong kasih teks default
             deskripsi = objek.__doc__ if objek.__doc__ else ""# "Tidak ada deskripsi."
@@ -59,21 +59,6 @@ def help(instance,var):
     instance.log_area.insert("end", f"\n[-] Anda bisa mengganti isian default username sso dengan membuat file 'tempuser.txt' dan isinya adalah usernamesso + (enter) + password sso ")
     instance.log_area.insert("end", "\n")
     instance.isdone = 1
-
-def clear(instance, var):
-    '''Clear log message'''
-    # Hapus dari index '1.0' (awal) sampai 'end' (akhir)
-    instance.isdone = 1
-    instance.log_area.delete('1.0', "end")
-    instance.log_message("Cleared! Aplikasi dimulai. Selamat datang!")
-    if instance.vwrite.get() == 1:
-        instance.log_message(f"Pilihan Write data.csv: Rewrite")
-    else:
-        instance.log_message(f"Pilihan Write data.csv: Append")
-    if instance.v.get() == 1:
-        instance.log_message(f"Pilihan approve: Ya, sekalian diapprove")
-    else :
-        instance.log_message(f"Pilihan approve: Gausa diapprove")
 
 def gettime(instance, var):
     '''Get current time'''
@@ -92,7 +77,7 @@ def getrandom(instance, waktu):
     instance.log_message(f"Hasil angka random {random.random()}")
     instance.isdone = 1
 
-def getdata(instance, var):
+def seedata(instance, var):
     '''Get detail data pada csv dan index data terpilih [Pake "NonApprov" ya]'''
     instance.isdone = 0
     filename = instance.filename_entry.get()
@@ -1045,8 +1030,7 @@ def get_list_data(instance, namadf,  mode="w", maxrow=0, sep=","):
 # Function penunjang approv (and get data)
 def run_api_request(instance, page, method, target_url, target_id, msg="", payload=None, filename="data_survey.json"):
     """
-    Fungsi tunggal untuk menangani GET dan POST request ke API BPS.
-    method: 'GET' atau 'POST'
+    Fungsi tunggal untuk menangani GET dan POST request ke API BPS. Method: 'GET' atau 'POST'
     """
     log_message = instance.log_message
     try:
@@ -1119,11 +1103,11 @@ def run_api_request(instance, page, method, target_url, target_id, msg="", paylo
         return None
 
 # Function approv (and get data)
-def mainfunc(instance, filename, mulai=0, func=None, cekapprov=True, idlog='codeIdentity', sep=','):
+def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdentity', sep=','):
     '''Get data dari Fasih dengan membuka linknya dari dataframe df, kemudian export ke csv. Kemudian akan approv juga jika tercentang sekalian approv'''
     # konfig
     import sys
-    instance.isdone = 0
+    instance.isdone = 0    
 
     try:
         p_instance, browser, page = get_playwright_page() #konek ke playwr
@@ -1194,12 +1178,16 @@ def mainfunc(instance, filename, mulai=0, func=None, cekapprov=True, idlog='code
                 # 
 
                 # mulai approve jika approv 
-                if cekapprov:
+                if cekapprov != False:
                     try:
                         # send and get response (approv)
-                        target_url = "https://fasih-sm.bps.go.id/app/api/assignment-approval/api/v2/approval" #approv
-                        # target_url = "https://fasih-sm.bps.go.id/app/api/assignment-approval/api/v2/revoke-approval" #revoke
-                        # target_url = blm nyoba reject by api ====== blm nyoba juga kalo misal dah approv gimana
+                        if cekapprov == True:
+                            target_url = "https://fasih-sm.bps.go.id/app/api/assignment-approval/api/v2/approval" #approv
+                        elif cekapprov == "Reject":
+                            # target_url = "https://fasih-sm.bps.go.id/app/api/assignment-approval/api/v2/revoke-approval" #revoke
+                            # target_url = blm nyoba reject by api ====== blm nyoba juga kalo misal dah approv gimana
+                            instance.log_message('cek reject target url')
+                            raise ValueError("Maaf reject blm nyoba")
                         response = run_api_request(instance, page, method="post", target_url=target_url, target_id=target_id, msg=f"Approving-row-{i}") 
                         if response is None:
                             raise ValueError("API tidak mengembalikan data (Response is None)")
