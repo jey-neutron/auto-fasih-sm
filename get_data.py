@@ -1,11 +1,5 @@
 # konfig
 from datetime import datetime
-# from selenium.webdriver.common.by import By
-# from selenium.webdriver.support.ui import WebDriverWait
-# from selenium.webdriver.support import expected_conditions as EC
-# from selenium.common.exceptions import TimeoutException
-# from selenium.webdriver.common.keys import Keys
-# from selenium.webdriver.support.select import Select
 from argparse import Action
 import pandas as pd
 import time
@@ -60,14 +54,6 @@ def help(instance,var):
     instance.log_area.insert("end", "\n")
     instance.isdone = 1
 
-def gettime(instance, var):
-    '''Get current time'''
-    instance.isdone = 0
-    #time.sleep(1)
-    instance.log_message(f"Getting time...")
-    instance.log_message(time.strftime("%H:%M:%S", time.localtime()) )
-    instance.isdone = 1
-
 def getrandom(instance, waktu): 
     '''Get a random number'''
     instance.isdone = 0
@@ -76,28 +62,6 @@ def getrandom(instance, waktu):
     instance.log_message(f"Hasil angka random {random.random()}")
     instance.log_message(f"Hasil angka random {random.random()}")
     instance.isdone = 1
-
-def seedata(instance, var):
-    '''Get detail data pada csv dan index data terpilih [Pake "NonApprov" ya]'''
-    instance.isdone = 0
-    filename = instance.filename_entry.get()
-    try:
-        idx = int(instance.start_row_entry.get())
-    except:
-        idx = 0
-    #time.sleep(1)
-    instance.log_message(f"Getting detail data {filename} on index {idx}...")
-    # GETTING DATA FROM FASIH OPEN DETAIL
-    try:
-        df = pd.read_csv(filename, sep=",")
-        instance.log_message(f"\n{df.loc[idx]}")
-    except Exception as e:
-        instance.log_message(f'ERROR: {e}', tag="red_tag")
-        instance.isdone = 1
-        return
-    instance.log_message("Done. Please enlarge the window")
-    instance.isdone = 1
-
 
 def getkurs(instance, var):
     '''Convert kurs data dari IDR.json hasil dari api web exchangerate-api.com [Pake "NonApprov"] [https://v6.exchangerate-api.com/v6/API-KEY/latest/IDR]'''
@@ -283,7 +247,7 @@ def inputwebdash(instance, var):
             instance.isdone=1
             return
 
-
+# Function penunjang assignselect
 def update_temp_value(gagal=False):
     # Menentukan lokasi file temp (misal: 'temp.txt')
     path = os.path.join(os.getcwd(), 'temp.txt')
@@ -605,6 +569,102 @@ def assignselect(instance, var):
         df.to_csv(filename, index=False)
     instance.isdone = 1
 
+def seedata(instance, var):
+    '''Get detail data pada csv dan index data terpilih [Pake "NonApprov" ya]'''
+    instance.isdone = 0
+    filename = instance.filename_entry.get()
+    try:
+        idx = int(instance.start_row_entry.get())
+    except:
+        idx = 0
+    #time.sleep(1)
+    instance.log_message(f"Getting detail data {filename} on index {idx}...")
+    # GETTING DATA FROM FASIH OPEN DETAIL
+    try:
+        df = pd.read_csv(filename, sep=",")
+        instance.log_message(f"\n{df.loc[idx]}")
+    except Exception as e:
+        instance.log_message(f'ERROR: {e}', tag="red_tag")
+        instance.isdone = 1
+        return
+    instance.log_message("Done. Please enlarge the window")
+    instance.isdone = 1
+
+def getdataAll(namafile = 'data_survey.json'):
+    '''FUNCTION FOR GETTING DATA GENERAL SURVEY (mybe ada kendala, tpi sementara ini deh)'''
+    # Open the file and load its content
+    with open(namafile, 'r') as file:
+        df = json.load(file)
+    dff = json.loads(df['data']['data'])['answers']
+    dffT = {item["dataKey"]: item for item in dff}
+    d = {}
+
+    for key, value_dict in dffT.items():
+        if 'master' in key:
+            continue # Skip 'master' keys
+        final_output_value = None # Initialize to None
+
+        if 'answer' in value_dict:
+            raw_answer = value_dict['answer']
+
+            if isinstance(raw_answer, list):
+                extracted_item_strings = []
+                for item in raw_answer:
+                    extracted_part_for_item = None
+                    if isinstance(item, dict):
+                        # 1. Special handling for 'maps.google.com' in label
+                        if 'label' in item and item['label'] is not None and 'maps.google.com' in item['label']:
+                            if isinstance(item.get('value'), dict):
+                                values_list = list(item['value'].values())
+                                if values_list:
+                                    extracted_part_for_item = str(values_list)
+                                else:
+                                    extracted_part_for_item = str(item['value']) # If dict is empty
+                            else:
+                                extracted_part_for_item = str(item.get('value', ''))
+
+                            extracted_item_strings.append(str(extracted_part_for_item))
+                            break # Stop processing other items in this raw_answer list as per request
+
+                        # 2. General 'label' extraction
+                        elif 'label' in item and item['label'] is not None:
+                            extracted_part_for_item = item['label']
+                        # 3. General 'value' extraction
+                        elif 'value' in item and item['value'] is not None:
+                            if isinstance(item['value'], dict):
+                                nested_values = [str(v) for v in item['value'].values() if v is not None]
+                                extracted_part_for_item = ", ".join(nested_values) if nested_values else str(item['value'])
+                            else:
+                                extracted_part_for_item = item['value']
+                        # 4. Fallback: extract values from the dict itself
+                        else:
+                            nested_values = [str(v) for v in item.values() if v is not None]
+                            extracted_part_for_item = ", ".join(nested_values) if nested_values else str(item)
+                    else: # Not a dict, directly use the item
+                        extracted_part_for_item = item
+
+                    if extracted_part_for_item is not None:
+                        extracted_item_strings.append(str(extracted_part_for_item))
+
+                final_output_value = ", ".join(extracted_item_strings)
+
+                # If after processing the list, it's still empty, use string representation of raw_answer
+                if not final_output_value: # Catches "" if extracted_item_strings was empty
+                    final_output_value = str(raw_answer) # e.g., if raw_answer was [], becomes "[]"
+
+            else: # raw_answer is not a list (e.g., string, int, dict directly)
+                final_output_value = str(raw_answer)
+        else: # No 'answer' key in value_dict
+            final_output_value = '--' # User requested default if 'answer' key is missing
+
+        # Final check for any remaining empty/None values, including '[]' and '{}' string representations
+        if final_output_value is None or final_output_value == '' or final_output_value == 'None' or final_output_value == '[]' or final_output_value == '{}':
+            final_output_value = '--'
+
+        d[key] = final_output_value
+        return d
+
+
 def getdataPES(namafile='data_survey.json'):
     '''FUNCTION FOR GETTING DATA PES'''
     # Open the file and load its content
@@ -735,187 +795,6 @@ def getdataPES(namafile='data_survey.json'):
 
     # FINISH
     return d
-
-
-# Function reject data Fasih
-def reject(instance, var, mulai=0, func=None, cekapprov=True, idlog='codeIdentity', sep=','):
-    #(instance, filename, mulai=0, func=None, cekapprov=True, idlog='codeIdentity', sep=',')
-    '''Reject di fasih-sm berdasarkan file yang dipilih'''
-    driver
-    instance.log_message("Maaf, fitur belum 100%")
-    return
-    # konfig
-    import sys
-    instance.isdone = 0
-    filename = instance.filename_entry.get()
-    if instance.v.get() != 99:
-        instance.log_message('Mohon maaf, fungsi ini sementara hanya bisa dipilih di NonApprov, walaupun memang di Fasih, tapi ikuti aja deh', "red_tag")
-        instance.isdone = 1
-        return
-    # GETTING DATA FROM FASIH OPEN DETAIL
-    try:
-        df = pd.read_csv(filename, sep=sep)
-        if 'approved' not in df.columns:
-            df['approved'] = ""
-        # Get all window handles & Switch to the first window (index 0)
-        all_window_handles = driver.window_handles
-        driver.switch_to.window(all_window_handles[0])
-    except Exception as e:
-        instance.log_message(f'ERROR: {e}', tag="red_tag")
-        instance.isdone = 1
-        return
-
-    instance.log_message(f"# Loading for {len(df)-int(mulai)} data, length dataframe: {len(df)} data and rejecting in 5sec...")
-    time.sleep(5)
-
-    if mulai <0 : i=-1
-    else: i = mulai-1
-    while True: 
-        instance.isdone = 0
-        # Pastikan tampilan menggulir ke bagian paling bawah
-        #instance.log_area.see(tk.END)
-        #timestamp = datetime.now().strftime("%H:%M:%S")
-        i += 1
-        if i >= len(df):
-            #printwarn("# DONEEE ---------------------------------", color='red', font_weight='bold', font_size="30px")
-            instance.log_message(f"# DONEEE file {filename} updated ---------------------------------")
-            #change_text(label_status, f"Running Selesai {adaerr}", "green")
-            break
-        try:
-            check_stop(instance)
-            # CEK DAH EKSEKUSI LOM ke0 ------------------------------------------------------------
-            if df.loc[i, 'approved'] == 'REJECTED':
-                instance.log_message(f"# {i,str(df[idlog][i])[:20]} | Dah dieksekusi, skip")
-                continue
-
-            ## goto web
-            page.goto(df.link[i])
-            driver.execute_script("document.body.style.zoom='50%'")
-            #change_text(label_status, f"Processin data {i}/{len(df)}")
-                  
-
-            ## click btn review
-            time.sleep(3)
-            WebDriverWait(instance.driver, 30).until(EC.presence_of_element_located((By.CSS_SELECTOR, "a.btn-primary")) ).click()
-            ## wait till loading nya ilang
-            time.sleep(2) #5
-            WebDriverWait(instance.driver, 100).until(EC.invisibility_of_element_located((By.CSS_SELECTOR, '.loading-text > .ng-tns-c4183080771-2')))
-            ## wait till rendering form
-            time.sleep(2) #3
-            WebDriverWait(instance.driver, 100).until(EC.invisibility_of_element_located((By.CSS_SELECTOR, 'p.mb-2')))
-            driver.execute_script("document.body.style.zoom='50%'")
-
-            # CEK DAH APPROVED LOM ke1 ------------------------------------------------------------
-            try:
-                #try revoke
-                try:
-                    WebDriverWait(instance.driver, 5).until(
-                        EC.presence_of_element_located((By.XPATH, 'id("buttonRevoke")'))
-                    )
-                    btn_approve = driver.find_element(By.XPATH,'id("buttonRevoke")')
-                    #btn_approve.location_once_scrolled_into_view
-                    btn_approve.click()
-                    #konfirmasi
-                    driver.find_element(By.CSS_SELECTOR,'button.swal2-confirm').click()
-                    time.sleep(1)
-                    try:
-                        driver.find_element(By.CSS_SELECTOR,'button.swal2-confirm').click()
-                        time.sleep(1)
-                    except: pass
-                
-                except: pass
-
-                # refresh
-                driver.refresh()
-                ## wait till loading nya ilang
-                time.sleep(2) #5
-                WebDriverWait(instance.driver, 100).until(EC.invisibility_of_element_located((By.CSS_SELECTOR, '.loading-text > .ng-tns-c4183080771-2')))
-                ## wait till rendering form
-                driver.execute_script("document.body.style.zoom='50%'")
-                time.sleep(2) #3
-                WebDriverWait(instance.driver, 100).until(EC.invisibility_of_element_located((By.CSS_SELECTOR, 'p.mb-2')))
-
-                # reject
-                WebDriverWait(instance.driver, 5).until(
-                    EC.presence_of_element_located((By.XPATH, 'id("buttonReject")'))
-                )
-                btn_approve = driver.find_element(By.XPATH,'id("buttonReject")')
-                #btn_approve.location_once_scrolled_into_view
-                btn_approve.click()
-                #konfirmasi
-                driver.find_element(By.CSS_SELECTOR,'button.swal2-confirm').click()
-                time.sleep(1)
-                try:
-                    driver.find_element(By.CSS_SELECTOR,'button.swal2-confirm').click()
-                    time.sleep(1)
-                except: pass
-
-
-            except TimeoutException:
-                #print("# Approve button not found or not loaded yet")
-                #print(i,df[idlog][i],'| Not Found Approve button, skip')
-                instance.log_message(f"# {i,str(df[idlog][i])[:20]} | Not Found the button, skip", "red_tag")
-                # logging
-                df.loc[i, 'approved'] = 'REJECTED'
-                df.to_csv(filename, index=False)
-                continue
-            
-            # end result if success
-            df.loc[i, 'approved'] = 'REJECTED'
-            df.to_csv(filename, index=False)
-
-        except Exception as e:
-            # coba refresh n login ulang
-            # Login SSO
-            try:
-                if 'Server Not Found' in driver.title: 
-                    #print('# Error server not found, CEK VPN -------------------------------------------')
-                    instance.log_message(f"# Error server not found, CEK VPN -------------------------------------------\n", "red_tag")
-                    #change_text(label_status, "Error, CEK VPN", "red")
-                    break
-                #driver.refresh()
-                page.goto(df.link[i])
-                #i -= 1
-                if i < -1: i=-1
-                #print(f'# error {str(e)}, reloading')
-                instance.log_message(f"# Terjadi error: ")
-                instance.log_message(str(e).split("Stacktrace:")[0]+"\n", "red_tag")
-                #change_text(label_status, "Running ERROR", "red")
-                try:
-                    WebDriverWait(instance.driver, 10).until( #using explicit wait for x seconds
-                        EC.presence_of_element_located((By.XPATH, "id('login-in')/A[2]")) #finding the element
-                    ).click()
-                    # input SSO
-                    WebDriverWait(instance.driver, 15).until( #using explicit wait for x seconds
-                        EC.presence_of_element_located((By.XPATH, 'id("kc-login")')) )
-                    driver.find_element(By.XPATH, '//*[@id="username"]').send_keys(instance.username_entry.get())
-                    driver.find_element(By.XPATH, '//*[@id="password"]').send_keys(instance.password_entry.get())
-                    driver.find_element(By.XPATH, '//*[@id="kc-login"]').send_keys(Keys.RETURN)
-                    WebDriverWait(instance.driver, 15).until( #using explicit wait for x seconds
-                        EC.presence_of_element_located((By.XPATH, 'id("Pencacahan")/TBODY[1]/TR[4]/TD[1]/A[1]')) )
-                    #print('# login sso ulang')
-                    instance.log_message(f"# Login SSO ulang ")
-                    adaerr = ""
-                except:
-                    pass
-                continue
-            except:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                #print(f"{i,df[idlog][i]} | Err: {str(exc_tb.tb_lineno)} | {str(e)}"  ) 
-                #printwarn(f"{i,df[idlog][i]} | Err: {str(exc_tb.tb_lineno)} | {str(e)}", color='red', font_weight='bold', font_size="30px")
-                instance.log_message(f"# Terjadi error: {str(exc_tb.tb_lineno)} ")
-                instance.log_message(str(e).split("Stacktrace:")[0]+"\n", "red_tag")
-                #change_text(label_status, "Running ERRORRR", "red")
-                continue
-        
-        # jika satu row dah selesai, entah error or sukses    
-        #print(i,df[idlog][i],'| Done')
-        instance.log_message(f"# {i,str(df[idlog][i])[:20]} | Done")
-        #instance.log_message.yview_moveto(1.0)
-        continue
-
-    instance.isdone = 1
-
 
 # Function penunjang to get list data
 def handle_response(instance, response, target_url, namejson='data_survey.json'):
