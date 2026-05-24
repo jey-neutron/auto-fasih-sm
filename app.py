@@ -1,5 +1,7 @@
 # app.py, kode coba2 get response, mungkin bisa updated
-# find ====== for needed update or needed parsing to main py (app_autof.py -> Auto_Fasih_SM.py // get_data.py -> willbe in dist)
+# find komen ====== for needed update or needed parsing to main py (app_autof.py -> Auto_Fasih_SM.py // get_data.py -> willbe in dist)
+# find komen BAB untuk setiap func, yg harusnya diiringi run_*()
+# 
 import subprocess
 
 from playwright.sync_api import sync_playwright
@@ -64,14 +66,7 @@ def run():
             print('# '+ str(txt))
 
 
-        # --- HEADER MAIN FUNC --- 
-        # main func pindah ke bawah pake api. ====== kata kunci:
-        # if func : get api detail data, then per survei aja dibuat parse ke csv
-        # if cekapprov : get api approv
-        # --- END MAIN FUNC ---
-
-
-        # ---HEADER GET LIST DATA ---
+        # ---BAB GET LIST DATA ---
 
         # def handle_response(response, namejson='data_survey.json', target_url = "https://fasih-sm.bps.go.id/app/api/analytic/api/v2/assignment/datatable-all-user-survey-periode"):    
         #     if target_url in response.url:
@@ -94,58 +89,190 @@ def run():
         #         dictlist.append({key: data['searchData'][i][key] for key in listcol if key in data['searchData'][i]})
         #     return dictlist
 
-        # wait n getting response 
-        # namejson = 'data_survey.json'
-        # target_url = "https://fasih-sm.bps.go.id/app/api/analytic/api/v2/assignment/datatable-all-user-survey-periode"
-        # page.on("response", lambda response: handle_response(response, namejson, target_url))
+        # def run_getlistdata():
+        #     wait n getting response 
+        #     namejson = 'data_survey.json'
+        #     target_url = "https://fasih-sm.bps.go.id/app/api/analytic/api/v2/assignment/datatable-all-user-survey-periode"
+        #     page.on("response", lambda response: handle_response(response, namejson, target_url))
 
-        # # page.goto("https://fasih-sm.bps.go.id/app/surveys?page=0&perPage=10&layout=list")
-        # page.reload()
-        # page.wait_for_timeout(2000) 
-        # page.locator("h3").first.wait_for(
-        #     state="visible", 
-        #     timeout=10000
-        # )
-        # print('# Get response data on page 1')
+        #     # page.goto("https://fasih-sm.bps.go.id/app/surveys?page=0&perPage=10&layout=list")
+        #     page.reload()
+        #     page.wait_for_timeout(2000) 
+        #     page.locator("h3").first.wait_for(
+        #         state="visible", 
+        #         timeout=10000
+        #     )
+        #     print('# Get response data on page 1')
 
-        # # read json
-        # ipage = 1
-        # dflist = []
-        # listcol = ['id', 'surveyPeriodId', 'codeIdentity', 'assignmentStatusId', 'assignmentStatusAlias', 'data1', 'data2', 'data3', 'data4', 'data5', 'data6', 'data7', 'data8', 'data9', 'data10', 'dateCreated', 'isActive', 'currentUserUsername','lockedByUser', 'lockedByAnother']
-        # dflist = mergejson(dflist, listcol, namejson)
+        #     # read json
+        #     ipage = 1
+        #     dflist = []
+        #     listcol = ['id', 'surveyPeriodId', 'codeIdentity', 'assignmentStatusId', 'assignmentStatusAlias', 'data1', 'data2', 'data3', 'data4', 'data5', 'data6', 'data7', 'data8', 'data9', 'data10', 'dateCreated', 'isActive', 'currentUserUsername','lockedByUser', 'lockedByAnother']
+        #     dflist = mergejson(dflist, listcol, namejson)
 
-        # # next page        
-        # #page.get_by_role("button", name="Go to next page").click()
-        # while True:
-        #     # 1. Ambil locator tombol next
-        #     next_button = page.get_by_role("button", name="Go to next page")
-            
-        #     # 2. Cek apakah tombol ada, muncul, dan aktif (tidak disabled)
-        #     if next_button.is_visible() and next_button.is_enabled():
-        #         next_button.click()
-        #         ipage += 1
-        #         page.wait_for_timeout(2000) # Jeda 1 detik nunggu halaman muat
-        #         print(f'# Get response data from page {ipage}')
-        #         dflist = mergejson(dflist, listcol, namejson)
-        #     else:
-        #         print('# Selesai')
-        #         os.remove(namejson)
-        #         break # Berhenti loop jika tidak bisa diklik
+        #     # next page        
+        #     #page.get_by_role("button", name="Go to next page").click()
+        #     while True:
+        #         # 1. Ambil locator tombol next
+        #         next_button = page.get_by_role("button", name="Go to next page")
+                
+        #         # 2. Cek apakah tombol ada, muncul, dan aktif (tidak disabled)
+        #         if next_button.is_visible() and next_button.is_enabled():
+        #             next_button.click()
+        #             ipage += 1
+        #             page.wait_for_timeout(2000) # Jeda 1 detik nunggu halaman muat
+        #             print(f'# Get response data from page {ipage}')
+        #             dflist = mergejson(dflist, listcol, namejson)
+        #         else:
+        #             print('# Selesai')
+        #             os.remove(namejson)
+        #             break # Berhenti loop jika tidak bisa diklik
 
-        # time.sleep(2)
-        # df = pd.DataFrame(dflist)
-        # df.to_csv('data.csv')
-        # print('# Export to data.csv')
+        #     time.sleep(2)
+        #     df = pd.DataFrame(dflist)
+        #     df.to_csv('data.csv')
+        #     print('# Export to data.csv')
+
         # --- END GET LIST DATA ---
 
 
-        # --- HEADER GET PES ---
-        # ====== pake di google colab, parse dari response api json ke csv
+        # --- BAB GET PES ---
+        # parse dari response api json ke csv, khusus untuk PES
+
+        def run_getdataPES(namafile='data_survey.json'):
+            # Open the file and load its content
+            with open(namafile, 'r') as file:
+                df = json.load(file)
+            dff = json.loads(df['data']['data'])['answers']
+            dffT = {item["dataKey"]: item for item in dff}
+
+            ids4 = ['number_group_member', 'currency_spending', 'details_spending', 'var_spending', 'local_package_tour_spending', 'accommodation_spending', 'food_spending', 'domestic_flight_spending', 'local_transport_bus', 'local_transport_train', 'local_transport_water_transport', 'other_local_transportation_spending', 'vehicle_rent_spending', 'shopping_spending', 'entertainment_spending', 'health_spending', 'training_spending', 'charity_spending', 'others_spending', ]
+            # init a dict for data
+            col_list = \
+                [f"r{i}" for i in range(1,6)] + \
+                ["r5b"] + [f"r{i}" for i in range(6,9)] + ["r9ab","r9ac"] + \
+                [f"r9b{j}" for j in range(1,6)] + [f"r9b{j}c" for j in range(1,6)] + \
+                [f"r10.{j}.1" for j in range(1,14)] + \
+                [f"r10.{j}.2" for j in range(1,14)] + \
+                [f"r11.{j}" for j in range(1,5)] + ['r12'] + ids4 + \
+                [f"r{i}" for i in range(14,18)] + \
+                [f"r18a_{k}" for k in ['arrival','departure']] + [f"r18b_{k}" for k in ['arrival','departure']] + [f"r18c_{k}" for k in ['arrival','departure']] + \
+                [f"r19_{j}" for j in range(1,15)] +\
+                [f"r{i}" for i in range(20,27)]
+            d = dict.fromkeys(col_list, '--')
+
+            d['r1'] = dffT['name']['answer'] if 'name' in dffT else '--'
+            d['r2'] = dffT['age']['answer'] if 'age' in dffT else '--'
+            d['r3'] = dffT['sex']['answer'][0]['value'] if 'sex' in dffT and dffT['sex'].get('answer') else '--'
+            d['r4'] = dffT['nationality']['answer'][0]['label'] if 'nationality' in dffT and dffT['nationality'].get('answer') else '--'
+            d['r5'] = dffT['country_residence']['answer'][0]['label'] if 'country_residence' in dffT and dffT['country_residence'].get('answer') else '--'
+            d['r5b'] = dffT['city_residence']['answer'][0]['label'] if 'city_residence' in dffT and dffT['city_residence'].get('answer') else '--'
+            d['r6'] = dffT['main_purpose']['answer'][0]['value'] if 'main_purpose' in dffT and dffT['main_purpose'].get('answer') else '--'
+
+            # BLOK2
+            d['r7'] = dffT['port_entry']['answer'][0]['label'] if 'port_entry' in dffT and dffT['port_entry'].get('answer') else '--'
+            d['r8'] = dffT['length_of_stay']['answer'] if 'length_of_stay' in dffT else '--'
+
+            # main dest
+            main_dest_kab_key = 'main_destination_kab'
+            d['r9ab'] = dffT[main_dest_kab_key]['answer'][0]['label'] if main_dest_kab_key in dffT and dffT[main_dest_kab_key].get('answer') else '--'
+            len_stay_main_dest_key = 'len_stay_main_dest'
+            d['r9ac'] = dffT[len_stay_main_dest_key]['answer'] if len_stay_main_dest_key in dffT else '--'
+
+            # other dest
+            for i in range(1, 6):
+                prov_key = f"other_destination_prov_{i}"
+                # Check if the key exists and has a non-empty 'answer' list before attempting to access
+                if prov_key not in dffT or not dffT[prov_key].get('answer'):
+                    continue
+
+                # a = dffT[prov_key]['answer'][0]['label']
+                # Keeping the original logic for skipping if label is default/empty, though direct `dffT` access might reduce this need
+                # if a in ["", "Select an option", "Pilih salah satu"]:
+                #    continue
+                kab_key = f"other_destination_kab_{i}"
+                d[f"r9b{i}"] = dffT[kab_key]['answer'][0]['label'] if kab_key in dffT and dffT[kab_key].get('answer') else '--'
+
+                len_key = f"len_stay_other_dest_{i}"
+                d[f"r9b{i}c"] = dffT[len_key]['answer'] if len_key in dffT else '--'
+
+            # BLOK3
+            for i in range(1,14):
+                key_attr = f"tourism_attraction_{i:02}"
+                d[f"r10.{i}.1"] = dffT[key_attr]['answer'][0]['value'] if key_attr in dffT and dffT[key_attr].get('answer') else '--'
+                # jika ada terpilih
+                if d[f"r10.{i}.1"] == '1':
+                    key_len = f"len_stay_tourism_{i}"
+                    d[f"r10.{i}.2"] = dffT[key_len]['answer'] if key_len in dffT else '--'
+
+            #BLOK4
+            # tidak semua datanya diambil sih
+            for i in range(1,5):
+                key_accom = f"accommodation_{i:02}"
+                d[f"r11.{i}"] = dffT[key_accom]['answer'][0]['value'] if key_accom in dffT and dffT[key_accom].get('answer') else '--'
+            use_tour_package_key = 'use_tour_package'
+            d[f"r12"] = dffT[use_tour_package_key]['answer'][0]['value'] if use_tour_package_key in dffT and dffT[use_tour_package_key].get('answer') else '--'
+
+            #BLOK5
+            ids4 = ['number_group_member', 'currency_spending', 'details_spending', 'var_spending', 'local_package_tour_spending', 'accommodation_spending', 'food_spending', 'domestic_flight_spending', 'local_transport_bus', 'local_transport_train', 'local_transport_water_transport', 'other_local_transportation_spending', 'vehicle_rent_spending', 'shopping_spending', 'entertainment_spending', 'health_spending', 'training_spending', 'charity_spending', 'others_spending', ]
+            for id4 in ids4:
+                if id4 in dffT: # Check if id4 exists in dffT
+                    if id4 == 'currency_spending':
+                        d[id4] = dffT[id4]['answer'][0]['label'] if dffT[id4].get('answer') else '--'
+                    elif id4 == 'var_spending':
+                        d[id4] = int(dffT[id4]['answer'].replace(',','')) if dffT[id4].get('answer') else '--'
+                    else:
+                        d[id4] = dffT[id4]['answer']
+                else:
+                    d[id4] = '--' # Assign '--' if key not found in dffT
+
+            #BLOK6
+            main_occupation_key = 'main_occupation'
+            d['r14'] = dffT[main_occupation_key]['answer'][0]['value'] if main_occupation_key in dffT and dffT[main_occupation_key].get('answer') else '--'
+            # r15 skip (original comment)
+            freq_visit_key = 'freq_visit'
+            d['r16'] = dffT[freq_visit_key]['answer'] if freq_visit_key in dffT else '--'
+            #
+            for i in ['arrival', 'departure']:
+                key_airline = f'airline_{i}'
+                d[f'r18a_{i}'] = dffT[key_airline]['answer'][0]['label'] if key_airline in dffT and dffT[key_airline].get('answer') else '--'
+
+                key_currency = f'currency_{i}'
+                d[f'r18b_{i}'] = dffT[key_currency]['answer'][0]['label'] if key_currency in dffT and dffT[key_currency].get('answer') else '--'
+
+                key_value = f'value_{i}'
+                d[f'r18c_{i}'] = dffT[key_value]['answer'] if key_value in dffT else '--'
+
+            #BLOK7
+            for i in range(1,15):
+                key_activities = f'activities_{i:02}'
+                d[f'r19_{i}'] = dffT[key_activities]['answer'][0]['value'] if key_activities in dffT and dffT[key_activities].get('answer') else '--'
+                #d[f'r19_{i}'] = page.locator(f"//div[@id='activities_{i:02}']//input[@type='checkbox']").is_selected() # Original commented out
+
+            wonderful_indonesia_key = 'wonderful_indonesia'
+            d['r20'] = dffT[wonderful_indonesia_key]['answer'][0]['value'] if wonderful_indonesia_key in dffT and dffT[wonderful_indonesia_key].get('answer') else '--'
+            ecofriendly_principle_key = 'ecofriendly_principle'
+            d['r21'] = dffT[ecofriendly_principle_key]['answer'][0]['value'] if ecofriendly_principle_key in dffT and dffT[ecofriendly_principle_key].get('answer') else '--'
+            satisfaction_lvl_key = 'satisfaction_lvl'
+            d['r22'] = dffT[satisfaction_lvl_key]['answer'][0]['value'] if satisfaction_lvl_key in dffT and dffT[satisfaction_lvl_key].get('answer') else '--'
+            intention_to_visit_key = 'intention_to_visit'
+            d['r23'] = dffT[intention_to_visit_key]['answer'][0]['value'] if intention_to_visit_key in dffT and dffT[intention_to_visit_key].get('answer') else '--'
+
+            #BLOK8
+            note_key = 'note'
+            d['r24'] = dffT[note_key]['answer'] if note_key in dffT else '--'
+            impression_key = 'impression'
+            d['r25'] = dffT[impression_key]['answer'] if impression_key in dffT else '--'
+            viplounge_key = 'viplounge'
+            d['r26'] = dffT[viplounge_key]['answer'][0]['value'] if viplounge_key in dffT and dffT[viplounge_key].get('answer') else '--'
+
+            return d
+
         # --- END ---
 
         
-        # --- HEADER EMAIL FASIH BC---
-        def emailbc():
+        # --- BAB EMAIL FASIH BC---
+        def run_emailbc():
             #id = "5103020002000305 - UMK - 26"
             #id = "5103010006001218 - UMK - 10"
             #email="niluhsekarastuti96@gmail.com"
@@ -207,87 +334,24 @@ def run():
 
             # --- ENDEMAIL FASIH BC ---
 
-        # --- HEADER APPROV ---
-        def approv():
-            try:
-                from urllib.parse import unquote
-                namejson = 'data_survey.json'
-                id = "6a4f9604-dba9-4ef3-a284-7b1c56f127fa"
 
-                # try aja
-                h3 = page.locator("h1").first.wait_for(state="visible", timeout=10000)
-                log_message(f'Judul: {h3}')
+        # --- BAB MAIN FUNC --- 
+        # main func pindah ke bawah pake api. ====== kata kunci:
+        # if func : get api detail data, run_api_request(method=get), then per survei aja dibuat parse ke csv
+        # if cekapprov : get api approv, run_api_request(method=post)
+        # --- END MAIN FUNC ---
 
-                #target_url = "https://fasih-sm.bps.go.id/app/api/assignment-approval/api/v2/revoke-approval"
-                target_url = "https://fasih-sm.bps.go.id/app/api/assignment-approval/api/v2/approval"
-                # blm nyoba reject by api ======
-
-                # 1. AMBIL COOKIE CSRF DARI BROWSER CONTEXT
-                cookies = page.context.cookies()
-                csrf_token = ""
-                for cookie in cookies:
-                    # Biasanya nama cookienya 'XSRF-TOKEN' atau 'csrf_token'
-                    if cookie['name'] == 'XSRF-TOKEN': 
-                        csrf_token = unquote(cookie['value']) # Decode jika token mengandung %3D atau karakter khusus
-                        break
-                
-                a = 'revoking' if 'revoke' in target_url else 'approving'
-                status_approv = 'false' if 'revoke' in target_url else 'true'
-                log_message(f'TRY "{a}" with api instead of button pushing')
-
-                # 1. Siapkan data body/payload JSON yang diminta oleh API BPS
-                headers = {
-                    "Content-Type": "application/json",
-                    "X-XSRF-TOKEN": csrf_token, # Ini kunci utamanya!
-                    "Referer": "https://bps.go.id"
-                }
-                payload_data = {
-                    "assignmentId": id,
-                    "statusApproval": status_approv,
-                    "comment": "\"\""
-                }
-
-                # 2. Eksekusi POST request memanfaatkan session browser
-                log_message(f"Mengirim POST request ke {target_url}...")
-                response = page.request.post(
-                    target_url,
-                    headers=headers,
-                    data=payload_data # Playwright otomatis mengubah dict ini menjadi JSON string
-                )
-
-                # 3. Handle respon dari server
-                if response.ok:
-                    response_json = response.json()
-                    log_message(f"POST Berhasil! Status: {response.status}")
-                    
-                    # Simpan hasil respon ke file data_survey.json
-                    #with open(namejson, 'w', encoding='utf-8') as f:
-                    #    json.dump(response_json, f, indent=4)
-                    #log_message(f'# written to {namejson}')
-
-                    # 4. Refresh halaman untuk melihat perubahan di UI
-                    page.reload()
-                    page.locator("h1").first.wait_for(state="visible", timeout=10000)
-
-                else:
-                    log_message(f"POST Gagal! Status: {response.status} - {response.text()}")
-
-            except Exception as e :
-                log_message(f'Error: {e}')
-
-            # --- END APPROv ---
-
-        # --- HEADER GABUNGIN 2 FUNC --- ====== perlu cek n update, then apus function atas n bawah
-        import json
+        # --- BAB GABUNGIN 2 FUNC APPROV N GETDATA ALL---
         from urllib.parse import unquote
 
-        def execute_api_request(page, method, url, target_id, payload=None, filename="data_survey.json"):
+        def run_api_request(page, method, target_url, target_id, msg="", payload=None, filename="data_survey.json"):
             """
             Fungsi tunggal untuk menangani GET dan POST request ke API BPS.
             method: 'GET' atau 'POST'
             """
             try:
                 method = method.upper()
+                msg = method if msg == "" else msg
                 
                 # 1. AMBIL COOKIE CSRF (Dipakai bersama)
                 csrf_token = ""
@@ -304,22 +368,26 @@ def run():
                 if method == "POST":
                     headers["Content-Type"] = "application/json"
 
-                log_message(f"Mengirim {method} request ke {url}...")
+                log_message(f"Mencoba {msg} request...")
 
                 # 3. EKSEKUSI REQUEST (GET vs POST)
                 if method == "POST":
                     # Jika payload tidak diisi manual, buat payload default approval
                     if not payload:
-                        status_approv = 'false' if 'revoke' in url else 'true'
+                        status_approv = 'false' if 'revoke' in target_url else 'true' # ====== buat juga misal ada reject
                         payload = {
                             "assignmentId": target_id,
                             "statusApproval": status_approv,
                             "comment": "\"\""
                         }
-                    response = page.request.post(url, headers=headers, data=payload)
+                    response = page.request.post(target_url, headers=headers, data=payload)
                     
                 elif method == "GET":
-                    response = page.request.get(url, headers=headers, params={"assignmentId": target_id})
+                    # Jika target_id dimasukkan sebagai Query Parameter (?assignmentId=123)
+                    response = page.request.get(target_url, headers=headers, params={"assignmentId": target_id}) # ====== gaperlukah payload di GET? next
+                    # Jika ID dimasukkan langsung di dalam URL path (misal: /api/data/123)
+                    # url_with_id = f"{target_url}/{target_id}"
+                    # response = page.request.get(url_with_id, headers=headers)
                 
                 else:
                     log_message(f"Method {method} tidak didukung.")
@@ -328,18 +396,18 @@ def run():
                 # 4. HANDLE RESPONSE (Dipakai bersama)
                 if response.ok:
                     response_json = response.json()
-                    log_message(f"{method} Berhasil! Status: {response.status}")
+                    log_message(f"{msg} Berhasil! Status: {response.status}")
                     
                     # Jika GET, simpan ke file JSON
                     if method == "GET":
                         with open(filename, "w", encoding="utf-8") as f:
                             json.dump(response_json, f, indent=4, ensure_ascii=False)
-                        log_message(f"[✓] Data disimpan ke '{filename}'")
+                        #log_message(f"Data disimpan ke '{filename}'")
                     
                     # Jika POST, lakukan UI refresh halaman
-                    elif method == "POST":
-                        page.reload()
-                        page.locator("h1").first.wait_for(state="visible", timeout=10000)
+                    # elif method == "POST":
+                    #     page.reload()
+                    #     page.locator("h1").first.wait_for(state="visible", timeout=10000)
                         
                     return response_json
                 else:
@@ -352,69 +420,38 @@ def run():
 
             # --- END 2 FUNC ---
 
-        # --- HEADER GET DETAIL DATA ---
-        def get_data_by_id(page, base_url, target_id, namejson='data_survey.json'):
-            from urllib.parse import unquote
-            try:
-                # 1. AMBIL COOKIE CSRF DARI BROWSER CONTEXT (Sama seperti POST)
-                cookies = page.context.cookies()
-                csrf_token = ""
-                for cookie in cookies:
-                    if cookie['name'] == 'XSRF-TOKEN': 
-                        csrf_token = unquote(cookie['value'])
-                        break
-                
-                log_message(f'Mencoba GET data dengan ID: {target_id}')
 
-                # 2. Siapkan headers (Biasanya GET tidak butuh Content-Type, tapi butuh CSRF & Referer)
-                headers = {
-                    "X-XSRF-TOKEN": csrf_token,
-                    "Referer": "https://bps.go.id"
-                }
-
-                # 3. Eksekusi GET request memanfaatkan session browser
-                # OPSI A: Jika ID dimasukkan sebagai Query Parameter (?id=123 atau ?assignmentId=123)
-                response = page.request.get(
-                    base_url,
-                    headers=headers,
-                    params={"assignmentId": target_id} # Playwright otomatis mengubah ini jadi: base_url?assignmentId=target_id
-                )
-
-                # OPSI B: Jika ID dimasukkan langsung di dalam URL path (misal: /api/data/123)
-                # url_with_id = f"{base_url}/{target_id}"
-                # response = page.request.get(url_with_id, headers=headers)
-
-                # 4. Handle respon dari server
-                if response.ok:
-                    response_json = response.json()
-                    log_message(f"GET Berhasil! Status: {response.status}")
-                    
-                    # Kembalikan atau proses data JSON yang didapat
-                    # return response_json
-                    with open(namejson, "w", encoding="utf-8") as f:
-                        json.dump(response_json, f, indent=4, ensure_ascii=False)
-                    print(f"[✓] Status {response.status}. Data disimpan ke '{namejson}'")
-                    return True
-                else:
-                    log_message(f"GET Gagal! Status: {response.status} - {response.text()}")
-                    return None
-
-            except Exception as e:
-                log_message(f'Error saat GET data: {e}')
-                return None
-
-            # --- END GET DETAIL DATA ---
-
-
-        # --- CHANGE THIS ---
+        # --- MAIN RUN, CHANGE THIS ---
         page.reload()
         print('Title page: ', page.title())
-        # emailbc()
-        # approv()
+        # RUN Email broadcast fasih
+        # run_emailbc()
+        #
+        # RUN Approval, revoke, reject fasih by id
+        # target_url = "https://fasih-sm.bps.go.id/app/api/assignment-approval/api/v2/approval" #approv
+        # target_url = "https://fasih-sm.bps.go.id/app/api/assignment-approval/api/v2/revoke-approval" #revoke
+        # target_url = blm nyoba reject by api ======
+        # target_id = "6a4f9604-dba9-4ef3-a284-7b1c56f127fa"
+        # ====== if get statusnya udah approv, skip cekapprov
+        # run_api_request(page, method="post", target_url=target_url, target_id=target_id, msg="Approving")
         # 
-        base_url = "https://fasih-sm.bps.go.id/app/api/assignment-general/api/assignment/get-by-assignment-id"
-        target_id = "5451c1cc-5cb3-444e-9696-72b457aa00e8"
-        get_data_by_id(page, base_url, target_id)
+        # RUN Get detail data
+        # base_url = "https://fasih-sm.bps.go.id/app/api/assignment-general/api/assignment/get-by-assignment-id"
+        # target_id = "5451c1cc-5cb3-444e-9696-72b457aa00e8"
+        # run_api_request(page, method="get", target_url=base_url, target_id=target_id, msg="GetData")
+        # 
+        # Udah get detail data kan, abistu convert per data survei yg sesuai
+        # RUN Get PES
+        # ====== ketika apireq get nya success, maka kesini, jika ga, skip. ketika dah selese loop, delete data_survey.json
+        resultDict = run_getdataPES()    
+        # plan A
+        # for key,value in resultDict.items():
+        #     df.loc[i, key] = value
+        # df.to_csv(filename, index=False)
+        # plan B
+        df = pd.DataFrame(resultDict, index=[0])
+        df.to_csv('tempdata.csv', index=False)
+        #
         # ---
         page.pause() #debugging, open recorder on playwright
         
