@@ -34,6 +34,15 @@ def run():
             print("Browser tidak ditemukan. Membuka browser baru...")
             subprocess.Popen(r'start chrome.exe --remote-debugging-port=9222 --user-data-dir="C:\chrometemp"', shell=True)
             time.sleep(5)
+            # Loop sampai port aktif
+            import socket
+            port_siap = False
+            while not port_siap:
+                try:
+                    with socket.create_connection(("127.0.0.1", 9222), timeout=1):
+                        port_siap = True
+                except (ConnectionRefusedError, socket.timeout):
+                    time.sleep(0.5) # Cek ulang setiap 0.5 detik
             try:
                 browser = playwright_instance.chromium.connect_over_cdp("http://localhost:9222")
                 context = browser.contexts[0] if browser.contexts else browser.new_context()
@@ -272,13 +281,13 @@ def run():
 
         
         # --- BAB EMAIL FASIH BC---
-        def run_emailbc():
+        def run_emailbc(namafile):
             #id = "5103020002000305 - UMK - 26"
             #id = "5103010006001218 - UMK - 10"
             #email="niluhsekarastuti96@gmail.com"
 
             ggl = 1
-            df = pd.read_csv('tempdatasmp.csv')
+            df = pd.read_csv(namafile).astype(str)
             
             if 'approved' not in df.columns:
                 df['approved'] = ""
@@ -296,7 +305,7 @@ def run():
                 log_message(f"# {i,str(df['nama'][i])[:20]} | {df['idsbr'][i]} {df['email'][i]}")
 
                 id = df['idsbr'][i]
-                email = df['email'][i]
+                email = str(df['email'][i]).lower()
 
                 try:
                     page.get_by_role("textbox", name="Cari...").click()
@@ -305,17 +314,29 @@ def run():
                     #page.get_by_role("button", name=id).click()
                     page.get_by_role("cell", name=id).click(button="right")
                     page.get_by_role("menuitem", name="Pengaturan Email").click()
-                    page.get_by_role("button", name="Ganti Email").click()
-                    page.get_by_role("textbox", name="Ganti Email").click()
-                    page.get_by_role("textbox", name="Ganti Email").fill(email)
                     time.sleep(1)
-                    page.get_by_role("button", name="Ganti Email").click()
-                    page.get_by_role("button", name="Broadcast Email").click()
-                    page.get_by_role("button", name="Broadcast Email").click()
-                    # ESCCCCC gbasi
-                    #page.get_by_role("button", name="Close").click()
+
+                    # cek dlu apakah sama emailnya
+                    email_locator = page.locator("span").filter(has_text=email)
+                    # Cek apakah elemen tersebut ada di halaman (jumlahnya lebih dari 0)
+                    if email_locator.count() > 0:
+                        log_message("- Email sama. Skip / Continue ke proses berikutnya.")
+                        # Gunakan 'continue' jika kode ini berada di dalam perulangan (loop)
+                        # continue  
+                    else:
+                        log_message("- Eksekusi kode...")
+                        page.get_by_role("button", name="Ganti Email").click()
+                        page.get_by_role("textbox", name="Ganti Email").click()
+                        page.get_by_role("textbox", name="Ganti Email").fill(email)
+                        time.sleep(1)
+                        page.get_by_role("button", name="Ganti Email").click()
+                        page.get_by_role("button", name="Broadcast Email").click()
+                        page.get_by_role("button", name="Broadcast Email").click()
+                        
+                    time.sleep(1)
                     page.keyboard.press("Escape")
-                    time.sleep(2)
+                    #page.get_by_role("button", name="Close").click()
+                    time.sleep(1)
                     df.loc[i, 'approved'] = 'done'
 
                 except Exception as e:
@@ -330,7 +351,7 @@ def run():
                     continue
 
                 finally:
-                    df.to_csv('tempdatasmp.csv', index=False)
+                    df.to_csv(namafile, index=False)
 
             # --- ENDEMAIL FASIH BC ---
 
@@ -422,10 +443,35 @@ def run():
 
 
         # --- MAIN RUN, CHANGE THIS ---
-        page.reload()
+        #page.reload()
         print('Title page: ', page.title())
         # RUN Email broadcast fasih
-        # run_emailbc()
+        # alt 1
+        #df: nama, idsbr, email
+        namafile = 'tempdata.csv'
+        run_emailbc(namafile)
+        log_message('FINISIHED')
+        # alt 2
+        # 1. Change email
+        # target_url = "https://fasih-sm.bps.go.id/app/api/email/api/v2/assignment/change-email?newPin=false"
+        # payload = {
+        #     "assignmentId": "3adf0903-c295-4584-b3aa-3a3190e5bc23",
+        #     "surveyPeriodId": "fd68e454-ba45-4b85-8205-f3bf777ded24",
+        #     "email": "deliamanda1218@gmail.com",
+        #     "reminder": False
+        #     }
+        # cek sukses is True
+        # run_api_request(page, "post", target_url, )
+        # 2. Send email
+        # target_url = "https://fasih-sm.bps.go.id/app/api/email/api/v1/assignment/send-email-by-assignment?newPin=false"
+        # payload = {
+        #     "reminder": False,
+        #     "surveyPeriodId": "fd68e454-ba45-4b85-8205-f3bf777ded24",
+        #     "assignmentIds": [
+        #         "3adf0903-c295-4584-b3aa-3a3190e5bc23"
+        #     ]
+        #     }
+        # cek sukses is True
         #
         # RUN Approval, revoke, reject fasih by id
         # target_url = "https://fasih-sm.bps.go.id/app/api/assignment-approval/api/v2/approval" #approv
@@ -436,25 +482,25 @@ def run():
         # run_api_request(page, method="post", target_url=target_url, target_id=target_id, msg="Approving")
         # 
         # RUN Get detail data
-        base_url = "https://fasih-sm.bps.go.id/app/api/assignment-general/api/assignment/get-by-assignment-id"
-        target_id = "f2ad1748-8b8b-4af4-a1a0-c3af0ed0bdd9"
-        response = run_api_request(page, method="get", target_url=base_url, target_id=target_id, msg="GetData")
-        print(response)
-        if response['success'] == False or response['success'] == "False":
-            print(response['message'])
+        # base_url = "https://fasih-sm.bps.go.id/app/api/assignment-general/api/assignment/get-by-assignment-id"
+        # target_id = "f2ad1748-8b8b-4af4-a1a0-c3af0ed0bdd9"
+        # response = run_api_request(page, method="get", target_url=base_url, target_id=target_id, msg="GetData")
+        # print(response)
+        # if response['success'] == False or response['success'] == "False":
+        #     print(response['message'])
         # 
         # Udah get detail data kan, abistu convert per data survei yg sesuai
         # RUN Get PES
         # ====== ketika apireq get nya success, maka kesini, jika ga, skip. ketika dah selese loop, delete data_survey.json
-        resultDict = run_getdataPES()    
-        print(resultDict)
+        # resultDict = run_getdataPES()    
+        # print(resultDict)
         # plan A
         # for key,value in resultDict.items():
         #     df.loc[i, key] = value
         # df.to_csv(filename, index=False)
         # plan B
-        df = pd.DataFrame(resultDict, index=[0])
-        df.to_csv('tempdata.csv', index=False)
+        # df = pd.DataFrame(resultDict, index=[0])
+        # df.to_csv('tempdata.csv', index=False)
         #
         # ---
         page.pause() #debugging, open recorder on playwright
