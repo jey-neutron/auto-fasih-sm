@@ -1037,7 +1037,7 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
                         response = run_api_request(instance, page, method="get", target_url=base_url, target_id=target_id, msg=f"GetData-row-{i}")
                         if response is None:
                             raise ValueError("API tidak mengembalikan data (Response is None)")
-                        if response['success'] == False or response['success'] == "False":
+                        if response['success'] == False or response['success'] == "false":
                             raise ValueError(response['message'])
                         
                         # ketika apireq get nya success, maka kesini, jika ga, skip. 
@@ -1066,16 +1066,47 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
                     try:
                         # send and get response (approv)
                         if cekapprov == True:
-                            target_url = "https://fasih-sm.bps.go.id/app/api/assignment-approval/api/v2/approval" #approv
+                            payload = {
+                                "assignmentId": target_id,
+                                "statusApproval": 'true',
+                                "comment": "\"\""
+                            }
+                            msg = f"Approving-row-{i}"
+
                         elif cekapprov == "Reject":
-                            # target_url = "https://fasih-sm.bps.go.id/app/api/assignment-approval/api/v2/revoke-approval" #revoke
-                            # target_url = blm nyoba reject by api ====== blm nyoba juga kalo misal dah approv gimana
-                            instance.log_message('cek reject target url')
-                            raise ValueError("Maaf reject blm nyoba")
-                        response = run_api_request(instance, page, method="post", target_url=target_url, target_id=target_id, msg=f"Approving-row-{i}") 
+                            # revoke dlu if assignment udah diacc pengawas/admin
+                            # cek by gettin btn approval
+                            target_url = f"https://fasih-sm.bps.go.id/app/api/assignment-approval/api/v2/get-button-approval?assignmentId={target_id}"
+                            #instance, page, method, target_url, target_id, msg="", payload=None, filename="data_survey.json"
+                            response = run_api_request(instance, page, method="post", target_url=target_url, target_id=target_id, msg=f"Cek-status-row-{i}", payload={}) 
+                            time.sleep(1)
+                            if response['data'] >= 2: #artinya udah approv
+                                # makanya revoke
+                                target_url = "https://fasih-sm.bps.go.id/app/api/assignment-approval/api/v2/revoke-approval" #revoke
+                                response = run_api_request(instance, page, method="post", target_url=target_url, target_id=target_id, msg=f"Revoking-row-{i}") 
+                                time.sleep(1)
+                            elif response['data'] == 1: pass
+                            else: 
+                                #instance.log_message(f"{response['message']} - Error code {response['errorCode']}")
+                                raise ValueError(f"{response['message']} - Error code {response['errorCode']}")
+
+                            # baru abistu reject
+                            payload = {
+                                "assignmentId": target_id,
+                                "statusApproval": "false",
+                                "comment": "\"\""
+                            }
+                            msg = f"Rejecting-row-{i}"
+                            #instance.log_message('cek reject target url')
+                            #raise ValueError("Maaf reject blm nyoba")
+                        
+                        # reject or approv
+                        target_url = "https://fasih-sm.bps.go.id/app/api/assignment-approval/api/v2/approval" 
+                        response = run_api_request(instance, page, method="post", target_url=target_url, target_id=target_id, msg=msg, payload=payload) 
+
                         if response is None:
                             raise ValueError("API tidak mengembalikan data (Response is None)")
-                        if response['success'] == False or response['success'] == "False":
+                        if response['success'] == False or response['success'] == "false":
                             raise ValueError(response['message'])
 
                         # kasih jeda
