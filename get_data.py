@@ -838,6 +838,7 @@ def get_list_data(instance, namadf,  mode="w", maxrow=0, sep=","):
 
         # page.goto("https://fasih-sm.bps.go.id/app/surveys?page=0&perPage=10&layout=list")
         page.reload()
+        time.sleep(2)
         page.wait_for_timeout(2000) 
         #page.evaluate("document.body.style.zoom='0.5'")
         page.locator("h3").first.wait_for(
@@ -864,8 +865,9 @@ def get_list_data(instance, namadf,  mode="w", maxrow=0, sep=","):
                 next_button.click()
                 ipage += 1
                 page.wait_for_timeout(2000) # Jeda detik nunggu halaman muat
-                instance.log_message(f'# Get response data from page {ipage}')
+                instance.log_message(f'# Jml data: {len(dflist)}. Getting response data page {ipage}')
                 dflist = mergejson(dflist, listcol, namejson)
+                time.sleep(1)
             else:
                 instance.log_message('# Selesai')
                 try: os.remove(namejson)
@@ -875,7 +877,8 @@ def get_list_data(instance, namadf,  mode="w", maxrow=0, sep=","):
         time.sleep(2)
         # ngerapiin
         df = pd.DataFrame(dflist)
-        instance.log_message(f"# Get {len(df)} rows of data")
+        lendf = len(df)
+        instance.log_message(f"# Get {lendf} rows of data")
         df['link'] = 'https://fasih-sm.bps.go.id/app/assignment/'+ df['surveyPeriodId'].astype(str) + "/" + df['id'].astype(str)
         # page.pause() #debugging, open recorder on playwright
                 
@@ -996,6 +999,7 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
             df = df.astype(str)
             if 'approved' not in df.columns:
                 df['approved'] = ""
+            lendf = len(df)
         except Exception as e:
             instance.log_message(f'ERROR: {e}', tag="red_tag")
             df = None
@@ -1004,7 +1008,7 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
         
         # cek approv or not
         msgapprov = ' and approving' if cekapprov else ''
-        instance.log_message(f"# Loading for {len(df)-int(mulai)} data, length dataframe: {len(df)} data{msgapprov}...")
+        instance.log_message(f"# Loading for {lendf-int(mulai)} data, length dataframe: {lendf} data{msgapprov}...")
 
         # start loop per df
         if mulai <0 : i=-1
@@ -1013,13 +1017,13 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
             check_stop(instance)
             # LOOOOOOOOOP
             i += 1
-            if i >= len(df):
+            if i >= lendf:
                 instance.log_message(f"# DONEEE file {filename} updated ---------------------------------")
                 break
             try:
                 # CEK DAH APPROVED LOM ke1 (cek dari hasil csv)------------------------------------------------------------
                 if df.loc[i, 'approved'] == True or df.loc[i, 'approved'] == "True":
-                    instance.log_message(f"# {i,str(df[idlog][i])[:20]} | Approv'd, skip")
+                    instance.log_message(f"# {i}/{lendf-1} | {str(df[idlog][i])[:20]} | Approv'd, skip")
                     continue
 
                 # perlukah cek approv yg ke2? ======
@@ -1041,10 +1045,11 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
                         # get a dict value per row from web (init dict from func)
                         for key,value in resultDict.items():
                             df.loc[i, key] = value
+                        df = df.copy()
                         df.to_csv(filename, index=False)
 
                         # kasih jeda
-                        time.sleep(random.uniform(1, 3))
+                        time.sleep(random.uniform(1, 2))
                         
                     except ValueError as e:
                         instance.log_message(f"# Terjadi error on GetData: ")
@@ -1074,10 +1079,10 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
                             raise ValueError(response['message'])
 
                         # kasih jeda
-                        time.sleep(random.uniform(1, 3))
+                        time.sleep(random.uniform(1, 2))
 
                     except Exception as e:
-                        instance.log_message(f"# {i,str(df[idlog][i])[:20]} | Skip gabisa approv")
+                        instance.log_message(f"# {i}/{lendf-1} | {str(df[idlog][i])[:20]} | Skip gabisa approv")
                         instance.log_message(f"Error approv {e}", "red_tag")
                         # logging
                         df.loc[i, 'approved'] = str(e).split("Stacktrace:")[0]
@@ -1093,8 +1098,8 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
                 df.to_csv(filename, index=False)
                 
                 # kasih jeda
-                if i%10 == 0: time.sleep(30)
-                if i%100 == 0: time.sleep(60)
+                if i%10 == 0 and i!=0: time.sleep(30); instance.log_message('# Waiting...')
+                if i%100 == 0 and i!=0: time.sleep(60); instance.log_message('# Waiting...')
                 
             except Exception as e:
                 # coba refresh n login ulang
@@ -1119,7 +1124,7 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
                     continue
             
             # jika satu row dah selesai, entah error or sukses    
-            instance.log_message(f"# {i,str(df[idlog][i])[:20]} | Done")
+            instance.log_message(f"# {i}/{lendf-1} | {str(df[idlog][i])[:20]} | Done")
             continue
 
 

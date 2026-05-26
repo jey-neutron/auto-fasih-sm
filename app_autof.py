@@ -644,7 +644,7 @@ class AutoApp:
                 # Opsional: Jika ingin otomatis membuka Chrome asli Anda lewat script,
                 # gunakan baris di bawah ini menggantikan p.chromium.launch:
                 subprocess.Popen(r'start chrome.exe --remote-debugging-port=9222 --user-data-dir="C:\chrometemp"', shell=True)
-                time.sleep(2)
+                time.sleep(3)
                 # Loop sampai port aktif
                 port_siap = False
                 while not port_siap:
