@@ -1,27 +1,41 @@
+import subprocess
+import socket
 import time
 import tkinter as tk
 from tkinter import ttk
 import threading
 import sys
 import os
+import re
+
+try:
+    from ctypes import windll
+    windll.shcore.SetProcessDpiAwareness(1)
+except: 
+    pass
 
 def initlib(callback):
     # var global to store library var
-    global webdriver; global Keys; global TimeoutException
     global datetime; global pd; global scrolledtext
-    global Select; global EC
-    global WebDriverWait; global By; global np
-    # Library
-    from selenium import webdriver
-    from selenium.webdriver.common.keys import Keys
-    from selenium.common.exceptions import TimeoutException
+    global np
+    global playwright_instance; global sync_playwright; global browser; global page
+    # global TimeoutException
+    # global webdriver; global Keys; 
+    # global Select; global EC
+    # global WebDriverWait; global By; 
+
+    #  Library
+    # from selenium import webdriver
+    # from selenium.webdriver.common.keys import Keys
+    # from selenium.common.exceptions import TimeoutException
+    # from selenium.webdriver.support.ui import Select
+    # from selenium.webdriver.support import expected_conditions as EC
+    # from selenium.webdriver.support.ui import WebDriverWait
+    # from selenium.webdriver.common.by import By
+    from playwright.sync_api import sync_playwright
+    from tkinter import scrolledtext
     from datetime import datetime
     import pandas as pd
-    from tkinter import scrolledtext
-    from selenium.webdriver.support.ui import Select
-    from selenium.webdriver.support import expected_conditions as EC
-    from selenium.webdriver.support.ui import WebDriverWait
-    from selenium.webdriver.common.by import By
     import numpy as np
 
     time.sleep(1)
@@ -67,6 +81,7 @@ def load_setting_file(instance, filename="get_data.py", load=True):
     return True
 #####
 
+
 # Main app
 class AutoApp:
     def __init__(self, master):
@@ -76,10 +91,13 @@ class AutoApp:
         self.BG_INPUT = "#22222E"      # Background Field Input
         self.FG_MAIN = "#FFFFFF"       # Teks Utama
         self.FG_MUTED = "#8E8E9F"      # Teks Redup / Label
+        self.ACCENT_BLUE_DARK = "#003380"   # Tombol Primer / Browser
+        self.ACCENT_TEAL_DARK = "#00402E"   # Tombol Run / Sukses
+        self.ACCENT_RED_DARK = "#660018"    # Tombol Berhenti / Error
         self.ACCENT_BLUE = "#3A86FF"   # Tombol Primer / Browser
         self.ACCENT_TEAL = "#00A378"   # Tombol Run / Sukses
-        self.ACCENT_ORANGE = "#FF9F1C" # Tombol Pendukung
         self.ACCENT_RED = "#FF003C"    # Tombol Berhenti / Error
+        self.ACCENT_ORANGE = "#FF9F1C" # Tombol Pendukung
         self.BORDER_COLOR = "#2D2D3D"  # Warna Border
         
         # konfigurasi import fungsi dari get_data.py
@@ -89,16 +107,19 @@ class AutoApp:
             time.sleep(10)
             master.destroy()
             return
-        sso = load_setting_file(self, "tempuser.txt", False)
+        # user n sso get
+        usersso, passso, approv, msgsso, helper = self.load_credentials()     
 
         # 2. Ambil fungsi yang dibutuhkan
         global mainfunc
         global get_list_data
         mainfunc = external_funcs.get('mainfunc')
         get_list_data = external_funcs.get('get_list_data')
+        appver = external_funcs.get('ver')
         
         # konfigurasi variabel
-        self.driver = None
+        self.playwright_instance = None
+        self.page = None
         self.isdone = None
         self.vars = None #var kosong buat next if needed
         self.stop_event = threading.Event() # Event untuk menghentikan thread
@@ -107,11 +128,14 @@ class AutoApp:
         # Konfigurasi jendela utama
         self.master = master
         #master.iconbitmap("ikonku.ico")
-        master.title("Aplikasi Auto-Fasih-SM🤖")
-        master.geometry("480x780") # Ukuran awal yang sedikit lebih proporsional
+        master.title(f"Aplikasi Auto-Fasih-SM🤖 {appver(self)}")
+        master.geometry("480x800") # Ukuran awal yang sedikit lebih proporsional
         master.attributes("-topmost", True) # Selalu di atas
         master.resizable(True, True) # Memungkinkan resize
         master.configure(bg=self.BG_MAIN)
+
+        # Menangani tombol close (X) pada jendela Tkinter agar bersih
+        #master.protocol("WM_DELETE_WINDOW", self.close_browser)
 
         # Menambahkan frame utama untuk padding
         self.main_frame = tk.Frame(master, padx=15, pady=15, bg=self.BG_MAIN)
@@ -123,33 +147,30 @@ class AutoApp:
             self.main_frame, 
             textvariable=self.status_var, 
             fg="#FFFFFF", 
-            bg=self.ACCENT_BLUE, 
+            bg=self.ACCENT_BLUE_DARK, 
             font=('Segoe UI', 10, 'bold'), 
             anchor='w',
             padx=10,
             pady=6,
             bd=0
         )
-        self.status_label.pack(fill=tk.X, pady=(0, 15))
-
-        # user n sso get
-        usersso, passso, approv, msgsso = self.load_credentials()           
+        self.status_label.pack(fill=tk.X, pady=(0, 15))      
 
         # --- Input Fields (Field 1: Username) ---
-        self.create_input_field("Username SSO:", usersso, "username_entry", self.main_frame)
+        self.create_input_field("Username SSO:", 'jey.neutron', "username_entry", self.main_frame, value=usersso)
         # --- Input Fields (Field 2: Password) ---
-        self.create_input_field("Password SSO:", passso, "password_entry", self.main_frame, show='*')
+        self.create_input_field("Password SSO:", 'password', "password_entry", self.main_frame, show='*', value=passso)
         
         # --- Input Fields (Field 3: Link) ---
         self.create_input_field("Link target:", "https://fasih-sm.bps.go.id/", "link_entry", self.main_frame)
         
         # --- Tombol Baris 1: Buka Aplikasi & Buka Link ---
         self.btn_frame_1 = tk.Frame(self.main_frame, bg=self.BG_MAIN)
-        self.btn_frame_1.pack(fill=tk.X, pady=(15, 5))
+        self.btn_frame_1.pack(fill=tk.X, pady=(7, 5))
 
         self.btn_open_app = tk.Button(
             self.btn_frame_1, 
-            text="Open Browser", 
+            text="Start Browser", 
             command=self.open_browser, 
             bg=self.ACCENT_BLUE, 
             fg=self.FG_MAIN, 
@@ -181,7 +202,7 @@ class AutoApp:
 
         # --- Tombol Baris 2: Fungsi 1 & Fungsi 2 ---
         self.btn_frame_2 = tk.Frame(self.main_frame, bg=self.BG_MAIN)
-        self.btn_frame_2.pack(fill=tk.X, pady=10)
+        self.btn_frame_2.pack(fill=tk.X, pady=7)
 
         # Variabel kontrol untuk menyimpan nilai radiobutton yang dipilih
         self.vwrite = tk.IntVar(value=1)
@@ -199,9 +220,9 @@ class AutoApp:
             bg=self.BG_INPUT,
             #fg=self.FG_MUTED,
             fg='#c7c7c7',
-            selectcolor=self.ACCENT_BLUE,
-            activebackground=self.ACCENT_BLUE,
-            activeforeground=self.FG_MAIN,
+            selectcolor=self.ACCENT_ORANGE,
+            activebackground=self.ACCENT_ORANGE,
+            activeforeground=self.BG_CARD,
             relief=tk.FLAT,
             font=('Segoe UI', 8, 'bold'),
             padx=6,
@@ -219,9 +240,9 @@ class AutoApp:
             bg=self.BG_INPUT,
             #fg=self.FG_MUTED,
             fg='#c7c7c7',
-            selectcolor=self.ACCENT_BLUE,
-            activebackground=self.ACCENT_BLUE,
-            activeforeground=self.FG_MAIN,
+            selectcolor=self.ACCENT_ORANGE,
+            activebackground=self.ACCENT_ORANGE,
+            activeforeground=self.BG_CARD,
             relief=tk.FLAT,
             font=('Segoe UI', 8, 'bold'),
             padx=6,
@@ -263,8 +284,8 @@ class AutoApp:
 
         # Menggunakan func2_frame sebagai parent untuk input ini
         self.create_input_field("Baris Mulai:", "Cth: 0 (untuk mulai dari awal)", "start_row_entry", self.func2_frame)
-        self.create_input_field("Nama File:", "data.csv", "filename_entry", self.func2_frame)
-        self.create_input_field("Input Tambahan:", "Input opsional... (cth: help)", "extra_input_entry", self.func2_frame)
+        self.create_input_field("Nama File:", "Nama_File.csv", "filename_entry", self.func2_frame, value='data.csv')
+        self.create_input_field("Input Tambahan:", "Input opsional... (cth: help)", "extra_input_entry", self.func2_frame, value=helper)
         
         # Variabel kontrol untuk menyimpan nilai radiobutton yang dipilih
         self.v = tk.IntVar(value=1)
@@ -319,6 +340,26 @@ class AutoApp:
         self.rb2.pack(side=tk.LEFT, padx=2)
         self.rb3= tk.Radiobutton(
             self.radio_container, 
+            text='Reject', 
+            variable=self.v, 
+            value=2, 
+            indicatoron=0, 
+            command=self.update_label,
+            bg=self.BG_INPUT,
+            #fg=self.FG_MUTED,
+            fg='#c7c7c7',
+            selectcolor=self.ACCENT_TEAL,
+            activebackground=self.ACCENT_TEAL,
+            activeforeground=self.FG_MAIN,
+            relief=tk.FLAT,
+            font=('Segoe UI', 8, 'bold'),
+            padx=8,
+            pady=3,
+            cursor="hand2"
+        )
+        self.rb3.pack(side=tk.LEFT, padx=2)
+        self.rb4= tk.Radiobutton(
+            self.radio_container, 
             text='NonApprov', 
             variable=self.v, 
             value=99, 
@@ -336,11 +377,11 @@ class AutoApp:
             pady=3,
             cursor="hand2"
         )
-        self.rb3.pack(side=tk.LEFT, padx=2)
+        self.rb4.pack(side=tk.LEFT, padx=2)
 
         # --- Tombol Baris 3: Close App & Exit App ---
         self.btn_frame_3 = tk.Frame(self.main_frame, bg=self.BG_MAIN)
-        self.btn_frame_3.pack(fill=tk.X, pady=15)
+        self.btn_frame_3.pack(fill=tk.X, pady=5)
 
         self.btn_func_2 = tk.Button(
             self.btn_frame_3, 
@@ -388,15 +429,33 @@ class AutoApp:
             pady=3,
             cursor="hand2"
         )
-        self.btn_close_app.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(4, 0))
+        self.btn_close_app.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(4, 4))
 
         # --- Log Area ---
-        tk.Label(self.main_frame, text="Log Aktivitas:", anchor='w', bg=self.BG_MAIN, fg=self.FG_MAIN, font=('Segoe UI', 9, 'bold')).pack(fill=tk.X, pady=(10, 5))
+        # 1. Buat frame horizontal untuk menampung Label dan Tombol Clear
+        log_header_frame = tk.Frame(self.main_frame, bg=self.BG_MAIN)
+        log_header_frame.pack(fill=tk.X, pady=(5, 5))
+
+        # 2. Label ditaruh di dalam log_header_frame (pack ke KIRI)
+        tk.Label(log_header_frame, text="Log Aktivitas:", anchor='w', bg=self.BG_MAIN, fg=self.FG_MAIN, font=('Segoe UI', 9, 'bold')).pack(side=tk.LEFT, fill=tk.X)
+        # 3. Tombol Clear ditaruh di dalam log_header_frame (pack ke KANAN)
+        clear_btn = tk.Button(
+            log_header_frame,
+            text="Clear",
+            font=('Segoe UI', 8, 'bold'),
+            bg="#2A2A38", 
+            fg=self.FG_MAIN,         # Menyesuaikan tema warna Anda
+            relief=tk.SOLID,
+            bd=1,
+            cursor="hand2",          # Mengubah cursor saat hover
+            command=self.clear_log   # Fungsi yang dijalankan saat diklik
+        )
+        clear_btn.pack(side=tk.LEFT)
         self.log_area = scrolledtext.ScrolledText(
             self.main_frame, 
             wrap=tk.WORD, 
-            height=15, 
-            font=('Consolas', 9),
+            height=20, 
+            font=('Consolas', 8),
             bg=self.BG_CARD,
             fg=self.FG_MAIN,
             insertbackground=self.FG_MAIN, # cursor color
@@ -407,6 +466,13 @@ class AutoApp:
         self.log_area.pack(fill=tk.BOTH, expand=True)
         self.log_area.tag_config("red_tag", foreground=self.ACCENT_RED)
         self.log_area.tag_config("green_tag", foreground=self.ACCENT_TEAL)
+        self.log_area.vbar.config(
+            troughcolor="#2d2d2d",       # Warna jalur/rel scrollbar
+            bg=self.BG_CARD,             # Warna kotak geser (slider)
+            activebackground=self.FG_MAIN, # Warna kotak geser saat disorot mouse
+            bd=0,                        # Menghilangkan border agar minimalis
+            elementborder=0              # Menghilangkan border elemen internal
+        )
 
         # Log pesan awal
         self.log_message("Aplikasi dimulai. Selamat datang!")
@@ -414,13 +480,13 @@ class AutoApp:
         # Set pilihan awal
         self.rw1.select()
         self.update_label_vwrite()
-        if approv == "approv3":
-            self.rb3.select()
+        if approv == "approv4":
+            self.rb4.select()
         else: self.rb1.select()
         self.update_label()
 
     # --- Utility Function untuk membuat field input berulang ---
-    def create_input_field(self, label_text, placeholder, attr_name, parent, show=''):
+    def create_input_field(self, label_text, placeholder, attr_name, parent, show='', value=False):
         frame = tk.Frame(parent, bg=parent.cget('bg'))
         frame.pack(fill=tk.X, pady=4)
         
@@ -446,11 +512,19 @@ class AutoApp:
             font=('Segoe UI', 9),
             bd=4 # Memberikan visual internal margin/padding yang bersih
         )
-        entry.insert(0, placeholder) # Menggunakan insert untuk placeholder
         entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
         
         # Simpan reference ke entry object
         setattr(self, attr_name, entry) 
+
+        if value:
+            # Jika ada VALUE asli, gunakan warna teks utama/terang
+            entry.config(fg="#ffffff") # Sesuaikan dengan warna teks aktif Anda
+            entry.insert(0, value)
+        else:
+            # Jika tidak ada value, isi dengan PLACEHOLDER dan warna abu-abu
+            entry.config(fg="#C7C7C7")
+            entry.insert(0, placeholder) # Menggunakan insert untuk placeholder
         
         # Event handler untuk menghapus placeholder saat fokus
         entry.bind('<FocusIn>', lambda event, e=entry, p=placeholder: self.clear_placeholder(e, p))
@@ -459,10 +533,16 @@ class AutoApp:
     # --update untuk radiobtn
     def update_label(self):
         """Fungsi yang dipanggil saat radiobutton diklik."""
-        if self.v.get() == 1:
-            self.log_message(f"Pilihan approve: Ya, sekalian diapprove")
-        else :
-            self.log_message(f"Pilihan approve: Gausa diapprove")
+
+        match self.v.get():
+            case 1:
+                self.log_message(f"Pilihan approve: Ya, sekalian diapprove")
+            case 0:
+                self.log_message(f"Pilihan approve: Gausa diapprove")
+            case 2: 
+                self.log_message(f"Pilihan approve: Reject")
+            case 99:  
+                self.log_message(f"Pilihan approve: Bukan approval")
         pass
 
     # --update untuk radiobtn vwrite
@@ -470,7 +550,11 @@ class AutoApp:
         """Fungsi yang dipanggil saat radiobutton diklik."""
         if self.vwrite.get() == 1:
             self.log_message(f"Pilihan Write data.csv: Rewrite")
+            self.rw1.config(fg=self.FG_MAIN)
+            self.rw2.config(fg=self.FG_MUTED)
         else :
+            self.rw2.config(fg=self.FG_MAIN)
+            self.rw1.config(fg=self.FG_MUTED)
             cekcsv = load_setting_file(self,filename="data.csv",load=False)
             if cekcsv:
                 self.log_message(f"Pilihan Write data.csv: Append to data.csv")
@@ -499,9 +583,9 @@ class AutoApp:
         self.status_var.set(new_status)
         # Menyesuaikan penamaan warna ke palette baru
         color_map = {
-            "blue": self.ACCENT_BLUE,
-            "green": self.ACCENT_TEAL,
-            "red": self.ACCENT_RED
+            "blue": self.ACCENT_BLUE_DARK,
+            "green": self.ACCENT_TEAL_DARK,
+            "red": self.ACCENT_RED_DARK
         }
         actual_color = color_map.get(color, color)
         self.status_label.config(fg="white", bg=actual_color)
@@ -513,9 +597,10 @@ class AutoApp:
             if os.path.exists(path):
                 with open(path, 'r') as f:
                     lines = f.read().splitlines()
-                    return lines[0], lines[1], lines[2], "Loaded"
+                    return lines[0], lines[1], lines[2], "Loaded", lines[3]
         except: pass
-        return "jey.neutron", "password", "approv1", "Default"
+        # return "jey.neutron", "password", "approv1", "Default", "Input_Tambahan"
+        return False, False, False, "Default", False
     
     # --- Log Message Function ---
     def log_message(self, message, tag=None):
@@ -527,24 +612,98 @@ class AutoApp:
     def stop_thread(self):
         self.stop_event.set() # Kirim sinyal untuk berhenti
 
+    # --- Clear log message ---
+    def clear_log(self):
+        # Hapus dari index '1.0' (awal) sampai 'end' (akhir)
+        self.isdone = 1
+        self.log_area.delete('1.0', "end")
+        self.log_message("Cleared! Aplikasi dimulai. Selamat datang!")
+
+        if self.vwrite.get() == 1:
+            self.log_message(f"Pilihan Write data.csv: Rewrite")
+        else:
+            self.log_message(f"Pilihan Write data.csv: Append")
+
+        if self.v.get() == 1:
+            self.log_message(f"Pilihan approve: Ya, sekalian diapprove")
+        else :
+            self.log_message(f"Pilihan approve: Gausa diapprove")
+
+
     # --- Browser App Functions ---
     def open_browser(self):
         self.log_message("Perintah: Membuka browser.")
         try:
-            self.driver = webdriver.Chrome() # Selenium akan otomatis mencari & mendownload ChromeDriver yang sesuai
-            self.log_message("Ready for action.")
-            self.change_status("STATUS: Browser Ready", color="green")
+            # self.driver = webdriver.Chrome() # Selenium akan otomatis mencari & mendownload ChromeDriver yang sesuai
+            if self.playwright_instance is None:
+                self.playwright_instance = sync_playwright().start()
+            try:
+                # 1. Coba hubungkan ke browser yang sudah ada
+                self.log_message("Mengecek browser yang terbuka...")
+                self.browser = self.playwright_instance.chromium.connect_over_cdp("http://localhost:9222")                    
+                self.page = self.browser.contexts[0].pages[0]
+                self.page.goto('https://www.google.com')
+                self.change_status("STATUS: Browser Ready", color="green")
+                self.log_message("Berhasil terhubung ke browser yang sudah ada!")
+                self.log_message("Ready for action.")
+                
+            except Exception:
+                # 2. Jika gagal (browser belum dibuka), luncurkan browser baru dari nol
+                self.log_message("Browser not found. Open new...")
+                # self.browser = p.chromium.launch(headless=False)
+                # Opsional: Jika ingin otomatis membuka Chrome asli Anda lewat script,
+                # gunakan baris di bawah ini menggantikan p.chromium.launch:
+                subprocess.Popen(r'start chrome.exe --remote-debugging-port=9222 --user-data-dir="C:\chrometemp"', shell=True)
+                time.sleep(3)
+                # Loop sampai port aktif
+                port_siap = False
+                while not port_siap:
+                    try:
+                        with socket.create_connection(("127.0.0.1", 9222), timeout=1):
+                            port_siap = True
+                    except (ConnectionRefusedError, socket.timeout):
+                        time.sleep(0.5) # Cek ulang setiap 0.5 detik
+                try:
+                    self.browser = self.playwright_instance.chromium.connect_over_cdp("http://localhost:9222")
+                    context = self.browser.contexts[0] if self.browser.contexts else self.browser.new_context()
+                    self.page = context.pages[0] if context.pages else context.new_page()
+                    self.change_status("STATUS: Browser Ready", color="green")
+                    self.log_message("Berhasil terhubung ke browser baru!")
+                    self.log_message("Ready for action.")
+                except Exception:
+                    self.log_message("Gagal terhubung ke Chrome. Pastikan port 9222 tidak diblokir. Coba Start Browser lagi")
+                    self.change_status("STATUS: Browser not terhubung", color="red")
+                
         except Exception as e:
             self.change_status("STATUS: Browser Error", color="red")
             self.log_message(f"ERROR: Gagal membuka browser. ({str(e).split('Stacktrace:')[0]})", tag="red_tag")    
+
+    def close_port_9222(self):
+        try:
+            # 1. Cari PID yang menggunakan port 9222 lewat netstat
+            result = subprocess.check_output('netstat -ano | findstr :9222', shell=True).decode()
+            # Ambil semua angka PID yang ada di baris akhir netstat
+            pids = set(re.findall(r'\s+(\d+)\s*$', result, re.MULTILINE))
+            
+            # 2. Kill masing-masing PID tersebut secara spesifik
+            for pid in pids:
+                if pid != "0": # Pastikan bukan system process
+                    subprocess.Popen(f'taskkill /F /PID {pid}', shell=True)
+            self.log_message("Chrome di port 9222 berhasil ditutup.")
+        except Exception:
+            # Jika port 9222 memang sudah mati/tidak ditemukan, netstat akan error (ignore saja)
+            self.log_message("Tidak ada Chrome aktif di port 9222.")
 
     def close_browser(self):
         self.log_message("Perintah: Menutup browser.")
         self.change_status("STATUS: Browser Ditutup", color="blue")
         # Simulasikan pekerjaan
-        if self.driver:
-            self.driver.quit()
-            self.driver = None
+        # if self.driver:
+        #     self.driver.quit()
+        #     self.driver = None
+        if self.playwright_instance:
+            self.playwright_instance.stop()
+        self.close_port_9222()
         self.log_message("Browser telah ditutup.")
 
     def open_link_in_browser(self):
@@ -556,14 +715,16 @@ class AutoApp:
             self.log_message(f"Menuju link dengan SSO: {self.username_entry.get()}")
             self.log_message(f"Target link: {link}")
             try:
-                self.driver.get(link)
-                self.log_message("Sukses: link target terbuka.")
+                #self.driver.get(link)
+                self.page.goto(link)
+                self.log_message(f"Sukses: link target terbuka. Title Page: {self.page.title()}")
                 # try login sso disini
                 # Validasi sederhana
                 if self.username_entry.get() in ["Masukkan Username...", "jey.neutron" ,""]:
                     self.log_message("ERROR: Fungsi 1 dibatalkan. Username tidak valid.", "red_tag")
                     return
-                if "bps.go.id" in self.driver.current_url:
+                #if "bps.go.id" in self.driver.current_url:
+                if "bps.go.id" in self.page.url:
                     self.thread = threading.Thread(target=self.login_sso, args=(link,))
                     self.thread.start()
                 else:
@@ -578,22 +739,48 @@ class AutoApp:
     # --- Login SSO Function ---
     def login_sso(self, link):
         self.log_message("Mencoba login SSO...")
-        try: #waiting login sso button
-            WebDriverWait(self.driver, 10).until( #using explicit wait for x seconds
-                EC.presence_of_element_located((By.XPATH, "id('login-in')/A[2]")) #finding the element
-            ).click()
-        except:
-            pass
-        WebDriverWait(self.driver, 15).until( #using explicit wait for x seconds
-            EC.presence_of_element_located((By.XPATH, 'id("kc-login")')) )
-        self.driver.find_element(By.XPATH, '//*[@id="username"]').send_keys(self.username_entry.get())
-        self.driver.find_element(By.XPATH, '//*[@id="password"]').send_keys(self.password_entry.get())
-        self.driver.find_element(By.XPATH, '//*[@id="kc-login"]').send_keys(Keys.RETURN)
-        time.sleep(5) #wait for redirect
-        self.log_message('Login SSO done')
-        self.driver.get(link) #reopen the link after login
-        self.change_status("STATUS: Target link ready, waiting your action...", color="green")
-        self.log_message("Silakan memilih survei sendiri sampai ke halaman list tabel data.")
+        try:
+            # 1. Coba hubungkan ke browser yang sudah ada
+            p = sync_playwright().start()
+            browser = p.chromium.connect_over_cdp("http://localhost:9222")                    
+            page = browser.contexts[0].pages[0]
+            # try: #waiting login sso button
+            #     WebDriverWait(self.driver, 10).until( #using explicit wait for x seconds
+            #         EC.presence_of_element_located((By.XPATH, "id('login-in')/A[2]")) #finding the element
+            #     ).click()
+            # except:
+            #     pass
+            # WebDriverWait(self.driver, 15).until( #using explicit wait for x seconds
+            #     EC.presence_of_element_located((By.XPATH, 'id("kc-login")')) )
+            # self.driver.find_element(By.XPATH, '//*[@id="username"]').send_keys(self.username_entry.get())
+            # self.driver.find_element(By.XPATH, '//*[@id="password"]').send_keys(self.password_entry.get())
+            # self.driver.find_element(By.XPATH, '//*[@id="kc-login"]').send_keys(Keys.RETURN)
+            if self.stop_event.is_set():
+                raise InterruptedError("Process stopped by user.")
+            page.get_by_role("link", name="Login SSO BPS").click()
+            page.get_by_role("textbox", name="Username or email").click()
+            page.get_by_role("textbox", name="Username or email").fill(self.username_entry.get())
+            page.get_by_role("textbox", name="Password").click()
+            page.get_by_role("textbox", name="Password").fill(self.password_entry.get())
+            page.get_by_role("button", name="Log In").click()
+            time.sleep(5) #wait for redirect
+            self.log_message('Login SSO done')
+            # self.driver.get(link) #reopen the link after login
+            page.goto(link)
+            self.change_status("STATUS: Target link ready, waiting your action...", color="green")
+            self.log_message("Silakan memilih survei sendiri sampai ke halaman list tabel data.")
+        except Exception as e:
+            self.log_message(f"Error di thread data loginsso: {e}", tag="red_tag")
+            self.isdone= 1
+        finally:
+            # Selalu tutup p_instance di blok 'finally' agar tidak hang
+            self.isdone= 1
+            try:
+                p.stop()
+                #self.log_message("Koneksi Playwright di thread ditutup.")
+            except NameError:
+                # Terjadi jika get playwright page() gagal total di awal
+                pass
 
     # --- Function 1 ---
     def run_function_1(self):
@@ -639,12 +826,12 @@ class AutoApp:
 
         # Validasi sederhana untuk baris mulai
         try:
-            if start_row == 'Cth: 0 (untuk mulai dari awal)':
-                row_num = 0
-            else:
+            if (start_row == 'Cth: 0 (untuk mulai dari awal)') and (self.v.get() == 99):
+               row_num = 0
+            else:            
                 row_num = int(start_row)
             if row_num < 0:
-                 raise ValueError
+                raise ValueError
         except ValueError:
             self.isdone = 1
             self.change_status("STATUS: Running batal", color="blue")
@@ -659,6 +846,7 @@ class AutoApp:
         if extra_input == "Input opsional... (cth: help)" or extra_input.strip() == "":
             self.log_message("Catatan: Tidak ada fungsi tambahan yang dipilih.")
             extra_input_fun = None 
+            self.isdone = 1
         else:
             try:
                 external_funcs = load_setting_file(self)
@@ -678,7 +866,9 @@ class AutoApp:
                     cekapprove = True
                 elif self.v.get() == 0:
                     cekapprove = False
-                self.thread = threading.Thread(target=mainfunc, args=(self, filename, row_num, extra_input_fun, cekapprove))
+                elif self.v.get() == 2:
+                    cekapprove = "Reject"
+                self.thread = threading.Thread(target=mainfunc, args=(self, filename, cekapprove, row_num, extra_input_fun))
             self.thread.start()
 
         except Exception as e:
@@ -700,7 +890,7 @@ def jalankan_aplikasi():
     splash = tk.Tk()
     splash.title("Loading")
     # Atur ukuran dan posisi di tengah layar
-    lebar, tinggi = 320, 180
+    lebar, tinggi = 350, 180
     layar_lebar = splash.winfo_screenwidth()
     layar_tinggi = splash.winfo_screenheight()
     x = (layar_lebar // 2) - (lebar // 2)
@@ -709,10 +899,10 @@ def jalankan_aplikasi():
     splash.overrideredirect(True) # Tanpa bingkai
     
     # Modern Dark styling for splash screen
-    splash.configure(bg="#121214")
+    splash.configure(bg="#22222E")
 
-    tk.Label(splash, text="🤖Auto-Fasih-SM", font=('Segoe UI', 24, 'bold'), fg="#3A86FF", bg="#121214").pack(pady=(25, 0))
-    tk.Label(splash, text="Sedang Memuat Aplikasi...", font=('Segoe UI', 9), fg="#c7c7c7", bg="#121214").pack(pady=(0, 10))
+    tk.Label(splash, text="🤖Auto-Fasih-SM", font=('Segoe UI', 22, 'bold'), fg="#3A86FF", bg="#22222E").pack(pady=(10, 0))
+    tk.Label(splash, text="Sedang Memuat Aplikasi...", font=('Segoe UI', 9), fg="#c7c7c7", bg="#22222E").pack(pady=(0, 10))
     
     # Styling modern progressbar
     style = ttk.Style()
@@ -722,7 +912,7 @@ def jalankan_aplikasi():
         foreground="#3A86FF", 
         background="#3A86FF", 
         thickness=4, 
-        bordercolor="#121214", 
+        bordercolor="#22222E", 
         troughcolor="#1A1A22"
     )
     
@@ -730,7 +920,7 @@ def jalankan_aplikasi():
     progress.pack(pady=10)
     progress.start(15)
 
-    tk.Label(splash, text="By: jey.neutron", font=('Segoe UI', 8, 'italic'), fg="#c7c7c7", bg="#121214").pack(padx=1, pady=(10, 10))
+    tk.Label(splash, text="By: jey.neutron", font=('Segoe UI', 8, 'italic'), fg="#c7c7c7", bg="#22222E").pack(padx=1, pady=(0, 10))
 
     def pindah_ke_utama():
         """Fungsi untuk menutup splash dan buka aplikasi utama."""

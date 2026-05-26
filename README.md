@@ -2,18 +2,7 @@
 
 (Program auto approve Fasih-SM kerjaan B P S)
 
-Disini kita menggunakan Chromedriver untuk mengautomasi browser Chrome anda. Download aja folder [`dist`](/dist) dan jalankan file [`.exe`](/dist/Auto_Fasih_SM.exe)nya. 
-> **_[📝Update 28.01.26]_**
-> _Terdapat update di file [`get_data.py`](/dist/get_data.py), yaitu penambahan fitur bulk reject menggunakan file csv yang terpilih dengan template yang sama seperti hasil `GetListData`. Nanti `Input Tambahannya` diisi `reject`._
-> _Dan di section `Sekalian approve fasih` dipilih yang `NonApprov`, meskipun memang kerjanya di Fasih, (ya untuk versi sementara ini ikutin aja).
-[Lihat fitur](#fitur)_
-
-> **_[📝Update 30.03.26]_**
-> _Upgrade Selenium sehingga tidak memerlukan chromedriver_
-
-> **_[📝Update 06.04.26]_**
-> _Terdapat update di file [`get_data.py`](/dist/get_data.py), yaitu penambahan fitur assignselect (assign fasih-sm by selection) dari file csv yang terpilih dengan template hasil dari `GetListData`. Nanti `Input Tambahannya` diisi `assignselect`. Ada panduan nanti pas run pertama kali._
-> _Juga terdapat load user sso dari file `tempuser.txt`, buat aja filenya dan isi usersso + enter + pass sso_
+Disini kita menggunakan Playwright di versi 2.0.0 untuk mengautomasi browser Chrome anda, pake beberapa request Get & Post. Download aja folder [`dist`](/dist) dan jalankan file [`.exe`](/dist/Auto_Fasih_SM.exe)nya. 
 
 
 # Step-by-step 🚗
@@ -21,7 +10,7 @@ Disini kita menggunakan Chromedriver untuk mengautomasi browser Chrome anda. Dow
 
 Ketika file [`Auto_Fasih_SM.exe`](/dist/Auto_Fasih_SM.exe) udah jalan, maka muncul window aplikasi baru:
 1. Masukkan `username` dan `password` untuk login SSO. Kemudian di bawahnya ada `Link target`. Default target link-nya adalah web Fasih-SM.
-2. Kemudian `Open Browser` dan aplikasi akan auto membuka browser. `Goto Link` maka browser akan menuju link sesuai `Link target` yang terisi pada langkah 1. 
+2. Kemudian `Start Browser` dan aplikasi akan auto membuka browser. `Goto Link` maka browser akan menuju link sesuai `Link target` yang terisi pada langkah 1. 
 	> Target link  jika terisi default (fasih-sm.bps.go.id) atau sso.bps.go.id maka akan auto login ke SSO. Biarin browsernya jalan sendiri gausah diganggu. 
 3. Fitur `Get List Data` akan mengambil list row pada tab data di Fasih-SM dan akan menyimpannya di file `data.csv` di folder yang sama. 
 	> Jika anda menggunakan fitur ini, maka setelah browser menuju link, anda perlu search/click survei **manual** sampai ke **tab data** di Fasih-SM, baru klik `Get List Data`
@@ -34,13 +23,13 @@ Ketika file [`Auto_Fasih_SM.exe`](/dist/Auto_Fasih_SM.exe) udah jalan, maka munc
 4. Jika ingin run auto-approve, ada beberapa parameter yang perlu dimasukkan:
 	- `"Baris mulai"`, diisi bilangan bulat `0,1,2,...`, isi `0` jika mulai dari awal atau biar dia ga error,
 	- `"Nama file"`, adalah nama file csv yang ingin dipake. Jika tadi pake file data dari fitur `Get List Data` (dan ga merename file outputnya) maka isi `data.csv`,
-	- `"Input Tambahan"`, ini modul yang dapat anda modifikasi untuk mendapatkan data di Fasih-SM, atau web lain, contoh yang ada di sini adalah `getdataPES` (untuk mendapatkan isian Fasih PES) atau `inputsbr` (untuk menginput GC matchapro dari excel, tapi perlu modheader).
+	- `"Input Tambahan"`, ini modul yang dapat anda modifikasi untuk mendapatkan data di Fasih-SM, atau web lain, contoh yang ada di sini adalah `getdataPES` (untuk mendapatkan isian Fasih PES).
 		> Jika kosong, maka program akan tetap jalan tanpa mengambil data, misal mau approve aja
 		
 		> Jika ingin menjalankan program diluar Fasih-SM, maka di bawahnya pilih `NonApprov`
 
 		> Anda bisa menambahkan function sendiri di [`get_data.py`](/dist/get_data.py) kemudian memasukkan nama functionnya itu di field ini
-	-  `Sekalian approve Fasih` jika terpilih `True` maka akan auto-approve dengan user SSO yang udah login. Kalau `False` maka ya ngga approve, misal jika ingin mengambil datanya aja (perlu code tambahan jika di survei lain).
+	-  `Sekalian approve Fasih` jika terpilih `True` maka akan auto-approve dengan user SSO yang udah login. Kalau `False` maka ya ngga approve, misal jika ingin mengambil datanya aja (perlu code tambahan jika di survei lain). `Reject` buat Reject semua di dalam csv, dan `NonApprov` untuk selain Fasih.
 
 5. Klik `Run Function` and the program will do it for u.
 	> Data yang udah dieksekusi biasanya akan ada perubahan value suatu kolom di file dengan `Nama File` yang terpilih tadi. Tergantung code anda juga.
@@ -51,14 +40,11 @@ Semoga tidak membingung 🍵😇
 # Fitur📱
 Fitur yang sudah tersedia di [`get_data.py`](/dist/get_data.py) untuk saat ini:
 
+- **ver** (melihat version app)
 - **help** (get list of functions)
-- **clear** (clear log message)
-- **gettime** (get current time)
 - **getrandom** (get a random number)
-- **getdata** (get detail data pada csv dan index data terpilih [Pake "NonApprov"])
+- **seedata** (get detail data pada csv dan index data terpilih [Pake "NonApprov"])
 - **getkurs** (convert kurs data dari idr.json hasil dari api web exchangerate-api.com [pake "NonApprov"] [https://v6.exchangerate-api.com/v6/api-key/latest/idr])
-- **inputwebdash** (input webdash entri kegiatan, akan generate .json. kalo udah dieksekusi, delete aja)
-- **assignselect** (assign fasih-sm by selection, tapi upload dulu petugas ke fasih-sm, [pake "nonapprov" ya])
+- **getdataAll** (function for getting data general survey (mybe ada kendala, tpi sementara ini deh dan belum dicoba))
 - **getdataPES** (function for getting data pes)
-- **reject** (reject di fasih-sm berdasarkan file yang dipilih)
 
