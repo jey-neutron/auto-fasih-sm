@@ -1,4 +1,4 @@
-# Welcome to Auto-Fasih-SM🤖
+# ![Logo Auto-Fasih-SM](assets/ikonku.ico) Welcome to Auto-Fasih-SM 
 
 (Program auto approve Fasih-SM kerjaan B P S)
 

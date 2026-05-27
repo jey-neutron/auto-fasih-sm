@@ -8,27 +8,6 @@ import os
 import json
 from playwright.sync_api import sync_playwright, expect
 from urllib.parse import unquote
-
-def get_playwright_page(cdp_url="http://localhost:9222"):
-    """
-    Fungsi helper untuk connect ke browser Chrome yang sudah terbuka.
-    Bisa dipanggil di thread mana saja.
-    """
-    p_instance = sync_playwright().start()
-    try:
-        browser = p_instance.chromium.connect_over_cdp(cdp_url)
-        # Ambil page pertama yang aktif
-        page = browser.contexts[0].pages[0]
-        return p_instance, browser, page
-    except Exception as e:
-        # Jika gagal, pastikan instance playwright ditutup agar tidak memory leak
-        p_instance.stop()
-        raise RuntimeError(f"Gagal connect ke browser: {e}")
-    
-def check_stop(instance):
-    '''Check if stop button is pressed'''
-    if instance.stop_event.is_set():
-        raise InterruptedError("Process stopped by user.")
     
 def ver(instance, var=''): 
     '''Get a version app'''
@@ -37,6 +16,37 @@ def ver(instance, var=''):
         instance.log_message(f"Application version: {APP_VERSION}")
         instance.isdone = 1
     return APP_VERSION
+
+def getrandom(instance, var): 
+    '''Get a random number'''
+    instance.isdone = 0
+    check_stop(instance)
+    for i in range(0,4):
+        time.sleep(1)
+        try:
+            instance.log_message(f"Hasil angka random-{i} {int(var)*random.random()}")
+        except:
+            instance.log_message(f"Hasil angka random-{i} {random.random()}")
+    instance.isdone = 1
+
+# def inputwebdash(instance, var)
+# def assignselect(instance, var)
+# def mailbc(instance, var) # mybe, buat ngibar paling, ref from app.py ======
+
+def render(instance,var):
+    """Memanggil index.html dengan pilihan variable terlampir"""
+    p_instance, browser, page = get_playwright_page() #konek ke playwr
+    instance.log_message(f'Rendering HTML. Var="done", "running", "ready". Chosen: {var} ')
+    page.goto(instance.getassets('index.html'))
+    if var != 1:
+        page.evaluate(f"document.body.setAttribute('data-status', '{var}')")
+    instance.log_message('Selesai')
+    #instance.isdone=1
+    
+def check_stop(instance):
+    '''Check if stop button is pressed'''
+    if instance.stop_event.is_set():
+        raise InterruptedError("Process stopped by user.")
 
 def help(instance,var):
     '''Get list of functions'''
@@ -63,29 +73,21 @@ def help(instance,var):
     instance.log_area.insert("end", "\n")
     instance.isdone = 1
 
-# def inputwebdash(instance, var)
-# def assignselect(instance, var)
-# def mailbc(instance, var) # mybe, buat ngibar paling, ref from app.py ======
-
-def render(instance,var):
-    """Memanggil index.html dengan pilihan variable terlampir"""
-    p_instance, browser, page = get_playwright_page() #konek ke playwr
-    instance.log_message(f'Rendering HTML. Var="done", "running", "ready". Chosen: {var} ')
-    page.goto(instance.getassets('index.html'))
-    if var != 1:
-        page.evaluate(f"document.body.setAttribute('data-status', '{var}')")
-    instance.log_message('Selesai')
-    #instance.isdone=1
-    
-def getrandom(instance, var): 
-    '''Get a random number'''
-    instance.isdone = 0
-    check_stop(instance)
+def get_playwright_page(cdp_url="http://localhost:9222"):
+    """
+    Fungsi helper untuk connect ke browser Chrome yang sudah terbuka.
+    Bisa dipanggil di thread mana saja.
+    """
+    p_instance = sync_playwright().start()
     try:
-        instance.log_message(f"Hasil angka random {int(var)*random.random()}")
-    except:
-        instance.log_message(f"Hasil angka random {random.random()}")
-    instance.isdone = 1
+        browser = p_instance.chromium.connect_over_cdp(cdp_url)
+        # Ambil page pertama yang aktif
+        page = browser.contexts[0].pages[0]
+        return p_instance, browser, page
+    except Exception as e:
+        # Jika gagal, pastikan instance playwright ditutup agar tidak memory leak
+        p_instance.stop()
+        raise RuntimeError(f"Gagal connect ke browser: {e}")
 
 def getkurs(instance, var):
     '''Convert kurs data dari IDR.json hasil dari api web exchangerate-api.com [Pake "NonApprov"] [https://v6.exchangerate-api.com/v6/API-KEY/latest/IDR]'''

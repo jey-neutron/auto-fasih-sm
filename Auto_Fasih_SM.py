@@ -93,7 +93,7 @@ def load_setting_file(instance, filename="get_data.py", load=True):
 def get_assets_path():
     """Fungsi otomatis mencari folder 'assets' di direktori skrip atau induknya."""
     # Lokasi file skrip python saat ini
-    current_dir = os.path.dirname(os.path.abspath(__file__))
+    current_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
     
     # 1. Cek di direktori saat ini
     path_same_dir = os.path.join(current_dir, "assets")
