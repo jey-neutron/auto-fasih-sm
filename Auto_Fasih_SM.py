@@ -19,6 +19,7 @@ def initlib(callback):
     global datetime; global pd; global scrolledtext
     global np
     global playwright_instance; global sync_playwright; global browser; global page
+    global icon; global PlaywrightError
     # global TimeoutException
     # global webdriver; global Keys; 
     # global Select; global EC
@@ -33,10 +34,12 @@ def initlib(callback):
     # from selenium.webdriver.support.ui import WebDriverWait
     # from selenium.webdriver.common.by import By
     from playwright.sync_api import sync_playwright
+    from playwright._impl._errors import Error as PlaywrightError
     from tkinter import scrolledtext
     from datetime import datetime
     import pandas as pd
     import numpy as np
+    icon = AutoApp.getassets('ikonku.ico', True)
 
     time.sleep(1)
     callback()
@@ -57,12 +60,19 @@ def load_setting_file(instance, filename="get_data.py", load=True):
         
     file_path = os.path.join(application_path, filename)
     
-    # 2. Cek apakah file ada
+    # 1. Cek apakah file ada di path utama, here
     if not os.path.exists(file_path):
-        if load:
-            instance.log_message(message=f"ERROR: File konfigurasi tidak ditemukan: {filename}", tag="red_tag")
-        return None
-        
+        # 2. Jika tidak ada, cek alternatif di dalam folder 'dist'
+        dist_path = os.path.join(application_path, "dist", filename)
+
+        if os.path.exists(dist_path):
+            file_path = dist_path  # Alihkan ke path dist jika file ditemukan
+        else:
+            # 3. Jika di kedua tempat tidak ada, baru cetak error
+            if load:
+                instance.log_message(message=f"ERROR: File konfigurasi tidak ditemukan di path utama maupun folder dist: {filename}", tag="red_tag")
+            return None
+    
     if load:
         # 3. Baca dan jalankan
         try:
@@ -79,6 +89,27 @@ def load_setting_file(instance, filename="get_data.py", load=True):
             instance.log_message(message=f"ERROR: Gagal memuat file konfigurasi: {e}", tag="red_tag")
             return None
     return True
+
+def get_assets_path():
+    """Fungsi otomatis mencari folder 'assets' di direktori skrip atau induknya."""
+    # Lokasi file skrip python saat ini
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    # 1. Cek di direktori saat ini
+    path_same_dir = os.path.join(current_dir, "assets")
+    if os.path.exists(path_same_dir) and os.path.isdir(path_same_dir):
+        return path_same_dir
+
+    # 2. Cek di direktori induk (Parent Directory / naik 1 tingkat)
+    parent_dir = os.path.dirname(current_dir)
+    path_parent_dir = os.path.join(parent_dir, "assets")
+    if os.path.exists(path_parent_dir) and os.path.isdir(path_parent_dir):
+        return path_parent_dir
+
+    # Jika tidak ditemukan di kedua tempat
+    raise FileNotFoundError("Folder 'assets' tidak ditemukan di direktori skrip maupun induk!")
+
+
 #####
 
 
@@ -99,6 +130,7 @@ class AutoApp:
         self.ACCENT_RED = "#FF003C"    # Tombol Berhenti / Error
         self.ACCENT_ORANGE = "#FF9F1C" # Tombol Pendukung
         self.BORDER_COLOR = "#2D2D3D"  # Warna Border
+
         
         # konfigurasi import fungsi dari get_data.py
         # 1. Load fungsi dari file eksternal
@@ -122,13 +154,15 @@ class AutoApp:
         self.page = None
         self.isdone = None
         self.vars = None #var kosong buat next if needed
+        self.var_input = None
         self.stop_event = threading.Event() # Event untuk menghentikan thread
         self.thread = None
 
         # Konfigurasi jendela utama
         self.master = master
         #master.iconbitmap("ikonku.ico")
-        master.title(f"Aplikasi Auto-Fasih-SM🤖 {appver(self)}")
+        master.title(f"Aplikasi Auto-Fasih-SM {appver(self)}")
+        master.iconbitmap(icon)
         master.geometry("480x800") # Ukuran awal yang sedikit lebih proporsional
         master.attributes("-topmost", True) # Selalu di atas
         master.resizable(True, True) # Memungkinkan resize
@@ -198,16 +232,56 @@ class AutoApp:
             pady=3,
             cursor="hand2"
         )
-        self.btn_open_link.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
+        self.btn_open_link.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 5))
+
+        self.btn_close_app = tk.Button(
+            self.btn_frame_1, 
+            text="Close Browser", 
+            command=self.close_browser, 
+            bg="#2a2a38", 
+            fg=self.FG_MAIN, 
+            font=('Segoe UI', 9, 'bold'),
+            relief=tk.FLAT,
+            activebackground="#3d3d52",
+            activeforeground=self.FG_MAIN,
+            padx=10,
+            pady=3,
+            cursor="hand2"
+        )
+        self.btn_close_app.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
 
         # --- Tombol Baris 2: Fungsi 1 & Fungsi 2 ---
-        self.btn_frame_2 = tk.Frame(self.main_frame, bg=self.BG_MAIN)
+        # --- SECTION 1
+        self.toggle_btn_getlist = tk.Button(
+            self.main_frame,
+            text="▶ Get List Data", # Default icon tertutup
+            font=('Segoe UI', 9, 'bold'),
+            bg=self.BG_CARD,
+            fg=self.FG_MAIN,
+            bd=0,
+            anchor="w", # Teks rata kiri
+            command= lambda: self.toggle_section(self.func1_frame, self.toggle_btn_getlist, self.func2_frame, self.toggle_btn) # Hubungkan ke fungsi toggle
+        )
+        self.toggle_btn_getlist.pack(fill=tk.X, pady=(10, 0))
+
+        #self.func1_frame = tk.Frame(self.main_frame, bg=self.BG_CARD)
+        self.func1_frame = tk.LabelFrame(
+            self.main_frame, 
+            padx=10, 
+            pady=10, 
+            bg=self.BG_CARD,
+            fg=self.FG_MAIN,
+            font=('Segoe UI', 9, 'bold')
+        )
+        # self.func1_frame.pack(fill=tk.X, pady=(10, 3))
+
+        self.btn_frame_2 = tk.Frame(self.func1_frame, bg=self.BG_CARD)
         self.btn_frame_2.pack(fill=tk.X, pady=7)
 
         # Variabel kontrol untuk menyimpan nilai radiobutton yang dipilih
         self.vwrite = tk.IntVar(value=1)
         # Label untuk menampilkan hasil pilihan
-        self.label_hasil = tk.Label(self.btn_frame_2, text="Write data.csv?", bg=self.BG_MAIN, fg=self.FG_MUTED, font=('Segoe UI', 9, 'bold'))
+        self.label_hasil = tk.Label(self.btn_frame_2, text="Write data.csv?", bg=self.BG_CARD, fg=self.FG_MAIN, font=('Segoe UI', 9, 'bold'))
         self.label_hasil.pack(pady=5, side=tk.LEFT)
         # radio
         self.rw1= tk.Radiobutton(
@@ -217,7 +291,7 @@ class AutoApp:
             value=1, 
             indicatoron=0, 
             command=self.update_label_vwrite,
-            bg=self.BG_INPUT,
+            bg=self.BG_CARD,
             #fg=self.FG_MUTED,
             fg='#c7c7c7',
             selectcolor=self.ACCENT_ORANGE,
@@ -269,39 +343,52 @@ class AutoApp:
         self.btn_func_1.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(10, 0))
 
         # --- SECTION : Input Fields Khusus Fungsi 2 (LabelFrame) ---
+        self.toggle_btn = tk.Button(
+            self.main_frame,
+            text="▶ Run Main Function", # Default icon tertutup
+            font=('Segoe UI', 9, 'bold'),
+            bg=self.BG_CARD,
+            fg=self.FG_MAIN,
+            bd=0,
+            anchor="w", # Teks rata kiri
+            command= lambda: self.toggle_section(self.func2_frame, self.toggle_btn, self.func1_frame, self.toggle_btn_getlist) # Hubungkan ke fungsi toggle
+        )
+        self.toggle_btn.pack(fill=tk.X, pady=(10, 0))
+
         self.func2_frame = tk.LabelFrame(
             self.main_frame, 
-            text="Parameter Fungsi 'Run Function'", 
+            #text="Parameter Fungsi 'Run Function'", 
             padx=10, 
             pady=10, 
-            bd=1, 
-            relief=tk.SOLID,
+            # bd=1, 
+            # relief=tk.SOLID,
             bg=self.BG_CARD,
             fg=self.FG_MAIN,
             font=('Segoe UI', 9, 'bold')
         )
-        self.func2_frame.pack(fill=tk.X, pady=(10, 3))
+        # self.func2_frame.pack(fill=tk.X, pady=(10, 3))
 
         # Menggunakan func2_frame sebagai parent untuk input ini
         self.create_input_field("Baris Mulai:", "Cth: 0 (untuk mulai dari awal)", "start_row_entry", self.func2_frame)
         self.create_input_field("Nama File:", "Nama_File.csv", "filename_entry", self.func2_frame, value='data.csv')
         self.create_input_field("Input Tambahan:", "Input opsional... (cth: help)", "extra_input_entry", self.func2_frame, value=helper)
+        self.create_input_field("Variabel Extra:", "Variabel opsional tambahan...", "var_input_entry", self.func2_frame)
         
         # Variabel kontrol untuk menyimpan nilai radiobutton yang dipilih
-        self.v = tk.IntVar(value=1)
+        self.val_approv = tk.IntVar(value=1)
         
         # Sub-container frame for inline radios to look cleaner
         self.radio_container = tk.Frame(self.func2_frame, bg=self.BG_CARD)
         self.radio_container.pack(fill=tk.X, pady=(8, 0))
 
         # Label untuk menampilkan hasil pilihan
-        self.label_hasil = tk.Label(self.radio_container, text="Sekalian approve Fasih?", bg=self.BG_CARD, fg=self.FG_MUTED, font=('Segoe UI', 8, 'bold'))
+        self.label_hasil = tk.Label(self.radio_container, text="Sekalian approve Fasih?", bg=self.BG_CARD, fg=self.FG_MAIN, font=('Segoe UI', 8, 'bold'))
         self.label_hasil.pack(pady=5, side=tk.LEFT)
         # radio
         self.rb1= tk.Radiobutton(
             self.radio_container, 
             text='True', 
-            variable=self.v, 
+            variable=self.val_approv, 
             value=1, 
             indicatoron=0, 
             command=self.update_label,
@@ -321,7 +408,7 @@ class AutoApp:
         self.rb2= tk.Radiobutton(
             self.radio_container, 
             text='False', 
-            variable=self.v, 
+            variable=self.val_approv, 
             value=0, 
             indicatoron=0, 
             command=self.update_label,
@@ -341,7 +428,7 @@ class AutoApp:
         self.rb3= tk.Radiobutton(
             self.radio_container, 
             text='Reject', 
-            variable=self.v, 
+            variable=self.val_approv, 
             value=2, 
             indicatoron=0, 
             command=self.update_label,
@@ -361,7 +448,7 @@ class AutoApp:
         self.rb4= tk.Radiobutton(
             self.radio_container, 
             text='NonApprov', 
-            variable=self.v, 
+            variable=self.val_approv, 
             value=99, 
             indicatoron=0, 
             command=self.update_label,
@@ -380,7 +467,7 @@ class AutoApp:
         self.rb4.pack(side=tk.LEFT, padx=2)
 
         # --- Tombol Baris 3: Close App & Exit App ---
-        self.btn_frame_3 = tk.Frame(self.main_frame, bg=self.BG_MAIN)
+        self.btn_frame_3 = tk.Frame(self.func2_frame, bg=self.BG_CARD)
         self.btn_frame_3.pack(fill=tk.X, pady=5)
 
         self.btn_func_2 = tk.Button(
@@ -413,23 +500,7 @@ class AutoApp:
             pady=3,
             cursor="hand2"
         )
-        self.btn_stop_app.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(4, 4))
-
-        self.btn_close_app = tk.Button(
-            self.btn_frame_3, 
-            text="Close Browser", 
-            command=self.close_browser, 
-            bg="#2A2A38", 
-            fg=self.FG_MAIN,
-            font=('Segoe UI', 9, 'bold'), 
-            relief=tk.FLAT,
-            activebackground="#3D3D52",
-            activeforeground=self.FG_MAIN,
-            padx=10,
-            pady=3,
-            cursor="hand2"
-        )
-        self.btn_close_app.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(4, 4))
+        self.btn_stop_app.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(4, 0))
 
         # --- Log Area ---
         # 1. Buat frame horizontal untuk menampung Label dan Tombol Clear
@@ -437,7 +508,7 @@ class AutoApp:
         log_header_frame.pack(fill=tk.X, pady=(5, 5))
 
         # 2. Label ditaruh di dalam log_header_frame (pack ke KIRI)
-        tk.Label(log_header_frame, text="Log Aktivitas:", anchor='w', bg=self.BG_MAIN, fg=self.FG_MAIN, font=('Segoe UI', 9, 'bold')).pack(side=tk.LEFT, fill=tk.X)
+        tk.Label(log_header_frame, text="Log Aktivitas:", anchor='w', bg=self.BG_MAIN, fg=self.FG_MUTED, font=('Segoe UI', 9, 'bold')).pack(side=tk.LEFT, fill=tk.X)
         # 3. Tombol Clear ditaruh di dalam log_header_frame (pack ke KANAN)
         clear_btn = tk.Button(
             log_header_frame,
@@ -530,11 +601,29 @@ class AutoApp:
         entry.bind('<FocusIn>', lambda event, e=entry, p=placeholder: self.clear_placeholder(e, p))
         entry.bind('<FocusOut>', lambda event, e=entry, p=placeholder: self.restore_placeholder(e, p))
 
+    # --toggle section frame
+    def toggle_section(self, target_frame, target_button, other_frame, other_button):
+        # 1. Jika frame yang diklik saat ini sedang terbuka, cukup tutup saja
+        if target_frame.winfo_manager():
+            target_frame.pack_forget()
+            target_button.config(text=target_button.cget("text").replace("▼", "▶"))
+
+        # 2. Jika frame yang diklik sedang tertutup
+        else:
+            # Tutup frame pasangan terlebih dahulu jika dia sedang terbuka
+            if other_frame.winfo_manager():
+                other_frame.pack_forget()
+                other_button.config(text=other_button.cget("text").replace("▼", "▶"))
+
+            # Tampilkan frame yang diklik tepat di bawah tombol pemicunya
+            target_frame.pack(fill=tk.X, pady=(5, 3), after=target_button)
+            target_button.config(text=target_button.cget("text").replace("▶", "▼"))
+
     # --update untuk radiobtn
     def update_label(self):
         """Fungsi yang dipanggil saat radiobutton diklik."""
 
-        match self.v.get():
+        match self.val_approv.get():
             case 1:
                 self.log_message(f"Pilihan approve: Ya, sekalian diapprove")
             case 0:
@@ -624,11 +713,23 @@ class AutoApp:
         else:
             self.log_message(f"Pilihan Write data.csv: Append")
 
-        if self.v.get() == 1:
+        if self.val_approv.get() == 1:
             self.log_message(f"Pilihan approve: Ya, sekalian diapprove")
         else :
             self.log_message(f"Pilihan approve: Gausa diapprove")
 
+    # --- Get path os or url path on folder assets ---
+    @staticmethod
+    def getassets(namafile, ospath = False):
+        from pathlib import Path
+        try:
+            assets_folder = get_assets_path()
+            html_file_path = os.path.join(assets_folder, namafile)
+            html_url = Path(html_file_path).as_uri()
+            if ospath: return html_file_path
+            return html_url
+        
+        except: return None
 
     # --- Browser App Functions ---
     def open_browser(self):
@@ -642,13 +743,26 @@ class AutoApp:
                 self.log_message("Mengecek browser yang terbuka...")
                 self.browser = self.playwright_instance.chromium.connect_over_cdp("http://localhost:9222")                    
                 self.page = self.browser.contexts[0].pages[0]
-                self.page.goto('https://www.google.com')
+
+                # self.page.goto('https://www.google.com')
+                self.page.goto(self.getassets('index.html'))
+                self.page.wait_for_load_state("load")
+                self.page.wait_for_timeout(2000)
+                history_length = self.page.evaluate("window.history.length")
+                if history_length > 1:
+                    try:
+                        self.page.go_back(timeout=3000)
+                    except Exception:
+                        pass
+                else: pass
+
                 self.change_status("STATUS: Browser Ready", color="green")
                 self.log_message("Berhasil terhubung ke browser yang sudah ada!")
                 self.log_message("Ready for action.")
                 
-            except Exception:
+            except PlaywrightError as e:
                 # 2. Jika gagal (browser belum dibuka), luncurkan browser baru dari nol
+                self.log_message(f"ERROR: ({str(e).split('Call:')[0]})")    
                 self.log_message("Browser not found. Open new...")
                 # self.browser = p.chromium.launch(headless=False)
                 # Opsional: Jika ingin otomatis membuka Chrome asli Anda lewat script,
@@ -659,7 +773,7 @@ class AutoApp:
                 port_siap = False
                 while not port_siap:
                     try:
-                        with socket.create_connection(("127.0.0.1", 9222), timeout=1):
+                        with socket.create_connection(("127.0.0.1", 9222), timeout=5):
                             port_siap = True
                     except (ConnectionRefusedError, socket.timeout):
                         time.sleep(0.5) # Cek ulang setiap 0.5 detik
@@ -667,12 +781,17 @@ class AutoApp:
                     self.browser = self.playwright_instance.chromium.connect_over_cdp("http://localhost:9222")
                     context = self.browser.contexts[0] if self.browser.contexts else self.browser.new_context()
                     self.page = context.pages[0] if context.pages else context.new_page()
+                    self.page.goto(self.getassets('index.html'))
                     self.change_status("STATUS: Browser Ready", color="green")
                     self.log_message("Berhasil terhubung ke browser baru!")
                     self.log_message("Ready for action.")
                 except Exception:
                     self.log_message("Gagal terhubung ke Chrome. Pastikan port 9222 tidak diblokir. Coba Start Browser lagi")
                     self.change_status("STATUS: Browser not terhubung", color="red")
+                    
+            except Exception as e:
+                self.change_status("STATUS: Browser Error", color="red")
+                self.log_message(f"ERROR: ({str(e).split('Stacktrace:')[0]})", tag="red_tag")    
                 
         except Exception as e:
             self.change_status("STATUS: Browser Error", color="red")
@@ -703,6 +822,15 @@ class AutoApp:
         #     self.driver = None
         if self.playwright_instance:
             self.playwright_instance.stop()
+            try:
+                self.playwright_instance.stop()
+            except Exception as e:
+                self.log_message(f"Gagal menghentikan instance: {e}")
+            finally:
+                # PENTING: Setel ulang menjadi None agar bisa di-start ulang nanti
+                self.playwright_instance = None 
+                self.browser = None
+                self.page = None
         self.close_port_9222()
         self.log_message("Browser telah ditutup.")
 
@@ -823,10 +951,11 @@ class AutoApp:
         start_row = self.start_row_entry.get()
         filename = self.filename_entry.get()
         extra_input = self.extra_input_entry.get()
+        var_input = self.var_input_entry.get()
 
         # Validasi sederhana untuk baris mulai
         try:
-            if (start_row == 'Cth: 0 (untuk mulai dari awal)') and (self.v.get() == 99):
+            if (start_row == 'Cth: 0 (untuk mulai dari awal)') and (self.val_approv.get() == 99):
                row_num = 0
             else:            
                 row_num = int(start_row)
@@ -856,17 +985,20 @@ class AutoApp:
                 self.log_message( f"ERROR: Terjadi kesalahan saat import modul/file: {e}", tag="red_tag")
 
         try:
-            if self.v.get() == 99:
-                self.thread = threading.Thread(target=extra_input_fun, args=(self,1))
+            if self.val_approv.get() == 99:
+                if var_input == "Variabel opsional tambahan..." or var_input == "" or var_input == None: var_input =1
+                self.thread = threading.Thread(target=extra_input_fun, args=(self,var_input))
             elif extra_input == "get_list_data" or extra_input == "mainfunc":
                 self.log_message(f"ERROR: Fungsi 2 dibatalkan. Input tambahan invalid.", "red_tag")
                 return
             else:
-                if self.v.get() == 1:
+                self.page.goto(self.getassets('index.html'))
+                self.page.evaluate("document.body.setAttribute('data-status', 'running')")
+                if self.val_approv.get() == 1:
                     cekapprove = True
-                elif self.v.get() == 0:
+                elif self.val_approv.get() == 0:
                     cekapprove = False
-                elif self.v.get() == 2:
+                elif self.val_approv.get() == 2:
                     cekapprove = "Reject"
                 self.thread = threading.Thread(target=mainfunc, args=(self, filename, cekapprove, row_num, extra_input_fun))
             self.thread.start()
@@ -883,6 +1015,10 @@ class AutoApp:
         if self.isdone != 1:
             self.master.after(1000, self.check_isdone)
         else:
+            if self.page:
+                self.page.goto(self.getassets('index.html'))
+                # page.bring_to_front() 
+                self.page.evaluate("document.body.setAttribute('data-status', 'done')")
             self.log_message(f"Running program berhasil diproses. Cek file output", tag="green_tag")
             self.change_status("STATUS: DONE! Running selesai", color="green")
 

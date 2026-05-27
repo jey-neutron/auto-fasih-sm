@@ -1,4 +1,4 @@
-APP_VERSION = 'v2.0.0'
+APP_VERSION = 'v2.1.0'
 # konfig
 from datetime import datetime
 import pandas as pd
@@ -67,13 +67,24 @@ def help(instance,var):
 # def assignselect(instance, var)
 # def mailbc(instance, var) # mybe, buat ngibar paling, ref from app.py ======
 
-def getrandom(instance, waktu): 
+def render(instance,var):
+    """Memanggil index.html dengan pilihan variable terlampir"""
+    p_instance, browser, page = get_playwright_page() #konek ke playwr
+    instance.log_message(f'Rendering HTML. Var="done", "running", "ready". Chosen: {var} ')
+    page.goto(instance.getassets('index.html'))
+    if var != 1:
+        page.evaluate(f"document.body.setAttribute('data-status', '{var}')")
+    instance.log_message('Selesai')
+    #instance.isdone=1
+    
+def getrandom(instance, var): 
     '''Get a random number'''
     instance.isdone = 0
-    time.sleep(int(waktu))
     check_stop(instance)
-    instance.log_message(f"Hasil angka random {random.random()}")
-    instance.log_message(f"Hasil angka random {random.random()}")
+    try:
+        instance.log_message(f"Hasil angka random {int(var)*random.random()}")
+    except:
+        instance.log_message(f"Hasil angka random {random.random()}")
     instance.isdone = 1
 
 def getkurs(instance, var):
