@@ -1,4 +1,4 @@
-APP_VERSION = 'v2.1.0'
+APP_VERSION = 'v2.1.1'
 # konfig
 from datetime import datetime
 import pandas as pd
@@ -187,70 +187,77 @@ def getdataAll(namafile = 'data_survey.json'):
     dffT = {item["dataKey"]: item for item in dff}
     d = {}
 
-    for key, value_dict in dffT.items():
-        if 'master' in key:
-            continue # Skip 'master' keys
-        final_output_value = None # Initialize to None
+    try:
+        for key, value_dict in dffT.items():
+            if 'master' in key:
+                continue # Skip 'master' keys
+            final_output_value = None # Initialize to None
 
-        if 'answer' in value_dict:
-            raw_answer = value_dict['answer']
+            if 'answer' in value_dict:
+                raw_answer = value_dict['answer']
 
-            if isinstance(raw_answer, list):
-                extracted_item_strings = []
-                for item in raw_answer:
-                    extracted_part_for_item = None
-                    if isinstance(item, dict):
-                        # 1. Special handling for 'maps.google.com' in label
-                        if 'label' in item and item['label'] is not None and 'maps.google.com' in item['label']:
-                            if isinstance(item.get('value'), dict):
-                                values_list = list(item['value'].values())
-                                if values_list:
-                                    extracted_part_for_item = str(values_list)
+                if isinstance(raw_answer, list):
+                    extracted_item_strings = []
+                    for item in raw_answer:
+                        extracted_part_for_item = None
+                        if isinstance(item, dict):
+                            # 1. Special handling for 'maps.google.com' in label
+                            if 'label' in item and item['label'] is not None and 'maps.google.com' in str(item['label']):
+                                if isinstance(item.get('value'), dict):
+                                    values_list = list(item['value'].values())
+                                    if values_list:
+                                        extracted_part_for_item = str(values_list)
+                                    else:
+                                        extracted_part_for_item = str(item['value']) # If dict is empty
                                 else:
-                                    extracted_part_for_item = str(item['value']) # If dict is empty
-                            else:
-                                extracted_part_for_item = str(item.get('value', ''))
+                                    extracted_part_for_item = str(item.get('value', ''))
 
+                                extracted_item_strings.append(str(extracted_part_for_item))
+                                break # Stop processing other items in this raw_answer list as per request
+
+                            # 2. General 'label' extraction
+                            elif 'label' in item and item['label'] is not None:
+                                extracted_part_for_item = item['label']
+                            # 3. General 'value' extraction
+                            elif 'value' in item and item['value'] is not None:
+                                if isinstance(item['value'], dict):
+                                    nested_values = [str(v) for v in item['value'].values() if v is not None]
+                                    extracted_part_for_item = ", ".join(nested_values) if nested_values else str(item['value'])
+                                else:
+                                    extracted_part_for_item = item['value']
+                            # 4. Fallback: extract values from the dict itself
+                            else:
+                                nested_values = [str(v) for v in item.values() if v is not None]
+                                extracted_part_for_item = ", ".join(nested_values) if nested_values else str(item)
+                        else: # Not a dict, directly use the item
+                            extracted_part_for_item = item
+
+                        if extracted_part_for_item is not None:
                             extracted_item_strings.append(str(extracted_part_for_item))
-                            break # Stop processing other items in this raw_answer list as per request
 
-                        # 2. General 'label' extraction
-                        elif 'label' in item and item['label'] is not None:
-                            extracted_part_for_item = item['label']
-                        # 3. General 'value' extraction
-                        elif 'value' in item and item['value'] is not None:
-                            if isinstance(item['value'], dict):
-                                nested_values = [str(v) for v in item['value'].values() if v is not None]
-                                extracted_part_for_item = ", ".join(nested_values) if nested_values else str(item['value'])
-                            else:
-                                extracted_part_for_item = item['value']
-                        # 4. Fallback: extract values from the dict itself
-                        else:
-                            nested_values = [str(v) for v in item.values() if v is not None]
-                            extracted_part_for_item = ", ".join(nested_values) if nested_values else str(item)
-                    else: # Not a dict, directly use the item
-                        extracted_part_for_item = item
+                    final_output_value = ", ".join(extracted_item_strings)
 
-                    if extracted_part_for_item is not None:
-                        extracted_item_strings.append(str(extracted_part_for_item))
+                    # If after processing the list, it's still empty, use string representation of raw_answer
+                    if not final_output_value: # Catches "" if extracted_item_strings was empty
+                        final_output_value = str(raw_answer) # e.g., if raw_answer was [], becomes "[]"
 
-                final_output_value = ", ".join(extracted_item_strings)
+                else: # raw_answer is not a list (e.g., string, int, dict directly)
+                    final_output_value = str(raw_answer)
+            else: # No 'answer' key in value_dict
+                final_output_value = '--' # User requested default if 'answer' key is missing
 
-                # If after processing the list, it's still empty, use string representation of raw_answer
-                if not final_output_value: # Catches "" if extracted_item_strings was empty
-                    final_output_value = str(raw_answer) # e.g., if raw_answer was [], becomes "[]"
+            # Final check for any remaining empty/None values, including '[]' and '{}' string representations
+            if final_output_value is None or final_output_value == '' or final_output_value == 'None' or final_output_value == '[]' or final_output_value == '{}':
+                final_output_value = '--'
 
-            else: # raw_answer is not a list (e.g., string, int, dict directly)
-                final_output_value = str(raw_answer)
-        else: # No 'answer' key in value_dict
-            final_output_value = '--' # User requested default if 'answer' key is missing
+            d[key] = final_output_value
 
-        # Final check for any remaining empty/None values, including '[]' and '{}' string representations
-        if final_output_value is None or final_output_value == '' or final_output_value == 'None' or final_output_value == '[]' or final_output_value == '{}':
-            final_output_value = '--'
-
-        d[key] = final_output_value
         return d
+    
+    except Exception as e:
+        with open('dataT-answer-onresponse.json', "w", encoding="utf-8") as f:
+            json.dump(dffT, f, indent=4, ensure_ascii=False)
+        return {'Err': str(e)}
 
 
 def getdataPES(namafile='data_survey.json'):
@@ -590,9 +597,12 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
             if 'approved' not in df.columns:
                 df['approved'] = ""
             lendf = len(df)
+            # make df as df list py
+            dflist = df.to_dict(orient='records')
         except Exception as e:
             instance.log_message(f'ERROR: {e}', tag="red_tag")
             df = None
+            dflist = None
             instance.isdone = 1
             return
         
@@ -600,7 +610,7 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
         if cekapprov == True: msgapprov = ' and approving'
         elif cekapprov == "Reject": msgapprov = ' and rejecting'
         else: msgapprov=""
-        instance.log_message(f"# Loading for {lendf-int(mulai)} data, length dataframe: {lendf} data{msgapprov}...")
+        instance.log_message(f"# Loading for {lendf-int(mulai)} data, length dataframe: {lendf}-mulai data{msgapprov}...")
 
         # start loop per df
         if mulai <0 : i=-1
@@ -614,14 +624,15 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
                 break
             try:
                 # CEK DAH APPROVED LOM ke1 (cek dari hasil csv)------------------------------------------------------------
-                if df.loc[i, 'approved'] == True or df.loc[i, 'approved'] == "True":
-                    instance.log_message(f"# {i}/{lendf-1} | {str(df[idlog][i])[:20]} | Approv'd, skip")
+                # if df.loc[i, 'approved'] == True or df.loc[i, 'approved'] == "True":
+                if dflist[i]['approved'] == True or dflist[i]['approved'] == "True":
+                    instance.log_message(f"# {i}/{lendf-1} | {str(dflist[i][idlog])[:20]} | Approv'd, skip")
                     continue
 
                 # perlukah cek approv yg ke2? ======
 
                 # function tambahan here
-                target_id = df.loc[i, 'id']
+                target_id = dflist[i]['id']
                 if func:
                     try:
                         # send and get response (get data detail all)
@@ -633,12 +644,18 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
                             raise ValueError(response['message'])
                         
                         # ketika apireq get nya success, maka kesini, jika ga, skip. 
-                        resultDict = func()
                         # get a dict value per row from web (init dict from func)
+                        resultDict = func()
+
                         for key,value in resultDict.items():
-                            df.loc[i, key] = value
-                        df = df.copy()
-                        df.to_csv(filename, index=False)
+                            if "err" in key.lower():
+                                instance.log_message(f"Ada error dengan value: {value}")
+                                raise ValueError(f"Ada error dengan value: {value}")
+                            # df.at[i, key] = value
+                        # update as df list 
+                        dflist[i].update(resultDict)
+                        dfbaru = pd.DataFrame(dflist)
+                        dfbaru.to_csv(filename, index=False)
 
                         # kasih jeda
                         time.sleep(random.uniform(1, 2))
@@ -647,8 +664,10 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
                         instance.log_message(f"# Terjadi error on GetData: ")
                         instance.log_message(str(e).split("Stacktrace:")[0], "red_tag")
                         # logging
-                        df.loc[i, 'approved'] = str(e).split("Stacktrace:")[0]
-                        df.to_csv(filename, index=False)
+                        dflist[i]['approved'] = str(e).split("Stacktrace:")[0]
+                        # df.to_csv(filename, index=False)
+                        dfbaru = pd.DataFrame(dflist)
+                        dfbaru.to_csv(filename, index=False)
                         #continue
                         break
                 # 
@@ -705,11 +724,13 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
                         time.sleep(random.uniform(1, 2))
 
                     except Exception as e:
-                        instance.log_message(f"# {i}/{lendf-1} | {str(df[idlog][i])[:20]} | Skip gabisa approv")
+                        instance.log_message(f"# {i}/{lendf-1} | {str(dflist[i][idlog])[:20]} | Skip gabisa approv")
                         instance.log_message(f"Error approv {e}", "red_tag")
                         # logging
-                        df.loc[i, 'approved'] = str(e).split("Stacktrace:")[0]
-                        df.to_csv(filename, index=False)
+                        dflist[i]['approved'] = str(e).split("Stacktrace:")[0]
+                        # df.to_csv(filename, index=False)
+                        dfbaru = pd.DataFrame(dflist)
+                        dfbaru.to_csv(filename, index=False)
                         continue
 
                 if not cekapprov and not func:
@@ -717,8 +738,10 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
                     break
 
                 # end result if success
-                df.loc[i, 'approved'] = True
-                df.to_csv(filename, index=False)
+                dflist[i]['approved'] = True
+                # df.to_csv(filename, index=False)
+                dfbaru = pd.DataFrame(dflist)
+                dfbaru.to_csv(filename, index=False)
                 
                 # kasih jeda
                 if i%10 == 0 and i!=0: time.sleep(30); instance.log_message('# Waiting...')
@@ -731,10 +754,10 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
                         instance.log_message(f"# Error server not found, CEK VPN -------------------------------------------\n", "red_tag")
                         break
                     # reload
-                    page.goto(df.link[i])
+                    page.goto(dflist[i]['link'])
                     if i < -1: i=-1
                     exc_type, exc_obj, exc_tb = sys.exc_info()
-                    instance.log_message(f"# Terjadi error: {str(exc_tb.tb_lineno)} ")
+                    instance.log_message(f"# Terjadi error on line: {str(exc_tb.tb_lineno)} ")
                     instance.log_message(str(e).split("Stacktrace:")[0]+"\n", "red_tag")
                     # try relogin sso ====== need update
                     #
@@ -742,12 +765,12 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
 
                 except:
                     exc_type, exc_obj, exc_tb = sys.exc_info()
-                    instance.log_message(f"# Terjadi error: {str(exc_tb.tb_lineno)} ")
+                    instance.log_message(f"# Terjadi error on line: {str(exc_tb.tb_lineno)} ")
                     instance.log_message(str(e).split("Stacktrace:")[0]+"\n", "red_tag")
                     continue
             
             # jika satu row dah selesai, entah error or sukses    
-            instance.log_message(f"# {i}/{lendf-1} | {str(df[idlog][i])[:20]} | Done")
+            instance.log_message(f"# {i}/{lendf-1} | {str(dflist[i][idlog])[:20]} | Done")
             continue
 
 
