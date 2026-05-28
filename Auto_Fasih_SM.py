@@ -848,11 +848,11 @@ class AutoApp:
                 self.log_message(f"Sukses: link target terbuka. Title Page: {self.page.title()}")
                 # try login sso disini
                 # Validasi sederhana
-                if self.username_entry.get() in ["Masukkan Username...", "jey.neutron" ,""]:
-                    self.log_message("ERROR: Fungsi 1 dibatalkan. Username tidak valid.", "red_tag")
-                    return
                 #if "bps.go.id" in self.driver.current_url:
                 if "bps.go.id" in self.page.url:
+                    if self.username_entry.get() in ["Masukkan Username...", "jey.neutron" ,""]:
+                        self.log_message("ERROR: Fungsi 1 dibatalkan. Username tidak valid.", "red_tag")
+                        return
                     self.thread = threading.Thread(target=self.login_sso, args=(link,))
                     self.thread.start()
                 else:
@@ -1016,9 +1016,17 @@ class AutoApp:
             self.master.after(1000, self.check_isdone)
         else:
             if self.page:
+                # return to idx done
                 self.page.goto(self.getassets('index.html'))
-                # page.bring_to_front() 
                 self.page.evaluate("document.body.setAttribute('data-status', 'done')")
+                # add go back if already done if any page open
+                history_length = self.page.evaluate("window.history.length")
+                if history_length > 1:
+                    try:
+                        self.page.go_back(timeout=3000)
+                    except Exception:
+                        pass
+                else: pass
             self.log_message(f"Running program berhasil diproses. Cek file output", tag="green_tag")
             self.change_status("STATUS: DONE! Running selesai", color="green")
 

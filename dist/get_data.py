@@ -490,6 +490,7 @@ def get_list_data(instance, namadf,  mode="w", maxrow=0, sep=","):
         instance.log_message(f"Error di thread data getlistdata: {e}", tag="red_tag")
     finally:
         instance.isdone = 1
+        instance.log_message("Browser bisa di-previous-page/back jika mau digunakan kembali")
         # Selalu tutup p_instance di blok 'finally' agar tidak hang
         try:
             p_instance.stop()
