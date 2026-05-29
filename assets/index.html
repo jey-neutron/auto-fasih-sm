@@ -145,6 +145,24 @@
             position: absolute;
             animation: loadingMove 2s infinite linear;
         }
+		
+		.back-btn {
+            background-color: transparent;
+            color: var(--accent-done);
+            border: 2px solid var(--accent-done);
+            padding: 10px 24px;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .back-btn:hover {
+            background-color: var(--accent-done);
+            color: var(--bg-color);
+            box-shadow: 0 0 15px rgba(0, 245, 212, 0.4);
+        }
 
         /* KUMPULAN ANIMASI */
         @keyframes blink-ready {
@@ -268,8 +286,9 @@
 <path d="M0 0 C0.66 0.33 1.32 0.66 2 1 C-8.56 11.56 -19.12 22.12 -30 33 C-30 30 -30 30 -28.82592773 28.5012207 C-28.28395752 27.98132568 -27.7419873 27.46143066 -27.18359375 26.92578125 C-26.28954834 26.05385132 -26.28954834 26.05385132 -25.37744141 25.16430664 C-24.73726074 24.55321045 -24.09708008 23.94211426 -23.4375 23.3125 C-22.13999791 22.04885284 -20.84440339 20.78324386 -19.55078125 19.515625 C-18.93025879 18.90783203 -18.30973633 18.30003906 -17.67041016 17.67382812 C-15.7185988 15.718023 -13.90260175 13.67730489 -12.125 11.5625 C-8.78230066 7.60583548 -4.95484708 4.32785913 -1 1 C-0.67 0.67 -0.34 0.34 0 0 Z " fill="#365281" transform="translate(142,196)"/>
 </svg>
             </div>
-            <h1>Proses Selesai Dilaksanakan</h1>
-            <p>Semua instruksi bot telah sukses dieksekusi. Anda aman untuk menutup jendela browser ini sekarang.</p>
+            <h1>Proses Selesai</h1>
+            <p>Semua instruksi bot telah sukses dieksekusi. Anda aman untuk menutup jendela browser ini atau kembali ke halaman sebelumnya.</p>
+			<button class="back-btn" onclick="history.back()">Kembali</button>
         </div>
 
     </div>

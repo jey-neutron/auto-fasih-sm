@@ -1,4 +1,4 @@
-APP_VERSION = 'v2.1.1'
+APP_VERSION = 'v2.1.2' # ada perubahan sih di main app dikit terkait username validation, tpi blm diexport n push
 # konfig
 from datetime import datetime
 import pandas as pd
@@ -32,6 +32,19 @@ def getrandom(instance, var):
 # def inputwebdash(instance, var)
 # def assignselect(instance, var)
 # def mailbc(instance, var) # mybe, buat ngibar paling, ref from app.py ======
+# def getnikmitra(instance, var):
+#     try:
+#         with open(r'D:\OneDrive\~Jimmy\~STIS\PY\Work_py\auto-fasih-sm\dist\temp.json', 'r', encoding='utf-8') as file:
+#         df = json.load(file)
+        
+#         # send and get response (get data detail all)
+#         base_url = "https://mitra-api.bps.go.id/api/mitra/reveal-info/nik"
+#         response = run_api_request(instance, page, method="get", target_url=base_url, target_id=target_id, msg=f"GetNIK-row-{i}")
+#         if response is None:
+#             raise ValueError("API tidak mengembalikan data (Response is None)")
+#         if response['success'] == False or response['success'] == "false":
+#             raise ValueError(response['message'])
+
 
 def render(instance,var):
     """Memanggil index.html dengan pilihan variable terlampir"""
@@ -490,14 +503,15 @@ def get_list_data(instance, namadf,  mode="w", maxrow=0, sep=","):
             next(f)
             totrow = sum(1 for line in f)
         instance.log_message(f"# Total rows now: {totrow}")
-        
-        return (df)
     
     except Exception as e:
         instance.log_message(f"Error di thread data getlistdata: {e}", tag="red_tag")
     finally:
         instance.isdone = 1
         instance.log_message("Browser bisa di-previous-page/back jika mau digunakan kembali")
+        page.goto(instance.getassets('index.html'))
+        page.evaluate("document.body.setAttribute('data-status', 'done')")
+        return (df)
         # Selalu tutup p_instance di blok 'finally' agar tidak hang
         try:
             p_instance.stop()
@@ -509,7 +523,7 @@ def get_list_data(instance, namadf,  mode="w", maxrow=0, sep=","):
 # Function penunjang approv (and get data)
 def run_api_request(instance, page, method, target_url, target_id, msg="", payload=None, filename="data_survey.json"):
     """
-    Fungsi tunggal untuk menangani GET dan POST request ke API BPS. Method: 'GET' atau 'POST'
+    Fungsi tunggal untuk menangani GET dan POST request ke API BPS. Method: 'GET', 'GET2' atau 'POST'. 'GET' untuk Query Parameter (?assignmentId=123), 'GET2' untuk id di dalam URL path (/api/data/123)
     """
     log_message = instance.log_message
     try:
@@ -548,9 +562,10 @@ def run_api_request(instance, page, method, target_url, target_id, msg="", paylo
         elif method == "GET":
             # Jika target_id dimasukkan sebagai Query Parameter (?assignmentId=123)
             response = page.request.get(target_url, headers=headers, params={"assignmentId": target_id}) # ====== gaperlukah payload di GET? next
+        elif method == "GET2":
             # Jika ID dimasukkan langsung di dalam URL path (misal: /api/data/123)
-            # url_with_id = f"{target_url}/{target_id}"
-            # response = page.request.get(url_with_id, headers=headers)
+            url_with_id = f"{target_url}/{target_id}"
+            response = page.request.get(url_with_id, headers=headers)
         
         else:
             log_message(f"- Method {method} tidak didukung.")
