@@ -4,7 +4,7 @@
 # 
 import subprocess
 
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
 import json
 import time
 import os
@@ -143,6 +143,82 @@ def run():
         #     print('# Export to data.csv')
 
         # --- END GET LIST DATA ---
+
+        # --- ADD PENAWARAN ---
+        def run_addpenawaran():
+            namafile = 'tempdata.csv'
+            df = pd.read_csv(namafile)
+            log_message('csv read')
+            gagal = 0
+            j = 0
+            
+            for i in range(len(df)):
+                log_message(f"# {df.loc[i, 'Nama']} otw")
+
+                if df.loc[i, 'status'] == 'skip' or df.loc[i, 'status'] == 'done' or df.loc[i, 'status'] == 'kosong':
+                    log_message('already done')
+                    continue
+                page.get_by_role("textbox", name="Cari").click()
+                page.get_by_role("textbox", name="Cari").fill(df.loc[i, 'Nama'])
+                time.sleep(1)
+                try:
+                    # el = page.locator("div:nth-child(2) > .col-12.col-md-6")
+                    el = page.locator("div").filter(has_text=df.loc[i, 'Nama'][:17] ).first
+                    try:
+                        el.wait_for(timeout=1000, state="visible")
+                    # if el.count() > 0:
+                        stat = el.first.text_content() 
+                        if 'Sudah Terdaftar' in stat:
+                            df.loc[i,'status'] = 'skip'
+                            log_message('sudah daftar')
+                            df.to_csv(namafile)
+                            continue
+                        page.locator(".fa.fa-plus.text-success").click()
+                        df.loc[i,'status'] = 'done'
+
+                        j += 1
+                        time.sleep(0.5)
+
+                    # else:
+                    except PlaywrightTimeoutError:
+                        df.loc[i,'status'] = 'kosong'
+                        log_message('kosong')
+                        df.to_csv(namafile)
+                        continue
+                    
+                except Exception as e:
+                    df.loc[i, 'status'] = 'error'
+                    log_message(e)
+                    gagal +=1
+                    if gagal > 3: break
+                    df.to_csv(namafile)
+                    continue
+                    
+                # page.locator(".fa.fa-plus.text-success").click()
+                # page.get_by_role("link", name="Terpilih").click()
+                # page.locator(".d-flex.justify-content-between.px-2").first.click()
+
+                #i+= 1
+                if j > 20: 
+                    time.sleep(1)
+                    page.get_by_role("tab", name="Terpilih").click()
+                    page.get_by_role("button", name="Tawarkan", exact=False).click()
+                    # page.locator("#ptMeowOn6p1AEvFE > .modal-dialog > .modal-content > .modal-header > .btn-close").select_option("54")
+                    page.locator("select.swal2-select").select_option(value="54")
+                    page.get_by_role("button", name="Ya, Saya Yakin!").click()
+                    page.get_by_role("button", name="Kosongkan", exact=False ).click()
+                    page.get_by_role("button", name="Ya", exact=True).click()
+                    time.sleep(2)
+                    page.get_by_role("tab", name="Cari").click()
+                    page.get_by_role("textbox", name="Cari").click()
+                    df.to_csv(namafile)
+                    j=0
+                    # break
+                    continue
+
+
+            log_message('SLESE')
+        # --- END ADD PENAWARAN ---
 
 
         # --- BAB GET PES ---
@@ -449,8 +525,8 @@ def run():
         # alt 1
         #df: nama, idsbr, email
         namafile = 'tempdata.csv'
-        run_emailbc(namafile)
-        log_message('FINISIHED')
+        # run_emailbc(namafile)
+        # log_message('FINISIHED')
         # alt 2
         # 1. Change email
         # target_url = "https://fasih-sm.bps.go.id/app/api/email/api/v2/assignment/change-email?newPin=false"
@@ -503,6 +579,10 @@ def run():
         # df.to_csv('tempdata.csv', index=False)
         #
         # ---
+
+        # RUN add penawaran
+        run_addpenawaran()
+        
         page.pause() #debugging, open recorder on playwright
         
         page.wait_for_timeout(5000)

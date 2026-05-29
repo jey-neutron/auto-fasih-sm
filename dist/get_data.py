@@ -6,7 +6,7 @@ import time
 import random
 import os
 import json
-from playwright.sync_api import sync_playwright, expect
+from playwright.sync_api import sync_playwright, expect, TimeoutError as PlaywrightTimeoutError
 from urllib.parse import unquote
     
 def ver(instance, var=''): 
@@ -44,6 +44,86 @@ def getrandom(instance, var):
 #             raise ValueError("API tidak mengembalikan data (Response is None)")
 #         if response['success'] == False or response['success'] == "false":
 #             raise ValueError(response['message'])
+
+def addpenawaran(instance, var):
+    log_message = instance.log_message
+    p_instance, browser, page = get_playwright_page() #konek ke playwr
+    
+    namafile = instance.filename_entry.get()
+    df = pd.read_csv(namafile)
+
+    log_message('csv read')
+    gagal = 0
+    j = 0
+    
+    for i in range(len(df)):
+        check_stop(instance)
+        log_message(f"# {df.loc[i, 'Nama']} otw")
+
+        if df.loc[i, 'status'] == 'skip' or df.loc[i, 'status'] == 'done' or df.loc[i, 'status'] == 'kosong':
+            log_message('already done')
+            continue
+        page.get_by_role("textbox", name="Cari").click()
+        page.get_by_role("textbox", name="Cari").fill(df.loc[i, 'Nama'])
+        time.sleep(1)
+        try:
+            # el = page.locator("div:nth-child(2) > .col-12.col-md-6")
+            el = page.locator("div").filter(has_text=df.loc[i, 'Nama'][:17] ).first
+            try:
+                el.wait_for(timeout=1000, state="visible")
+            # if el.count() > 0:
+                stat = el.first.text_content() 
+                if 'Sudah Terdaftar' in stat:
+                    df.loc[i,'status'] = 'skip'
+                    log_message('sudah daftar')
+                    df.to_csv(namafile)
+                    continue
+                page.locator(".fa.fa-plus.text-success").click()
+                df.loc[i,'status'] = 'done'
+
+                j += 1
+                time.sleep(0.5)
+
+            # else:
+            except PlaywrightTimeoutError:
+                df.loc[i,'status'] = 'kosong'
+                log_message('kosong')
+                df.to_csv(namafile)
+                continue
+            
+        except Exception as e:
+            df.loc[i, 'status'] = 'error'
+            log_message(e)
+            gagal +=1
+            if gagal > 3: break
+            df.to_csv(namafile)
+            continue
+            
+        # page.locator(".fa.fa-plus.text-success").click()
+        # page.get_by_role("link", name="Terpilih").click()
+        # page.locator(".d-flex.justify-content-between.px-2").first.click()
+
+        #i+= 1
+        if j > 20: 
+            time.sleep(1)
+            page.get_by_role("tab", name="Terpilih").click()
+            page.get_by_role("button", name="Tawarkan", exact=False).click()
+            # page.locator("#ptMeowOn6p1AEvFE > .modal-dialog > .modal-content > .modal-header > .btn-close").select_option("54")
+            page.locator("select.swal2-select").select_option(value="54")
+            page.get_by_role("button", name="Ya, Saya Yakin!").click()
+            page.get_by_role("button", name="Kosongkan", exact=False ).click()
+            page.get_by_role("button", name="Ya", exact=True).click()
+            time.sleep(2)
+            page.get_by_role("tab", name="Cari").click()
+            page.get_by_role("textbox", name="Cari").click()
+            df.to_csv(namafile)
+            j=0
+            # break
+            continue
+
+
+    log_message('SLESE')
+    instance.isdone = 1
 
 
 def render(instance,var):
