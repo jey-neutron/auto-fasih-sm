@@ -581,8 +581,90 @@ def run():
         # ---
 
         # RUN add penawaran
-        run_addpenawaran()
+        # run_addpenawaran()
         
+        # RUN select kartu petugas
+        import re
+        import zipfile
+        import shutil
+        folder_temp_zip = os.path.join(os.path.expanduser("~"), "Downloads", "temp_playwright")
+        # Tempat folder ekstrak khusus "cocard"
+        # folder_downloads = os.path.join(os.path.expanduser("~"), "Downloads/kartupetugas")
+        folder_cocard = os.path.join(os.path.expanduser("~"), "Downloads", "cocard")
+        # Buat folder jika belum ada
+        os.makedirs(folder_temp_zip, exist_ok=True)
+        os.makedirs(folder_cocard, exist_ok=True)
+
+        # 5. Intersept jalannya download saat tombol diklik
+        with page.expect_download() as download_info:
+            # Ganti selektor di bawah ini dengan tombol download di website kamu            
+            df = pd.read_csv('data.csv', sep=';')
+            for i in range(len(df)):
+            # for i in range(0,3):
+                time.sleep(0.5)
+                nama = df.loc[i,'nama']
+                sobatid = str(df.loc[i,'sobatid']).strip()
+                nik6 = df.loc[i,'nik']
+                # print(nama, end='')
+                # page.pause()
+                page.get_by_role("textbox", name="Search").click()
+                page.get_by_role("textbox", name="Search").fill(sobatid)
+                page.get_by_role("row", name=f"1 {nik6}").get_by_role("checkbox").check()
+                page.get_by_role("button", name="Download").click()
+                page.locator("a").filter(has_text="Kartu Petugas").click()
+                try:
+                    with page.expect_download() as download_info:
+                        page.get_by_role("button", name="Lanjutkan").click()
+                    download = download_info.value
+                except PlaywrightTimeoutError:
+                    print(f"Gagal diekstrak: {nama}")
+                    continue
+                # page.get_by_role("dialog").get_by_role("button").filter(has_text=re.compile(r"^$")).click()
+                # page.keyboard.press("Escape")
+                page.get_by_role("button", name="Tutup").click()
+
+                # print('done')
+
+                # 6. Ambil data file dari folder Temp Playwright
+                download = download_info.value
+                path_zip_sementara = os.path.join(folder_temp_zip, download.suggested_filename)
+                download.save_as(path_zip_sementara)
+
+                # --- PROSES EKSTRAK DAN APPEND PNG ---
+                try:
+                    with zipfile.ZipFile(path_zip_sementara, 'r') as zip_ref:
+                        # Loop setiap file yang ada di dalam .zip
+                        for file_in_zip in zip_ref.namelist():
+                            # Filter: Pastikan filenya berakhiran .png
+                            if file_in_zip.lower().endswith('.png'):
+                                # Ambil nama file PNG asli tanpa struktur folder internal zip jika ada
+                                nama_file_png = os.path.basename(file_in_zip)
+                                path_tujuan_png = os.path.join(folder_cocard, nama_file_png)
+                                
+                                # JIKA FILE SUDAH ADA, KITA "APPEND" (UBAH NAMA/RENAME BIAR GAK REPLACE)
+                                if os.path.exists(path_tujuan_png):
+                                    nama_tanpa_ext, ext = os.path.splitext(nama_file_png)
+                                    counter = 1
+                                    # Loop terus sampai ketemu nama file yang belum terpakai (misal: file_1.png, file_2.png)
+                                    while os.path.exists(os.path.join(folder_cocard, f"{nama_tanpa_ext}_{counter}{ext}")):
+                                        counter += 1
+                                    path_tujuan_png = os.path.join(folder_cocard, f"{nama_tanpa_ext}_{counter}{ext}")
+                                
+                                # Ekstrak file PNG tersebut langsung ke lokasi tujuan akhir
+                                with zip_ref.open(file_in_zip) as source, open(path_tujuan_png, "wb") as target:
+                                    shutil.copyfileobj(source, target)
+                                    print(f"Berhasil diekstrak (Append): {os.path.basename(path_tujuan_png)}")
+
+                finally:
+                    # Hapus file .zip sementaranya agar tidak menumpuk memenuhi harddisk
+                    if os.path.exists(path_zip_sementara):
+                        os.remove(path_zip_sementara)
+
+
+            print('selse')
+            # page.get_by_role("textbox", name="Search").click()
+
+        #
         page.pause() #debugging, open recorder on playwright
         
         page.wait_for_timeout(5000)
