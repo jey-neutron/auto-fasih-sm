@@ -1,5 +1,9 @@
-#selenium==4.41.0
+# selenium==4.41.0 # unused after v2.0
 playwright==1.59.0
 pandas==2.3.2
 numpy==1.26.4
 pyinstaller==6.19.0
+# fitur
+lzstring==1.0.4
+qrcode==8.2
+pillow==12.2.0

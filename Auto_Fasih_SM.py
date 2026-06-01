@@ -7,6 +7,7 @@ import threading
 import sys
 import os
 import re
+from PIL import Image, ImageTk
 
 try:
     from ctypes import windll
@@ -1044,9 +1045,40 @@ def jalankan_aplikasi():
     
     # Modern Dark styling for splash screen
     splash.configure(bg="#22222E")
+    # Kolom 0 dan 1 (tempat gambar & teks) akan membagi ruang sama rata secara horizontal
+    splash.grid_columnconfigure(0, weight=0)
+    splash.grid_columnconfigure(1, weight=1)
 
-    tk.Label(splash, text="🤖Auto-Fasih-SM", font=('Segoe UI', 22, 'bold'), fg="#3A86FF", bg="#22222E").pack(pady=(10, 0))
-    tk.Label(splash, text="Sedang Memuat Aplikasi...", font=('Segoe UI', 9), fg="#c7c7c7", bg="#22222E").pack(pady=(0, 10))
+    # Tambahkan weight=1 pada baris sebelum dan sesudah konten agar terdorong secara vertikal
+    splash.grid_rowconfigure(0, weight=1)  # Ruang kosong atas
+    splash.grid_rowconfigure(1, weight=0) 
+    splash.grid_rowconfigure(
+        2, weight=0
+    )  # Baris 1 (Konten Gambar & Judul) -> ketat sesuai isi
+    splash.grid_rowconfigure(
+        3, weight=0
+    )  # Baris 2 (Konten Loading) -> ketat sesuai isi
+    splash.grid_rowconfigure(4, weight=1)  # Ruang kosong bawah
+
+    try:
+        img_ico = Image.open(AutoApp.getassets('ikonku.ico', ospath=True))
+        # Ubah ukuran gambar jika ikon terlalu kecil/besar
+        img_ico = img_ico.resize((40, 40), Image.Resampling.LANCZOS)
+        img_tampil = ImageTk.PhotoImage(img_ico)
+
+        # Masukkan gambar ke dalam Label Tkinter
+        label_gambar = tk.Label(splash, image=img_tampil, bg="#22222E")
+
+    except Exception as e:
+        # Label teks cadangan jika file .ico tidak ditemukan
+        label_gambar = tk.Label(splash, text="🤖", font=('Segoe UI', 22, 'bold'), fg="#3A86FF", bg="#22222E")
+
+    label_gambar.pack(pady=(10,0))
+    label_gambar.grid(row=1, column=0, pady=(0, 0), padx=(40, 5))
+
+    label_teks = tk.Label(splash, text="Auto-Fasih-SM", font=('Segoe UI', 22, 'bold'), fg="#3A86FF", bg="#22222E")#.pack(pady=(0, 0))
+    label_teks.grid(row=1, column=1, pady=(0, 0), padx=(0, 40))
+    tk.Label(splash, text="Sedang Memuat Aplikasi...", font=('Segoe UI', 9), fg="#c7c7c7", bg="#22222E").grid(row=2, column=0, columnspan=2, pady=(0, 10))#.pack(pady=(0, 10))
     
     # Styling modern progressbar
     style = ttk.Style()
@@ -1061,10 +1093,11 @@ def jalankan_aplikasi():
     )
     
     progress = ttk.Progressbar(splash, mode="indeterminate", length=220, style="Modern.Horizontal.TProgressbar")
-    progress.pack(pady=10)
+    # progress.pack(pady=10)
+    progress.grid(row=3, column=0, columnspan=2, pady=(0, 0))
     progress.start(15)
 
-    tk.Label(splash, text="By: jey.neutron", font=('Segoe UI', 8, 'italic'), fg="#c7c7c7", bg="#22222E").pack(padx=1, pady=(0, 10))
+    tk.Label(splash, text="By: jey.neutron", font=('Segoe UI', 8, 'italic'), fg="#c7c7c7", bg="#22222E").grid(row=4, column=0, columnspan=2, padx=1, pady=(0, 10))#.pack(padx=1, pady=(0, 10))
 
     def pindah_ke_utama():
         """Fungsi untuk menutup splash dan buka aplikasi utama."""

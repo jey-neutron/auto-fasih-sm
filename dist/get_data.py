@@ -1,4 +1,4 @@
-APP_VERSION = 'v2.1.2' # ada perubahan sih di main app dikit terkait username validation, tpi blm diexport n push
+APP_VERSION = 'v2.2.0' # ada perubahan sih di main app dikit terkait username validation, tpi blm diexport n push
 # konfig
 from datetime import datetime
 import pandas as pd
@@ -45,7 +45,83 @@ def getrandom(instance, var):
 #         if response['success'] == False or response['success'] == "false":
 #             raise ValueError(response['message'])
 
-def addpenawaran(instance, var):
+def mitra_geturl(instance=None,var='[]'):
+    '''Generate url mitra dari var yg diinput. Var=["id_ms", "id_mitra", "kd_survei", 'id_keg', 'kd_prov']'''
+
+    import json
+    from lzstring import LZString
+    import ast
+
+    allowed_keys = ["id_ms", "id_mitra", "kd_survei", 'id_keg', 'kd_prov']
+    listvar = ast.literal_eval(var)
+    a = dict(zip(allowed_keys, listvar))
+    
+    # Membuat format string yang di-concat seperti di JS
+    concat_str = f"{a.get('id_ms')},{a.get('id_mitra')},{a['kd_survei']},{a['id_keg']},{a['kd_prov']}"
+    
+    # Ubah string tersebut menjadi format JSON string
+    # JS: JSON.stringify(...)
+    json_str = json.dumps(concat_str)
+    
+    # Kompresi menggunakan LZString ke format Encoded URI Component
+    lz = LZString()
+    compressed = lz.compressToEncodedURIComponent(json_str)
+    
+    return f"https://mitra.bps.go.id/c/{compressed}"
+
+def mitra_dfkartu(instance,var):
+    '''Generate qrcode untuk bahan mailmerge kartu petugas dari data nama dan qr code. Df.columns: nama, id_ms, id_mitra, kd_survei, id_keg, kd_prov'''
+    instance.isdone = 0
+    namafile = instance.filename_entry.get()
+    df = pd.read_csv(namafile).astype('str')
+    df['url'] = ''
+
+    # make url from df
+    for i in range(len(df)):
+        try:
+            df.loc[i, 'url'] = mitra_geturl(var=str([df.loc[i,"id_ms"], df.loc[i,"id_mitra"], df.loc[i,"kd_survei"], df.loc[i,"id_keg"], df.loc[i,"kd_prov"]]))
+        except Exception as e:
+            df.loc[i, 'url'] = str(e)
+            instance.log_message(f"Error on row-{i}: {e}")
+
+    # create qr code based on url created
+    folder_qr = "gambar_qr"
+    os.makedirs(folder_qr, exist_ok=True)
+
+    df["Path_QR"] = [
+        genQR(var=link, namafile=f"{id}_{nama}", pathfolder=folder_qr)
+        for link, nama, id in zip(df['url'], df['nama'], df['id_mitra'])
+    ]
+    instance.log_message(f"Image file qrcode telah disimpan di folder '{folder_qr}'")
+
+    df.to_csv(namafile)
+    instance.isdone = 1
+    instance.log_message("Siap untuk di mailmerge, silakan dilakukan sendiri", "green_tag")
+
+def genQR(instance=None, var='', namafile='', pathfolder = ''):
+    '''Membuat QR code dari variable yg diisikan'''
+    import qrcode
+    namafile = 'qrcode.png' if namafile == '' else str(namafile).replace(" ", "_") + '.png'
+    path_simpan = os.path.join(namafile) if pathfolder=='' else os.path.join(pathfolder, namafile)
+    var = str(var)
+    if var=='':
+        return 'Isi_QR_code_kosong'
+    
+    # Buat QR Code
+    qr = qrcode.QRCode(box_size=10, border=2)
+    qr.add_data(var)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    img.save(path_simpan)
+
+    # Kembalikan path lengkap untuk disimpan di Excel baru (gunakan double backslash untuk Word)
+    path_absolut = os.path.abspath(path_simpan)
+    return path_absolut.replace("\\", "\\\\")
+
+
+
+def mitra_addpenawaran(instance, var):
+    '''Manmit autobrowser add to penawaran survey dari mitra kepka'''
     log_message = instance.log_message
     p_instance, browser, page = get_playwright_page() #konek ke playwr
     
@@ -583,6 +659,7 @@ def get_list_data(instance, namadf,  mode="w", maxrow=0, sep=","):
             next(f)
             totrow = sum(1 for line in f)
         instance.log_message(f"# Total rows now: {totrow}")
+        return (df)
     
     except Exception as e:
         instance.log_message(f"Error di thread data getlistdata: {e}", tag="red_tag")
@@ -591,7 +668,6 @@ def get_list_data(instance, namadf,  mode="w", maxrow=0, sep=","):
         instance.log_message("Browser bisa di-previous-page/back jika mau digunakan kembali")
         page.goto(instance.getassets('index.html'))
         page.evaluate("document.body.setAttribute('data-status', 'done')")
-        return (df)
         # Selalu tutup p_instance di blok 'finally' agar tidak hang
         try:
             p_instance.stop()
