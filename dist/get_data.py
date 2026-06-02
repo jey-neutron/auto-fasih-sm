@@ -588,6 +588,41 @@ def mergejson(dictlist, listcol, namejson='data_survey.json'):
         dictlist.append({key: data['searchData'][i][key] for key in listcol if key in data['searchData'][i]})
     return dictlist
 
+def listdat (instance, var):
+    instance.isdone=0
+    try:
+        p_instance, browser, page = get_playwright_page() #konek ke playwr
+        with page.expect_request("https://fasih-sm.bps.go.id/app/api/analytic/api/v2/assignment/datatable-all-user-survey-periode") as req_info:
+            page.reload()
+        captured_req = req_info.value
+        api_url = captured_req.url
+        api_headers = captured_req.headers
+        api_payload = json.loads(captured_req.post_data)
+
+        # ubah
+        api_payload['length'] = 50 
+        api_payload['start'] = 0
+
+        response_json = run_api_request(instance, page, "post", api_url, target_id=None, payload=api_payload)
+        with open("resp.json", "w", encoding="utf-8") as f:
+            json.dump(response_json, f, indent=4, ensure_ascii=False)
+        instance.log_message('exportedddddddddddddddddd')
+
+
+    except Exception as e:
+        import sys
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+        instance.log_message(f"# Terjadi error on line: {str(exc_tb.tb_lineno)} {e} ", "red_tag")
+    finally:
+        instance.isdone = 1
+        # Selalu tutup p_instance di blok 'finally' agar tidak hang
+        try:
+            p_instance.stop()
+            instance.log_message("Koneksi Playwright di thread ditutup.")
+        except NameError:
+            # Terjadi jika get playwright page() gagal total di awal
+            pass
+
 
 # Function to get list data
 def get_list_data(instance, namadf,  mode="w", maxrow=0, sep=","):
