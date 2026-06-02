@@ -1035,7 +1035,7 @@ def jalankan_aplikasi():
     splash = tk.Tk()
     splash.title("Loading")
     # Atur ukuran dan posisi di tengah layar
-    lebar, tinggi = 350, 180
+    lebar, tinggi = 400, 180
     layar_lebar = splash.winfo_screenwidth()
     layar_tinggi = splash.winfo_screenheight()
     x = (layar_lebar // 2) - (lebar // 2)
