@@ -158,12 +158,22 @@
             transition: all 0.3s ease;
         }
 
+        .back-btn.oren{
+            color: var(--accent-ready);
+            border: 2px solid var(--accent-ready);
+        }
+        
         .back-btn:hover {
             background-color: var(--accent-done);
             color: var(--bg-color);
             box-shadow: 0 0 15px rgba(0, 245, 212, 0.4);
         }
 
+        .back-btn:hover.oren{
+            background-color: var(--accent-ready);
+            box-shadow: 0 0 15px rgba(245, 196, 0, 0.4);
+        }
+        
         /* KUMPULAN ANIMASI */
         @keyframes blink-ready {
             0% { opacity: 0.3; box-shadow: 0 0 2px var(--accent-ready); }
@@ -222,7 +232,8 @@
 </svg>
             </div>
             <h1>Welcome to Auto-Fasih-SM</h1>
-            <p>Sistem otomatisasi telah siap. Bot akan segera mengambil alih peramban ini dalam beberapa saat.</p>
+            <p>Sistem otomatisasi telah siap. Bot akan segera mengambil alih peramban ini dalam beberapa saat. Atau kembali ke halaman sebelumnya</p>
+            <button class="back-btn oren" onclick="history.back()">Kembali</button>
         </div>
 
         <!-- ================= KONDISI 2: RUNNING (SEDANG JALAN) ================= -->
