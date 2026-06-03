@@ -121,12 +121,14 @@ def genQR(instance=None, var='', namafile='', pathfolder = ''):
 
 
 def mitra_addpenawaran(instance, var):
-    '''Manmit autobrowser add to penawaran survey dari mitra kepka'''
+    '''Manmit autobrowser add to penawaran survey dari mitra kepka, df.columns = nama, status (kosong)'''
     log_message = instance.log_message
     p_instance, browser, page = get_playwright_page() #konek ke playwr
     
     namafile = instance.filename_entry.get()
     df = pd.read_csv(namafile)
+    if 'Nama' in df.columns:
+        df = df.rename(columns={'Nama': 'nama'})
 
     log_message('csv read')
     gagal = 0
@@ -134,17 +136,17 @@ def mitra_addpenawaran(instance, var):
     
     for i in range(len(df)):
         check_stop(instance)
-        log_message(f"# {df.loc[i, 'Nama']} otw")
+        log_message(f"# {df.loc[i, 'nama']} otw")
 
         if df.loc[i, 'status'] == 'skip' or df.loc[i, 'status'] == 'done' or df.loc[i, 'status'] == 'kosong':
             log_message('already done')
             continue
         page.get_by_role("textbox", name="Cari").click()
-        page.get_by_role("textbox", name="Cari").fill(df.loc[i, 'Nama'])
+        page.get_by_role("textbox", name="Cari").fill(df.loc[i, 'nama'])
         time.sleep(1)
         try:
             # el = page.locator("div:nth-child(2) > .col-12.col-md-6")
-            el = page.locator("div").filter(has_text=df.loc[i, 'Nama'][:17] ).first
+            el = page.locator("div").filter(has_text=df.loc[i, 'nama'][:17] ).first
             try:
                 el.wait_for(timeout=1000, state="visible")
             # if el.count() > 0:
@@ -225,7 +227,7 @@ def help(instance,var):
     for nama, objek in globals().items():
         if (callable(objek) and 
             not nama.startswith("__") and 
-            nama not in ["mainfunc", "get_list_data", "update_temp_value", "datetime", "sync_playwright","check_stop", "handle_response", 'mergejson','run_api_request','get_playwright_page','expect','unquote'] ):
+            nama not in ["mainfunc", "get_list_data", "update_temp_value", "datetime", "sync_playwright","check_stop", "handle_response", 'mergejson','run_api_request','get_playwright_page','expect','unquote', 'PlaywrightTimeoutError'] ):
             # exclude function main and penunjang, hanya tampilin function side aja
             
             # Ambil docstring-nya, kalau kosong kasih teks default
