@@ -13,6 +13,8 @@ import json
 from lzstring import LZString
 import ast
 import qrcode
+from PIL import Image, ImageDraw, ImageFont
+import textwrap
     
 def ver(instance, var=''): 
     '''Get a version app'''
@@ -70,41 +72,61 @@ def mitra_geturl(instance=None,var='[]'):
     
     return f"https://mitra.bps.go.id/c/{compressed}"
 
-def mitra_dfkartu(instance,var):
-    '''Generate qrcode untuk bahan mailmerge kartu petugas dari data nama dan qr code. Df.columns: nama, sobat_id, id_ms, id_mitra, kd_survei, id_keg, kd_prov'''
+def mitra_kartu(instance,var):
+    '''Generate kartu petugas dari data csv. Df.columns: nama, sobat_id, id_ms, id_mitra, kd_survei, id_keg, kd_prov'''
     instance.isdone = 0
     namafile = instance.filename_entry.get()
     df = pd.read_csv(namafile).astype('str')
-    df['url'] = ''
     instance.log_message(f'Data loaded with columns: {df.columns}')
+    df['url'] = ''
+    df['status'] = ''
 
-    # make url from df
+    # make url from df sekalian generate kartu
     instance.log_message('Creating column url')
     for i in range(len(df)):
         try:
             df.loc[i, 'url'] = mitra_geturl(var=str([df.loc[i,"id_ms"], df.loc[i,"id_mitra"], df.loc[i,"kd_survei"], df.loc[i,"id_keg"], df.loc[i,"kd_prov"]]))
+            config = {
+                "bg_path": r"cocard-template.png",
+                "text_box": (200, 955, 1000, 970), # start x, start y, width box, height box; sementara yg kepake baru y aja
+                "qr_box": (450, 1148, 330, 330),
+                "font_size": 80, 
+                "font_type": r"Raleway-SemiBold.ttf"
+            }
+            output_name = str(df.loc[i,'sobat_id']) + "_"+ str(df.loc[i,'nama'])[:35]+ '.png'
+            res= gen_mergemail(instance, var=None, nama=df.loc[i, 'nama'], data_qr=df.loc[i, 'url'], 
+                          cfg=config, output_name=output_name)
+            if not res : 
+                df.loc[i, 'status'] = 'Gagal'
+                raise ValueError('Program dihentikan')
+            df.loc[i, 'status'] = 'Sukses'
+            instance.log_message(f"Sukses Generate: {output_name}")
+
         except Exception as e:
             df.loc[i, 'url'] = str(e)
-            instance.log_message(f"Error on row-{i}: {e}")
+            df.loc[i, 'status'] = str(e)
+            instance.log_message(f"Error on row-{i}: {e}", "red_tag")
+
+            instance.isdone=1
             return
 
     # create qr code based on url created
-    instance.log_message('Creating qrcode (columns Path_QR)')
-    folder_qr = "gambar_qr"
-    os.makedirs(folder_qr, exist_ok=True)
+    # instance.log_message('Creating qrcode (columns Path_QR)')
+    # folder_qr = "gambar_qr"
+    # os.makedirs(folder_qr, exist_ok=True)
 
-    try:
-        df["Path_QR"] = [
-            genQR(var=link, namafile=f"{id}_{nama}", pathfolder=folder_qr)
-            for link, nama, id in zip(df['url'], df['nama'], df['id_mitra'])
-        ]
-        instance.log_message(f"Image file qrcode telah disimpan di folder '{folder_qr}'")
-    except Exception as e:
-        raise ValueError(e)
+    # try:
+    #     df["Path_QR"] = [
+    #         genQR(var=link, namafile=f"{id}_{nama}", pathfolder=folder_qr)
+    #         for link, nama, id in zip(df['url'], df['nama'], df['id_mitra'])
+    #     ]
+    #     instance.log_message(f"Image file qrcode telah disimpan di folder '{folder_qr}'")
+    # except Exception as e:
+    #     raise ValueError(e)
 
-    df.to_csv(namafile)
+    df.to_csv(namafile, index=False)
     instance.isdone = 1
-    instance.log_message("Siap untuk di mailmerge, silakan dilakukan sendiri", "green_tag")
+    #instance.log_message("Exported to ", "green_tag")
 
 def genQR(instance=None, var='', namafile='', pathfolder = ''):
     '''Membuat QR code dari variable yg diisikan'''
@@ -126,6 +148,68 @@ def genQR(instance=None, var='', namafile='', pathfolder = ''):
     path_absolut = os.path.abspath(path_simpan)
     return path_absolut.replace("\\", "\\\\")
 
+def gen_mergemail(instance, var, nama=None, data_qr=None, cfg={}, output_name=''):
+    """Mail merge dari template png mengikuti cfg/config dan isian berdasarkan csv"""
+    # if nama == None and data_qr==None and cfg == {}: # init read dict from config.txt
+    try:
+        # Load background RGBA agar warna QR terkunci hitam-putih
+        img = Image.open(cfg["bg_path"]).convert("RGBA")
+        draw = ImageDraw.Draw(img)
+        font = ImageFont.truetype(cfg['font_type'], cfg["font_size"])
+    except Exception as e:
+        instance.log_message(f"GAGAL LOAD FILE! Detail: {e}", "red_tag")
+        return False
+
+    x1, y1, w_box, h_box = cfg["text_box"]
+    # 1. Bersihkan String Nama
+    nama_clean = str(nama).strip().upper()
+    lebar_teks_asli = draw.textlength(nama_clean, font=font)
+    
+    # Gunakan textwrap dengan width lebih besar agar kata tidak terpotong per huruf
+    if lebar_teks_asli > w_box:
+        nama_final = nama_clean
+        if len(nama_clean) > 35:
+            nama_potong = nama_clean[:35]
+            words = nama_potong.split()
+            if len(words) > 1:
+                all_but_last = " ".join(words[:-1])
+                nama_final = f"{all_but_last} {words[-1][0]}."
+            else:
+                nama_final = nama_clean[:20] # Fallback jika hanya 1 kata panjang
+            # Jika lebih dari 35 karakter, paksa potong lebih pendek agar otomatis jadi 2 baris yang seimbang
+        lines = textwrap.wrap(nama_final, width=20)
+    else:
+        # Jika di bawah 35 karakter, berikan ruang lebar agar tetap aman dalam 1 baris
+        lines = textwrap.wrap(nama_clean, width=30)
+    text_to_draw = "\n".join(lines)
+    
+    x_center = img.width / 2  
+    y_floor = y1  
+    y_start = y1 - (cfg["font_size"] * (len(lines) - 1) + 20)
+    
+    # UBAH: Menggunakan anchor="ma" (Middle-Top) dikombinasikan dengan hitungan y_start dinamis di atas
+    draw.text((x_center, y_start), text_to_draw, fill="black", font=font, anchor="ma", align="center")
+
+    # 3. Gambar QR Code (Hitam-Putih Bersih)
+    qr = qrcode.make(data_qr).convert("RGBA") 
+    qr_width = cfg["qr_box"][2]
+    qr_height = cfg["qr_box"][3]
+    qr = qr.resize((qr_width, qr_height))
+    
+    qx = cfg["qr_box"][0] + (qr_width - qr.size[0]) #// 2
+    qy = cfg["qr_box"][1] + (qr_height - qr.size[1]) #// 2
+    img.paste(qr, (qx, qy), mask=qr)
+    
+    # Simpan instan dalam hitungan milidetik
+    final_img = img.convert("RGB")
+    # instance.log_message(f"Sukses Generate: {output_name}")
+    if output_name == '':
+        output_name = 'export_kartu.png' 
+    else:
+        os.makedirs('export_kartu', exist_ok=True)
+        output_name = os.path.join('export_kartu', output_name)
+    final_img.save(output_name)
+    return True
 
 
 def mitra_addpenawaran(instance, var):
@@ -162,7 +246,7 @@ def mitra_addpenawaran(instance, var):
                 if 'Sudah Terdaftar' in stat:
                     df.loc[i,'status'] = 'skip'
                     log_message('sudah daftar')
-                    df.to_csv(namafile)
+                    df.to_csv(namafile, index=False)
                     continue
                 page.locator(".fa.fa-plus.text-success").click()
                 df.loc[i,'status'] = 'done'
@@ -174,7 +258,7 @@ def mitra_addpenawaran(instance, var):
             except PlaywrightTimeoutError:
                 df.loc[i,'status'] = 'kosong'
                 log_message('kosong')
-                df.to_csv(namafile)
+                df.to_csv(namafile, index=False)
                 continue
             
         except Exception as e:
@@ -182,7 +266,7 @@ def mitra_addpenawaran(instance, var):
             log_message(e)
             gagal +=1
             if gagal > 3: break
-            df.to_csv(namafile)
+            df.to_csv(namafile, index=False)
             continue
             
         # page.locator(".fa.fa-plus.text-success").click()
@@ -202,7 +286,7 @@ def mitra_addpenawaran(instance, var):
             time.sleep(2)
             page.get_by_role("tab", name="Cari").click()
             page.get_by_role("textbox", name="Cari").click()
-            df.to_csv(namafile)
+            df.to_csv(namafile, index=False)
             j=0
             # break
             continue

@@ -75,7 +75,8 @@ def load_setting_file(instance, filename="get_data.py", load=True):
         else:
             # 3. Jika di kedua tempat tidak ada, baru cetak error
             if load:
-                instance.log_message(message=f"ERROR: File konfigurasi tidak ditemukan di path utama maupun folder dist: {filename}", tag="red_tag")
+                msg.showerror("Error Aplikasi", f"File konfigurasi tidak ditemukan di path utama maupun folder dist: {filename}:\n{e}")
+                # instance.log_message(message=f"ERROR: File konfigurasi tidak ditemukan di path utama maupun folder dist: {filename}", tag="red_tag")
             return None
     
     if load:
@@ -91,7 +92,8 @@ def load_setting_file(instance, filename="get_data.py", load=True):
             return namespace
             
         except Exception as e:
-            instance.log_message(message=f"ERROR: Gagal memuat file konfigurasi: {e}", tag="red_tag")
+            msg.showerror("Error Aplikasi", f"ERROR: Gagal memuat file konfigurasi:\n{e}")
+            # instance.log_message(message=f"ERROR: Gagal memuat file konfigurasi: {e}", tag="red_tag")
             return None
     return True
 
