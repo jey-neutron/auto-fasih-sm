@@ -71,7 +71,7 @@ def mitra_geturl(instance=None,var='[]'):
     return f"https://mitra.bps.go.id/c/{compressed}"
 
 def mitra_dfkartu(instance,var):
-    '''Generate qrcode untuk bahan mailmerge kartu petugas dari data nama dan qr code. Df.columns: nama, id_ms, id_mitra, kd_survei, id_keg, kd_prov'''
+    '''Generate qrcode untuk bahan mailmerge kartu petugas dari data nama dan qr code. Df.columns: nama, sobat_id, id_ms, id_mitra, kd_survei, id_keg, kd_prov'''
     instance.isdone = 0
     namafile = instance.filename_entry.get()
     df = pd.read_csv(namafile).astype('str')
