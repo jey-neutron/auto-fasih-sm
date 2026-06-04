@@ -583,86 +583,6 @@ def run():
         # RUN add penawaran
         # run_addpenawaran()
         
-        # RUN select kartu petugas
-        import re
-        import zipfile
-        import shutil
-        folder_temp_zip = os.path.join(os.path.expanduser("~"), "Downloads", "temp_playwright")
-        # Tempat folder ekstrak khusus "cocard"
-        # folder_downloads = os.path.join(os.path.expanduser("~"), "Downloads/kartupetugas")
-        folder_cocard = os.path.join(os.path.expanduser("~"), "Downloads", "cocard")
-        # Buat folder jika belum ada
-        os.makedirs(folder_temp_zip, exist_ok=True)
-        os.makedirs(folder_cocard, exist_ok=True)
-
-        # 5. Intersept jalannya download saat tombol diklik
-        with page.expect_download() as download_info:
-            # Ganti selektor di bawah ini dengan tombol download di website kamu            
-            df = pd.read_csv('data.csv', sep=';')
-            for i in range(len(df)):
-            # for i in range(0,3):
-                time.sleep(0.5)
-                nama = df.loc[i,'nama']
-                sobatid = str(df.loc[i,'sobatid']).strip()
-                nik6 = df.loc[i,'nik']
-                # print(nama, end='')
-                # page.pause()
-                page.get_by_role("textbox", name="Search").click()
-                page.get_by_role("textbox", name="Search").fill(sobatid)
-                page.get_by_role("row", name=f"1 {nik6}").get_by_role("checkbox").check()
-                page.get_by_role("button", name="Download").click()
-                page.locator("a").filter(has_text="Kartu Petugas").click()
-                try:
-                    with page.expect_download() as download_info:
-                        page.get_by_role("button", name="Lanjutkan").click()
-                    download = download_info.value
-                except PlaywrightTimeoutError:
-                    print(f"Gagal diekstrak: {nama}")
-                    continue
-                # page.get_by_role("dialog").get_by_role("button").filter(has_text=re.compile(r"^$")).click()
-                # page.keyboard.press("Escape")
-                page.get_by_role("button", name="Tutup").click()
-
-                # print('done')
-
-                # 6. Ambil data file dari folder Temp Playwright
-                download = download_info.value
-                path_zip_sementara = os.path.join(folder_temp_zip, download.suggested_filename)
-                download.save_as(path_zip_sementara)
-
-                # --- PROSES EKSTRAK DAN APPEND PNG ---
-                try:
-                    with zipfile.ZipFile(path_zip_sementara, 'r') as zip_ref:
-                        # Loop setiap file yang ada di dalam .zip
-                        for file_in_zip in zip_ref.namelist():
-                            # Filter: Pastikan filenya berakhiran .png
-                            if file_in_zip.lower().endswith('.png'):
-                                # Ambil nama file PNG asli tanpa struktur folder internal zip jika ada
-                                nama_file_png = os.path.basename(file_in_zip)
-                                path_tujuan_png = os.path.join(folder_cocard, nama_file_png)
-                                
-                                # JIKA FILE SUDAH ADA, KITA "APPEND" (UBAH NAMA/RENAME BIAR GAK REPLACE)
-                                if os.path.exists(path_tujuan_png):
-                                    nama_tanpa_ext, ext = os.path.splitext(nama_file_png)
-                                    counter = 1
-                                    # Loop terus sampai ketemu nama file yang belum terpakai (misal: file_1.png, file_2.png)
-                                    while os.path.exists(os.path.join(folder_cocard, f"{nama_tanpa_ext}_{counter}{ext}")):
-                                        counter += 1
-                                    path_tujuan_png = os.path.join(folder_cocard, f"{nama_tanpa_ext}_{counter}{ext}")
-                                
-                                # Ekstrak file PNG tersebut langsung ke lokasi tujuan akhir
-                                with zip_ref.open(file_in_zip) as source, open(path_tujuan_png, "wb") as target:
-                                    shutil.copyfileobj(source, target)
-                                    print(f"Berhasil diekstrak (Append): {os.path.basename(path_tujuan_png)}")
-
-                finally:
-                    # Hapus file .zip sementaranya agar tidak menumpuk memenuhi harddisk
-                    if os.path.exists(path_zip_sementara):
-                        os.remove(path_zip_sementara)
-
-
-            print('selse')
-            # page.get_by_role("textbox", name="Search").click()
 
         #
         page.pause() #debugging, open recorder on playwright
@@ -670,5 +590,82 @@ def run():
         page.wait_for_timeout(5000)
         # browser.close()
 
+# UNKOMENNNNN THISSSSSSSSSSSSSSSSSSSSSSSSSS IF WANT TO OPEN BROWSER
+# if __name__ == "__main__":
+#     run()
+
+
+
+
+from PIL import Image, ImageDraw, ImageFont
+import qrcode
+import textwrap
+import os
+
+def generate_custom_document(nama, data_qr, config, output_name):
+    cfg = config
+    try:
+        img = Image.open(cfg["bg_path"])
+        draw = ImageDraw.Draw(img)
+        font = ImageFont.truetype(cfg['font_type'], cfg["font_size"])
+    except Exception as e:
+        print(f"❌ GAGAL LOAD FILE!")
+        print(f"Jenis error: {type(e).__name__}")
+        print(f"Detail error: {e}")
+        return 
+
+    # 1. Logika Nama Universal (Wrap & Inisial)
+    words = nama.split()
+    if len(nama) > 35: 
+        nama = f"{' '.join(words[:-1])} {words[-1][0]}."
+    
+    lines = textwrap.wrap(nama, width=15)
+    
+    # 2. Gambar Teks (Centered)
+    x1, y1, w_box, h_box = cfg["text_box"]
+    x_center = x1 + (w_box / 2) 
+    y_current = y1
+
+    for line in lines:
+        bbox = draw.textbbox((0, 0), line, font=font)
+        line_height = bbox[3] - bbox[1]
+        
+        draw.text((x_center, y_current), line, fill="black", font=font, anchor="ma")
+        y_current += line_height + 10 
+
+    # 3. Gambar QR Universal (Perbaikan Struktur Indeks agar Kernel Tidak Mati)
+    qr = qrcode.make(data_qr)
+    qr_width = cfg["qr_box"][2]
+    qr_height = cfg["qr_box"][3]
+    qr = qr.resize((qr_width, qr_height))
+    
+    # Hitung posisi paste QR
+    qx = cfg["qr_box"][0] + (qr_width - qr.size[0]) // 2
+    qy = cfg["qr_box"][1] + (qr_height - qr.size[1]) // 2
+    
+    img.paste(qr, (qx, qy))
+    img.save(output_name)
+    print(f"✅ Sukses! Dokumen disimpan dengan nama: {output_name}")
+
+# path
+# BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Contoh config untuk template yang berbeda
+templates = {
+    "id_card": {
+        # "bg_path": os.path.join(BASE_DIR, "pelatihanSE", "cocard-template.png"),
+        "bg_path": r"D:\jim\auto-fasih-sm\pelatihanSE\cocard-template.png",
+        "text_box": (138, 813, 200, 970), # start x, start y, width box, len box
+        "qr_box": (460, 1148, 330, 330),
+        "font_size": 27,
+        # "font_type": os.path.join(BASE_DIR, "pelatihanSE", "raleway-medium.ttf")
+        "font_type": r"D:\jim\auto-fasih-sm\pelatihanSE\raleway-medium.ttf"
+        # "font_type": "arial.ttf"
+    }
+}
+
+# Cara Pakai:
+
 if __name__ == "__main__":
-    run()
+    generate_custom_document("Jey Neutron", "link_data", templates["id_card"], "hasil_cocard.png")
+    # run()
