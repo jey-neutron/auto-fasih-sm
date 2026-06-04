@@ -1,4 +1,4 @@
-APP_VERSION = 'v2.2.0' # ada perubahan sih di main app dikit terkait username validation, tpi blm diexport n push
+APP_VERSION = 'v2.2.1' 
 # konfig
 from datetime import datetime
 import pandas as pd
@@ -8,6 +8,11 @@ import os
 import json
 from playwright.sync_api import sync_playwright, expect, TimeoutError as PlaywrightTimeoutError
 from urllib.parse import unquote
+import json
+# harus ada di mainapp
+from lzstring import LZString
+import ast
+import qrcode
     
 def ver(instance, var=''): 
     '''Get a version app'''
@@ -48,10 +53,6 @@ def getrandom(instance, var):
 def mitra_geturl(instance=None,var='[]'):
     '''Generate url mitra dari var yg diinput. Var=["id_ms", "id_mitra", "kd_survei", 'id_keg', 'kd_prov']'''
 
-    import json
-    from lzstring import LZString
-    import ast
-
     allowed_keys = ["id_ms", "id_mitra", "kd_survei", 'id_keg', 'kd_prov']
     listvar = ast.literal_eval(var)
     a = dict(zip(allowed_keys, listvar))
@@ -75,24 +76,31 @@ def mitra_dfkartu(instance,var):
     namafile = instance.filename_entry.get()
     df = pd.read_csv(namafile).astype('str')
     df['url'] = ''
+    instance.log_message(f'Data loaded with columns: {df.columns}')
 
     # make url from df
+    instance.log_message('Creating column url')
     for i in range(len(df)):
         try:
             df.loc[i, 'url'] = mitra_geturl(var=str([df.loc[i,"id_ms"], df.loc[i,"id_mitra"], df.loc[i,"kd_survei"], df.loc[i,"id_keg"], df.loc[i,"kd_prov"]]))
         except Exception as e:
             df.loc[i, 'url'] = str(e)
             instance.log_message(f"Error on row-{i}: {e}")
+            return
 
     # create qr code based on url created
+    instance.log_message('Creating qrcode (columns Path_QR)')
     folder_qr = "gambar_qr"
     os.makedirs(folder_qr, exist_ok=True)
 
-    df["Path_QR"] = [
-        genQR(var=link, namafile=f"{id}_{nama}", pathfolder=folder_qr)
-        for link, nama, id in zip(df['url'], df['nama'], df['id_mitra'])
-    ]
-    instance.log_message(f"Image file qrcode telah disimpan di folder '{folder_qr}'")
+    try:
+        df["Path_QR"] = [
+            genQR(var=link, namafile=f"{id}_{nama}", pathfolder=folder_qr)
+            for link, nama, id in zip(df['url'], df['nama'], df['id_mitra'])
+        ]
+        instance.log_message(f"Image file qrcode telah disimpan di folder '{folder_qr}'")
+    except Exception as e:
+        raise ValueError(e)
 
     df.to_csv(namafile)
     instance.isdone = 1
@@ -100,7 +108,7 @@ def mitra_dfkartu(instance,var):
 
 def genQR(instance=None, var='', namafile='', pathfolder = ''):
     '''Membuat QR code dari variable yg diisikan'''
-    import qrcode
+
     namafile = 'qrcode.png' if namafile == '' else str(namafile).replace(" ", "_") + '.png'
     path_simpan = os.path.join(namafile) if pathfolder=='' else os.path.join(pathfolder, namafile)
     var = str(var)

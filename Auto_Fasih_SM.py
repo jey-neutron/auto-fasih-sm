@@ -7,6 +7,8 @@ import threading
 import sys
 import os
 import re
+from tkinter import messagebox as msg  # Pastikan untuk mengimpor messagebox Tkinter
+import traceback
 from PIL import Image, ImageTk
 
 try:
@@ -40,6 +42,8 @@ def initlib(callback):
     from datetime import datetime
     import pandas as pd
     import numpy as np
+    from lzstring import LZString
+    import qrcode
     icon = AutoApp.getassets('ikonku.ico', True)
 
     time.sleep(1)
@@ -1101,11 +1105,26 @@ def jalankan_aplikasi():
 
     def pindah_ke_utama():
         """Fungsi untuk menutup splash dan buka aplikasi utama."""
-        progress.stop()
-        splash.destroy()
-        root_utama = tk.Tk()
-        app = AutoApp(root_utama)
-        root_utama.mainloop()
+        try:
+            progress.stop()
+            splash.destroy()
+            
+            # Mencoba membuka aplikasi utama
+            # root_utama = tk.Toplevel()
+            root_utama = tk.Tk()
+            app = AutoApp(root_utama)
+            root_utama.mainloop()
+            
+        except Exception as e:
+            # Menampilkan pesan error ke pengguna lewat pop-up dialog
+            msg.showerror("Error Aplikasi", f"Gagal membuka aplikasi utama:\n{e}")
+            
+            # Opsional: Mencetak detail error ke terminal untuk debugging
+            # print("Detail Error:")
+            # traceback.print_exc()
+            
+            # Menutup splash screen agar program benar-benar berhenti
+            splash.destroy()
 
     # Jalankan proses berat di THREAD TERPISAH agar UI tidak membeku
     thread = threading.Thread(target=initlib, args=(lambda: splash.after(0, pindah_ke_utama),))
