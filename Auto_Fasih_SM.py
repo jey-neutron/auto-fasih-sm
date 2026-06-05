@@ -689,7 +689,8 @@ class AutoApp:
     # --- load user ---
     def load_credentials(self):
         try:
-            path = os.path.join(os.getcwd(), 'tempuser.txt')
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            path = os.path.join(current_dir, 'tempuser.txt')
             if os.path.exists(path):
                 with open(path, 'r') as f:
                     lines = f.read().splitlines()

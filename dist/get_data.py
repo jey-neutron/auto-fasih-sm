@@ -1,4 +1,4 @@
-APP_VERSION = 'v2.2.1' 
+APP_VERSION = 'v2.2.2' 
 # konfig
 from datetime import datetime
 import pandas as pd
@@ -9,7 +9,7 @@ import json
 from playwright.sync_api import sync_playwright, expect, TimeoutError as PlaywrightTimeoutError
 from urllib.parse import unquote
 import json
-# harus ada di mainapp
+# harus ada di mainapp, import fitur added
 from lzstring import LZString
 import ast
 import qrcode
@@ -38,7 +38,7 @@ def getrandom(instance, var):
 
 # def inputwebdash(instance, var)
 # def assignselect(instance, var)
-# def mailbc(instance, var) # mybe, buat ngibar paling, ref from app.py ======
+# def mailbc(instance, var) # mybe, buat ngibar paling, ref from appdev.py ======
 # def getnikmitra(instance, var):
 #     try:
 #         with open(r'D:\OneDrive\~Jimmy\~STIS\PY\Work_py\auto-fasih-sm\dist\temp.json', 'r', encoding='utf-8') as file:
@@ -52,6 +52,43 @@ def getrandom(instance, var):
 #         if response['success'] == False or response['success'] == "false":
 #             raise ValueError(response['message'])
 
+def render(instance,var):
+    """Memanggil index.html dengan pilihan variable terlampir var='done', 'running', 'ready' """
+    p_instance, browser, page = get_playwright_page() #konek ke playwr
+    instance.log_message(f'Rendering HTML. Var="done", "running", "ready". Chosen: {var} ')
+    page.goto(instance.getassets('index.html'))
+    if var != 1:
+        page.evaluate(f"document.body.setAttribute('data-status', '{var}')")
+    instance.log_message('Selesai')
+    #instance.isdone=1
+    
+
+def help(instance,var):
+    '''Get list of functions'''
+    instance.isdone = 0
+    instance.log_message(f"List of available functions:")
+
+    for nama, objek in globals().items():
+        if (callable(objek) and 
+            not nama.startswith("__") and 
+            nama not in ["mainfunc", "get_list_data", "datetime", "sync_playwright","check_stop", "handle_response", 'mergejson','run_api_request','get_playwright_page','expect','unquote', 'PlaywrightTimeoutError'] ):
+            # exclude function main and penunjang, hanya tampilin function side aja
+            
+            # Ambil docstring-nya, kalau kosong kasih teks default
+            deskripsi = objek.__doc__ if objek.__doc__ else ""# "Tidak ada deskripsi."
+
+            # print output
+            instance.log_area.insert("end", f"[-]")
+            instance.log_area.insert("end", f" {nama}" ,"red_tag")
+            instance.log_area.insert("end", f" ({deskripsi.strip().lower()})\n")
+            instance.log_area.see("end")
+
+    instance.log_area.insert("end", f"\n[-] Kosongin aja jika misal mau approval aja tanpa get data fasih-sm")
+    instance.log_area.insert("end", f"\n[-] Anda bisa mengganti isian default username sso dengan membuat file 'tempuser.txt' dan isinya adalah usernamesso + (enter) + password sso ")
+    instance.log_area.insert("end", "\n")
+    instance.isdone = 1
+
+# --- SECTION MANAJEMEN MITRA ---
 def mitra_geturl(instance=None,var='[]'):
     '''Generate url mitra dari var yg diinput. Var=["id_ms", "id_mitra", "kd_survei", 'id_keg', 'kd_prov']'''
 
@@ -73,11 +110,18 @@ def mitra_geturl(instance=None,var='[]'):
     return f"https://mitra.bps.go.id/c/{compressed}"
 
 def mitra_kartu(instance,var):
-    '''Generate kartu petugas dari data csv. Df.columns: nama, sobat_id, id_ms, id_mitra, kd_survei, id_keg, kd_prov'''
+    '''Generate kartu petugas dari data csv. Df.columns harus ada: nama, sobat_id, id_ms, id_mitra, kd_survei, id_keg, kd_prov'''
     instance.isdone = 0
     namafile = instance.filename_entry.get()
     df = pd.read_csv(namafile).astype('str')
+    # cek col
     instance.log_message(f'Data loaded with columns: {df.columns}')
+    target_cols = ['nama', 'sobat_id', 'id_ms', 'id_mitra', 'kd_survei', 'id_keg', 'kd_prov']
+    missing_cols = list(set(target_cols) - set(df.columns))
+    if missing_cols: 
+        instance.log_message(f"Missing columns: {missing_cols}", "red_tag")
+        raise ValueError('Error, column di csv tidak ditemukan')
+
     df['url'] = ''
     df['status'] = ''
 
@@ -93,7 +137,7 @@ def mitra_kartu(instance,var):
                 "font_size": 80, 
                 "font_type": r"Raleway-SemiBold.ttf"
             }
-            output_name = str(df.loc[i,'sobat_id']) + "_"+ str(df.loc[i,'nama'])[:35]+ '.png'
+            output_name = str(df.loc[i,'nama']) + "_"+ str(df.loc[i,'sobat_id'])[:35]+ '.png'
             res= gen_mergemail(instance, var=None, nama=df.loc[i, 'nama'], data_qr=df.loc[i, 'url'], 
                           cfg=config, output_name=output_name)
             if not res : 
@@ -110,23 +154,8 @@ def mitra_kartu(instance,var):
             instance.isdone=1
             return
 
-    # create qr code based on url created
-    # instance.log_message('Creating qrcode (columns Path_QR)')
-    # folder_qr = "gambar_qr"
-    # os.makedirs(folder_qr, exist_ok=True)
-
-    # try:
-    #     df["Path_QR"] = [
-    #         genQR(var=link, namafile=f"{id}_{nama}", pathfolder=folder_qr)
-    #         for link, nama, id in zip(df['url'], df['nama'], df['id_mitra'])
-    #     ]
-    #     instance.log_message(f"Image file qrcode telah disimpan di folder '{folder_qr}'")
-    # except Exception as e:
-    #     raise ValueError(e)
-
     df.to_csv(namafile, index=False)
     instance.isdone = 1
-    #instance.log_message("Exported to ", "green_tag")
 
 def genQR(instance=None, var='', namafile='', pathfolder = ''):
     '''Membuat QR code dari variable yg diisikan'''
@@ -150,7 +179,9 @@ def genQR(instance=None, var='', namafile='', pathfolder = ''):
 
 def gen_mergemail(instance, var, nama=None, data_qr=None, cfg={}, output_name=''):
     """Mail merge dari template png mengikuti cfg/config dan isian berdasarkan csv"""
-    # if nama == None and data_qr==None and cfg == {}: # init read dict from config.txt
+    if nama == None and data_qr==None and cfg == {}: 
+        # init read dict from config.txt next ======
+        return None
     try:
         # Load background RGBA agar warna QR terkunci hitam-putih
         img = Image.open(cfg["bg_path"]).convert("RGBA")
@@ -213,7 +244,7 @@ def gen_mergemail(instance, var, nama=None, data_qr=None, cfg={}, output_name=''
 
 
 def mitra_addpenawaran(instance, var):
-    '''Manmit autobrowser add to penawaran survey dari mitra kepka, df.columns = nama, status (kosong)'''
+    '''Manmit autobrowser add to penawaran survey dari mitra kepka, df.columns = nama, status (kosong). Pastikan browser sudah sampe ke menu milih dari kepka.'''
     log_message = instance.log_message
     p_instance, browser, page = get_playwright_page() #konek ke playwr
     
@@ -293,64 +324,8 @@ def mitra_addpenawaran(instance, var):
 
 
     log_message('SLESE')
-    instance.isdone = 1
-
-
-def render(instance,var):
-    """Memanggil index.html dengan pilihan variable terlampir"""
-    p_instance, browser, page = get_playwright_page() #konek ke playwr
-    instance.log_message(f'Rendering HTML. Var="done", "running", "ready". Chosen: {var} ')
-    page.goto(instance.getassets('index.html'))
-    if var != 1:
-        page.evaluate(f"document.body.setAttribute('data-status', '{var}')")
-    instance.log_message('Selesai')
-    #instance.isdone=1
-    
-def check_stop(instance):
-    '''Check if stop button is pressed'''
-    if instance.stop_event.is_set():
-        raise InterruptedError("Process stopped by user.")
-
-def help(instance,var):
-    '''Get list of functions'''
-    instance.isdone = 0
-    instance.log_message(f"List of available functions:")
-
-    for nama, objek in globals().items():
-        if (callable(objek) and 
-            not nama.startswith("__") and 
-            nama not in ["mainfunc", "get_list_data", "update_temp_value", "datetime", "sync_playwright","check_stop", "handle_response", 'mergejson','run_api_request','get_playwright_page','expect','unquote', 'PlaywrightTimeoutError'] ):
-            # exclude function main and penunjang, hanya tampilin function side aja
-            
-            # Ambil docstring-nya, kalau kosong kasih teks default
-            deskripsi = objek.__doc__ if objek.__doc__ else ""# "Tidak ada deskripsi."
-
-            # print output
-            instance.log_area.insert("end", f"[-]")
-            instance.log_area.insert("end", f" {nama}" ,"red_tag")
-            instance.log_area.insert("end", f" ({deskripsi.strip().lower()})\n")
-            instance.log_area.see("end")
-
-    instance.log_area.insert("end", f"\n[-] Kosongin aja jika misal mau approval aja tanpa get data fasih-sm")
-    instance.log_area.insert("end", f"\n[-] Anda bisa mengganti isian default username sso dengan membuat file 'tempuser.txt' dan isinya adalah usernamesso + (enter) + password sso ")
-    instance.log_area.insert("end", "\n")
-    instance.isdone = 1
-
-def get_playwright_page(cdp_url="http://localhost:9222"):
-    """
-    Fungsi helper untuk connect ke browser Chrome yang sudah terbuka.
-    Bisa dipanggil di thread mana saja.
-    """
-    p_instance = sync_playwright().start()
-    try:
-        browser = p_instance.chromium.connect_over_cdp(cdp_url)
-        # Ambil page pertama yang aktif
-        page = browser.contexts[0].pages[0]
-        return p_instance, browser, page
-    except Exception as e:
-        # Jika gagal, pastikan instance playwright ditutup agar tidak memory leak
-        p_instance.stop()
-        raise RuntimeError(f"Gagal connect ke browser: {e}")
+    # instance.isdone = 1
+# --- END SECTION MANAJEMEN MITRA ---
 
 def getkurs(instance, var):
     '''Convert kurs data dari IDR.json hasil dari api web exchangerate-api.com [Pake "NonApprov"] [https://v6.exchangerate-api.com/v6/API-KEY/latest/IDR]'''
@@ -399,27 +374,6 @@ def getkurs(instance, var):
     instance.isdone = 1
 
 
-# Function penunjang assignselect
-def update_temp_value(gagal=False):
-    '''Function untuk membuat var temp di temp.txt'''
-    # Menentukan lokasi file temp (misal: 'temp.txt')
-    path = os.path.join(os.getcwd(), 'temp.txt')
-    
-    # Baca nilai lama (default 0 jika file belum ada)
-    val = int(open(path).read()) if os.path.exists(path) else 0
-    #print(f"a={val}")
-    
-    # Update nilai: 0->1, 1->2, 2->0
-    if not gagal:
-        idxrand = (val + 1) % 3
-    else:
-        idxrand = val
-
-    # Simpan kembali ke file temp
-    with open(path, 'w') as f:
-        f.write(str(idxrand))
-
-
 def seedata(instance, var):
     '''Get detail data pada csv dan index data terpilih [Pake "NonApprov" ya]'''
     instance.isdone = 0
@@ -441,8 +395,9 @@ def seedata(instance, var):
     instance.log_message("Done. Please enlarge the window")
     instance.isdone = 1
 
+# --- SECTION FUNGSI TAMBAHAN MAINFUNC ---
 def getdataAll(namafile = 'data_survey.json'):
-    '''FUNCTION FOR GETTING DATA GENERAL SURVEY (mybe ada kendala, tpi sementara ini deh)'''
+    '''FUNCTION FOR GETTING DATA GENERAL SURVEY (mybe ada kendala, tpi sementara ini deh), PAKE APPROVAL FASIH (TRUE/FALSE)'''
     # Open the file and load its content
     with open(namafile, 'r') as file:
         df = json.load(file)
@@ -653,150 +608,105 @@ def getdataPES(namafile='data_survey.json'):
 
     # FINISH
     return d
+# --- END SECTION FUNC TAMBAHAN MAINFUNC ---
 
-# Function penunjang to get list data
-def handle_response(instance, response, target_url, namejson='data_survey.json'):
-    '''Get response terutama buat pas load page di awal biar dapet response dalam json'''
-    # Filter URL spesifik yang ingin Anda ambil datanya
-    
-    if target_url in response.url:
-        try:
-            data = response.json()
-            with open(namejson, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=4, ensure_ascii=False)
-            #instance.log_message(f"[✓] (Status {response.status}). Data disimpan ke '{namejson}'")
-            stat = 'OK' if response.status == 200 else 'ERR'
-            instance.log_message(f"# Status {stat}")
-            
-        except Exception as e:
-            # Jika respon bukan JSON (misal HTML/Text)
-            instance.log_message(f'Gagal: {response.text()[:500]}') # Cetak 500 karakter pertama
 
-# Function penunjang to get list data
-def mergejson(dictlist, listcol, namejson='data_survey.json'):
-    '''Merge hasil response dari namejson ke dictlist existing dengan filtering listcol yang sama '''
-    with open(namejson, 'r') as file:
-        data = json.load(file)
-    #data['searchData'][0]#.keys()
-    for i in range(len(data['searchData'])):
-        dictlist.append({key: data['searchData'][i][key] for key in listcol if key in data['searchData'][i]})
-    return dictlist
-
-def listdat (instance, var):
+# --- SECTION MAIN FUNC, DONT DISTURB ---
+# Function to get list data
+def get_list_data (instance, namadf,  mode="w", maxrow=0, sep=","):
+    '''Get dataframe dari prelist link fasih untuk dijadikan bahan, kemudian export ke csv juga. '''
     instance.isdone=0
     try:
         p_instance, browser, page = get_playwright_page() #konek ke playwr
-        with page.expect_request("https://fasih-sm.bps.go.id/app/api/analytic/api/v2/assignment/datatable-all-user-survey-periode") as req_info:
+        target_url = "https://fasih-sm.bps.go.id/app/api/analytic/api/v2/assignment/datatable-all-user-survey-periode"
+        # get req payload
+        with page.expect_request(target_url) as req_info:
             page.reload()
+        time.sleep(1)
         captured_req = req_info.value
         api_url = captured_req.url
         api_headers = captured_req.headers
         api_payload = json.loads(captured_req.post_data)
 
-        # ubah
-        api_payload['length'] = 50 
-        api_payload['start'] = 0
+        # mod req
+        per_batch = 50
+        api_payload['length'] = per_batch 
+        api_payload['start'] = 0 # 50 100 150 dst
+        # get response first load
+        resp = run_api_request(instance, page, "post", api_url, target_id=None, payload=api_payload)
+        # resp = json.loads(response_json)
+        total_hit = resp.get('totalHit', 0)
+        instance.log_message(f"# Total data terdeteksi: {total_hit}")
 
-        response_json = run_api_request(instance, page, "post", api_url, target_id=None, payload=api_payload)
-        with open("resp.json", "w", encoding="utf-8") as f:
-            json.dump(response_json, f, indent=4, ensure_ascii=False)
-        instance.log_message('exportedddddddddddddddddd')
+        # gatekeeper
+        if total_hit > 1000: 
+            instance.log_message(f"ERROR: Total data ({total_hit}) melebihi batas 1000!", "red_tag")
+            raise ValueError("Silakan perkecil kriteria wilayah filter Anda di Fasih terlebih dahulu.")
+        
+        # lolos <=1000
+        master_data_list = []
+        data_awal = resp.get('searchData', []) 
+        master_data_list.extend(data_awal)
+        instance.log_message(f"# Get {per_batch} batch data pertama")
+
+        # LOOP PENCICILAN (Mulai dari start=50, karena start=0 sudah diambil di atas)
+        start_point = per_batch
+        while start_point < total_hit:
+            check_stop(instance)
+            page.goto(instance.getassets('index.html'))
+            page.evaluate("document.body.setAttribute('data-status', 'running')")
+
+            instance.log_message(f"# Get data next batch, start from: {start_point+1}...")
+            api_payload['start'] = start_point
+            
+            # Jeda tipis-tipis (politeness policy) agar server tidak mendeteksi serangan
+            time.sleep(random.uniform(1.5, 5.0))
+            
+            # Tembak API untuk batch sekarang
+            resp_next = run_api_request(instance, page, "post", api_url, target_id=None, payload=api_payload)
+            # resp_next = json.loads(response_json_next)
+            
+            data_batch = resp_next.get('searchData', [])
+            if not data_batch:
+                instance.log_message('- Data (sudah) kosong, break')
+                break # Jika di tengah jalan data kosong, hentikan loop
+                
+            master_data_list.extend(data_batch)
+            instance.log_message(f"- Berhasil ambil {len(data_batch)} data. Total: {len(master_data_list)}")
+            
+            # Naikkan kelipatan start (0 -> 50 -> 100 -> 150 dst)
+            start_point += per_batch
+        
+        if master_data_list:
+            df = pd.DataFrame(master_data_list)
+            listcol = ['id', 'surveyPeriodId', 'codeIdentity', 'assignmentStatusId', 'assignmentStatusAlias', 'data1', 'data2', 'data3', 'data4', 'data5', 'data6', 'data7', 'data8', 'data9', 'data10', 'dateCreated', 'isActive', 'currentUserUsername','lockedByUser', 'lockedByAnother']
+            df = df[[c for c in listcol if c in df.columns]]
+            df['link'] = 'https://fasih-sm.bps.go.id/app/assignment/'+ df['surveyPeriodId'].astype(str) + "/" + df['id'].astype(str)
+
+            instance.log_message(f"Done. Link data saved to '{namadf}'. Total baris: {df.shape[0]}","green_tag")
+
+            # save as csv
+            if mode=="w":
+                df.to_csv(namadf, index=False, sep=sep, mode="w")
+            elif mode=="a":
+                df.to_csv(namadf, index=False, sep=sep, mode="a", header=False)
+
+            # return df
+        else:
+            instance.log_message("Tidak ada data yang berhasil dikumpulkan.", "red_tag")
+            return None
+
+        # with open("resp.json", "w", encoding="utf-8") as f:
+        #     json.dump(response_json, f, indent=4, ensure_ascii=False)
+        # instance.log_message('exportedddddddddddddddddd')
 
 
     except Exception as e:
         import sys
         exc_type, exc_obj, exc_tb = sys.exc_info()
-        instance.log_message(f"# Terjadi error on line: {str(exc_tb.tb_lineno)} {e} ", "red_tag")
+        instance.log_message(f"# Terjadi error di thread getlistdata on line: {str(exc_tb.tb_lineno)} {e} ", "red_tag")
     finally:
         instance.isdone = 1
-        # Selalu tutup p_instance di blok 'finally' agar tidak hang
-        try:
-            p_instance.stop()
-            instance.log_message("Koneksi Playwright di thread ditutup.")
-        except NameError:
-            # Terjadi jika get playwright page() gagal total di awal
-            pass
-
-
-# Function to get list data
-def get_list_data(instance, namadf,  mode="w", maxrow=0, sep=","):
-    '''Get dataframe dari prelist link fasih untuk dijadikan bahan, kemudian export ke csv juga. '''
-    instance.isdone = 0
-    try:
-        p_instance, browser, page = get_playwright_page() #konek ke playwr
-        
-        # wait n getting response
-        namejson = 'data_survey.json'
-        target_url = "https://fasih-sm.bps.go.id/app/api/analytic/api/v2/assignment/datatable-all-user-survey-periode"
-        page.on("response", lambda response: handle_response(instance, response, target_url, namejson))
-
-        # page.goto("https://fasih-sm.bps.go.id/app/surveys?page=0&perPage=10&layout=list")
-        page.reload()
-        time.sleep(2)
-        page.wait_for_timeout(2000) 
-        #page.evaluate("document.body.style.zoom='0.5'")
-        page.locator("h3").first.wait_for(
-            state="visible", 
-            timeout=10000
-        )
-        instance.log_message('# Get response data on page 1')
-
-        # read json
-        ipage = 1
-        dflist = []
-        listcol = ['id', 'surveyPeriodId', 'codeIdentity', 'assignmentStatusId', 'assignmentStatusAlias', 'data1', 'data2', 'data3', 'data4', 'data5', 'data6', 'data7', 'data8', 'data9', 'data10', 'dateCreated', 'isActive', 'currentUserUsername','lockedByUser', 'lockedByAnother']
-        dflist = mergejson(dflist, listcol, namejson)
-
-        # next page        
-        #page.get_by_role("button", name="Go to next page").click()
-        while True:
-            check_stop(instance)
-            # 1. Ambil locator tombol next
-            next_button = page.get_by_role("button", name="Go to next page")
-            
-            # 2. Cek apakah tombol ada, muncul, dan aktif (tidak disabled)
-            if next_button.is_visible() and next_button.is_enabled():
-                next_button.click()
-                ipage += 1
-                page.wait_for_timeout(2000) # Jeda detik nunggu halaman muat
-                instance.log_message(f'# Jml data: {len(dflist)}. Getting response data page {ipage}')
-                dflist = mergejson(dflist, listcol, namejson)
-                time.sleep(1)
-            else:
-                instance.log_message('# Selesai')
-                try: os.remove(namejson)
-                except: instance.log_message("File not created", tag='red_tag')
-                break # Berhenti loop jika tidak bisa diklik
-
-        time.sleep(2)
-        # ngerapiin
-        df = pd.DataFrame(dflist)
-        lendf = len(df)
-        instance.log_message(f"# Get {lendf} rows of data")
-        df['link'] = 'https://fasih-sm.bps.go.id/app/assignment/'+ df['surveyPeriodId'].astype(str) + "/" + df['id'].astype(str)
-        # page.pause() #debugging, open recorder on playwright
-                
-        # save as csv
-        if mode=="w":
-            df.to_csv(namadf, index=False, sep=sep, mode="w")
-        elif mode=="a":
-            df.to_csv(namadf, index=False, sep=sep, mode="a", header=False)
-
-        #print(f"# Link data saved to {namadf}")
-        instance.log_message(f"# Done. Link data saved to {namadf}")
-        with open(namadf, 'r', encoding='utf-8') as f: #ngitung jml row only
-            next(f)
-            totrow = sum(1 for line in f)
-        instance.log_message(f"# Total rows now: {totrow}")
-        return (df)
-    
-    except Exception as e:
-        instance.log_message(f"Error di thread data getlistdata: {e}", tag="red_tag")
-    finally:
-        instance.isdone = 1
-        instance.log_message("Browser bisa di-previous-page/back jika mau digunakan kembali")
-        page.goto(instance.getassets('index.html'))
-        page.evaluate("document.body.setAttribute('data-status', 'done')")
         # Selalu tutup p_instance di blok 'finally' agar tidak hang
         try:
             p_instance.stop()
@@ -1091,3 +1001,25 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
         except NameError:
             # Terjadi jika get playwright page() gagal total di awal
             pass
+
+def get_playwright_page(cdp_url="http://localhost:9222"):
+    """
+    Fungsi helper untuk connect ke browser Chrome yang sudah terbuka.
+    Bisa dipanggil di thread mana saja.
+    """
+    p_instance = sync_playwright().start()
+    try:
+        browser = p_instance.chromium.connect_over_cdp(cdp_url)
+        # Ambil page pertama yang aktif
+        page = browser.contexts[0].pages[0]
+        return p_instance, browser, page
+    except Exception as e:
+        # Jika gagal, pastikan instance playwright ditutup agar tidak memory leak
+        p_instance.stop()
+        raise RuntimeError(f"Gagal connect ke browser: {e}")
+
+def check_stop(instance):
+    '''Check if stop button is pressed'''
+    if instance.stop_event.is_set():
+        raise InterruptedError("Process stopped by user.")
+# --- END SECTION MAIN FUNC ---
