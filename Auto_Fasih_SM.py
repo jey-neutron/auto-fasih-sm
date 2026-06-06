@@ -124,6 +124,7 @@ def get_assets_path():
 # Main app
 class AutoApp:
     def __init__(self, master):
+        self.master = master
         # Palette Warna Modern Premium
         self.BG_MAIN = "#121214"       # Dark Background Utama
         self.BG_CARD = "#1A1A22"       # Background Kontainer / Card
@@ -153,10 +154,11 @@ class AutoApp:
         global external_funcs
         external_funcs = load_setting_file(self)
         if external_funcs is None:
-            time.sleep(10)
+            # time.sleep(1)
             master.destroy()
             return
         # user n sso get
+
         usersso, passso, approv, msgsso, helper = self.load_credentials()     
 
         # 2. Ambil fungsi yang dibutuhkan
@@ -169,6 +171,7 @@ class AutoApp:
         exclude_fun_list = external_funcs.get('help')(self)
         
         # konfigurasi variabel
+        self.helper = helper
         self.playwright_instance = None
         self.page = None
         self.isdone = None
@@ -178,7 +181,7 @@ class AutoApp:
         self.thread = None
 
         # Konfigurasi jendela utama
-        self.master = master
+        # self.master = master
         #master.iconbitmap("ikonku.ico")
         master.title(f"Aplikasi Auto-Fasih-SM {appver(self)}")
         master.iconbitmap(icon)
@@ -696,6 +699,8 @@ class AutoApp:
             # 4. Set otomatis ke fungsi pertama jika list tidak kosong
             if all_functions:
                 self.extra_input_entry.current(0)
+                if self.helper and self.helper in all_functions:
+                    self.extra_input_entry.set(self.helper)
             else:
                 self.extra_input_entry.set('') # Kosongkan jika tidak ada fungsi
 
@@ -780,13 +785,22 @@ class AutoApp:
     # --- load user ---
     def load_credentials(self):
         try:
-            current_dir = os.path.dirname(os.path.abspath(__file__))
+            # if getattr(sys, 'frozen', False):
+            #     current_dir = os.path.dirname(sys.executable)
+            # else:
+            #     current_dir = os.path.dirname(os.path.abspath(__file__))
+            current_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
             path = os.path.join(current_dir, 'tempuser.txt')
+
             if os.path.exists(path):
                 with open(path, 'r') as f:
                     lines = f.read().splitlines()
+                    while len(lines) < 4:
+                        lines.append(False)
                     return lines[0], lines[1], lines[2], "Loaded", lines[3]
-        except: pass
+        except Exception as e:  
+            self.log_message(f'Gagal load sso saved ({e})')
+            pass
         # return "jey.neutron", "password", "approv1", "Default", "Input_Tambahan"
         return False, False, False, "Default", False
     
@@ -1219,7 +1233,8 @@ def jalankan_aplikasi():
             # traceback.print_exc()
             
             # Menutup splash screen agar program benar-benar berhenti
-            splash.destroy()
+            # splash.destroy()
+            if root_utama: root_utama.destroy()
 
     # Jalankan proses berat di THREAD TERPISAH agar UI tidak membeku
     thread = threading.Thread(target=initlib, args=(lambda: splash.after(0, pindah_ke_utama),))

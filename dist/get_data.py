@@ -1,4 +1,4 @@
-APP_VERSION = 'v2.3.0' 
+APP_VERSION = 'v2.3.1' 
 # konfig
 from datetime import datetime
 import pandas as pd
