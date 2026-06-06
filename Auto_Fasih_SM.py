@@ -22,7 +22,7 @@ def initlib(callback):
     global datetime; global pd; global scrolledtext
     global np
     global playwright_instance; global sync_playwright; global browser; global page
-    global icon; global PlaywrightError
+    global icon; global PlaywrightError; global inspect
     # global TimeoutException
     # global webdriver; global Keys; 
     # global Select; global EC
@@ -44,6 +44,7 @@ def initlib(callback):
     import numpy as np
     from lzstring import LZString
     import qrcode
+    import inspect
     icon = AutoApp.getassets('ikonku.ico', True)
 
     time.sleep(1)
@@ -138,9 +139,18 @@ class AutoApp:
         self.ACCENT_ORANGE = "#FF9F1C" # Tombol Pendukung
         self.BORDER_COLOR = "#2D2D3D"  # Warna Border
 
+        # Bagian ini menggunakan opsi konfigurasi Tkinter dasar
+        master.option_add('*TCombobox*Listbox.background', self.BG_CARD)
+        master.option_add('*TCombobox*Listbox.foreground', self.FG_MAIN)
+        master.option_add('*TCombobox*Listbox.selectBackground', self.ACCENT_BLUE)
+        master.option_add('*TCombobox*Listbox.selectForeground', self.FG_MAIN)
+        master.option_add('*TCombobox*Listbox.relief', 'flat') # Menghilangkan border pop-up
+        master.option_add('*TCombobox*Listbox.borderWidth', 0) # Menghilangkan border pop-up
+
         
         # konfigurasi import fungsi dari get_data.py
         # 1. Load fungsi dari file eksternal
+        global external_funcs
         external_funcs = load_setting_file(self)
         if external_funcs is None:
             time.sleep(10)
@@ -152,9 +162,11 @@ class AutoApp:
         # 2. Ambil fungsi yang dibutuhkan
         global mainfunc
         global get_list_data
+        global exclude_fun_list
         mainfunc = external_funcs.get('mainfunc')
         get_list_data = external_funcs.get('get_list_data')
         appver = external_funcs.get('ver')
+        exclude_fun_list = external_funcs.get('help')(self)
         
         # konfigurasi variabel
         self.playwright_instance = None
@@ -378,7 +390,45 @@ class AutoApp:
         # Menggunakan func2_frame sebagai parent untuk input ini
         self.create_input_field("Baris Mulai:", "Cth: 0 (untuk mulai dari awal)", "start_row_entry", self.func2_frame)
         self.create_input_field("Nama File:", "Nama_File.csv", "filename_entry", self.func2_frame, value='data.csv')
-        self.create_input_field("Input Tambahan:", "Input opsional... (cth: help)", "extra_input_entry", self.func2_frame, value=helper)
+        # self.create_input_field("Input Tambahan:", "Input opsional... (cth: help)", "extra_input_entry", self.func2_frame, value=helper)
+        # rev combobox ======
+        self.extra_frame = tk.Frame(self.func2_frame, bg=self.func2_frame.cget('bg'))
+        self.extra_frame.pack(fill=tk.X, pady=4)
+
+        # 1. Label Input Tambahan
+        tk.Label(
+            self.extra_frame, 
+            text="Input Tambahan:", 
+            width=14, 
+            anchor='w', 
+            bg=self.func2_frame.cget('bg'), 
+            fg='#ffffff',
+            font=('Segoe UI', 9, 'bold')
+        ).pack(side=tk.LEFT)
+
+        # 2. Widget Combobox (Dropdown)
+        self.extra_input_entry = ttk.Combobox(
+            self.extra_frame,
+            font=('Segoe UI', 9),
+            state="readonly",
+            style="TCombobox"
+        )
+        self.extra_input_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 4))
+        self.extra_input_entry.bind("<<ComboboxSelected>>", self.on_select)
+
+        # 3. Tombol Refresh Kecil
+        self.refresh_btn = tk.Button(
+            self.extra_frame,
+            text="🔄", 
+            font=('Segoe UI', 8),
+            bg=self.BG_INPUT,
+            fg="#ffffff",
+            relief=tk.FLAT,
+            command=self.refresh_dropdown_functions  # Memanggil fungsi refresh bawah
+        )
+        self.refresh_btn.pack(side=tk.RIGHT)
+        self.refresh_dropdown_functions() # run first time
+        # end combobox ======
         self.create_input_field("Variabel Extra:", "Variabel opsional tambahan...", "var_input_entry", self.func2_frame)
         
         # Variabel kontrol untuk menyimpan nilai radiobutton yang dipilih
@@ -625,6 +675,47 @@ class AutoApp:
             # Tampilkan frame yang diklik tepat di bawah tombol pemicunya
             target_frame.pack(fill=tk.X, pady=(5, 3), after=target_button)
             target_button.config(text=target_button.cget("text").replace("▶", "▼"))
+
+    # --refresh get_data.py
+    def refresh_dropdown_functions(self):        
+        try:
+            res = load_setting_file(self, filename='get_data.py')
+            all_functions = [' (Input opsional...)']
+
+            # Kita filter: hanya mengambil yang berupa fungsi/callable DAN bukan fungsi bawaan sistem (tidak diawali '_')
+            # Jika 'res' berbentuk Module / Class Instance / Namespace Object
+            if isinstance(res, dict):
+                for key, val in res.items():
+                    if not key.startswith('_') and callable(val) and key not in exclude_fun_list:
+                        all_functions.append(key)
+            # jika res adalah Objek / Module / Namespace -> need recode
+                            
+            # 3. Update nilai ke dalam Combobox
+            self.extra_input_entry['values'] = all_functions
+
+            # 4. Set otomatis ke fungsi pertama jika list tidak kosong
+            if all_functions:
+                self.extra_input_entry.current(0)
+            else:
+                self.extra_input_entry.set('') # Kosongkan jika tidak ada fungsi
+
+        except Exception as e:
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            print(f"# Gagal memuat list fungsi: {str(exc_tb.tb_lineno)} {e} ", "red_tag")
+    
+    # --on select combobox
+    def on_select(self, event):
+        input_pil = self.extra_input_entry.get() 
+        fungsi_asli = external_funcs.get(input_pil)
+        
+        if input_pil == ' (Input opsional...)':
+            self.log_message('Tidak menggunakan input fungsi tambahan')
+        elif fungsi_asli:
+            # Ambil docstring menggunakan __doc__
+            docstring = fungsi_asli.__doc__
+            self.log_message(message=f"Deskripsi fungsi: \n'{docstring}'\n" if docstring else "Tidak ada deskripsi pada fungsi terpilih.", tag="green_tag")
+        else:
+            self.log_message(message="Fungsi tidak ditemukan.", tag= "red_tag")
 
     # --update untuk radiobtn
     def update_label(self):
@@ -973,6 +1064,7 @@ class AutoApp:
             self.isdone = 1
             self.change_status("STATUS: Running batal", color="blue")
             self.log_message(f"ERROR: Fungsi 2 dibatalkan. Baris Mulai '{start_row}' harus berupa angka positif.", "red_tag")
+            self.log_message(f"Pilih 'NonApprov' jika bukan fungsi terkait approval Fasih", "red_tag")
             return
 
         self.log_message(f"--- Detail Fungsi 2 ---")
@@ -980,13 +1072,13 @@ class AutoApp:
         self.log_message(f"Nama File: {filename}")
         self.log_message(f"Input Tambahan: {extra_input}")
 
-        if extra_input == "Input opsional... (cth: help)" or extra_input.strip() == "":
+        if extra_input == " (Input opsional...)" or extra_input.strip() == "":
             self.log_message("Catatan: Tidak ada fungsi tambahan yang dipilih.")
             extra_input_fun = None 
             self.isdone = 1
         else:
             try:
-                external_funcs = load_setting_file(self)
+                # external_funcs = load_setting_file(self)
                 extra_input_fun = external_funcs.get(extra_input)
                 self.log_message(f"Modul '{extra_input}' sukses diimpor, loading")
             except Exception as e:

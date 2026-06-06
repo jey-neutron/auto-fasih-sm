@@ -1,4 +1,4 @@
-APP_VERSION = 'v2.2.2' 
+APP_VERSION = 'v2.3.0' 
 # konfig
 from datetime import datetime
 import pandas as pd
@@ -16,25 +16,10 @@ import qrcode
 from PIL import Image, ImageDraw, ImageFont
 import textwrap
     
-def ver(instance, var=''): 
-    '''Get a version app'''
-    if var==1:
-        instance.isdone = 0
-        instance.log_message(f"Application version: {APP_VERSION}")
-        instance.isdone = 1
-    return APP_VERSION
 
-def getrandom(instance, var): 
-    '''Get a random number'''
-    instance.isdone = 0
-    check_stop(instance)
-    for i in range(0,4):
-        time.sleep(1)
-        try:
-            instance.log_message(f"Hasil angka random-{i} {int(var)*random.random()}")
-        except:
-            instance.log_message(f"Hasil angka random-{i} {random.random()}")
-    instance.isdone = 1
+###################################
+# FUNC DRAFT 
+###################################
 
 # def inputwebdash(instance, var)
 # def assignselect(instance, var)
@@ -52,6 +37,61 @@ def getrandom(instance, var):
 #         if response['success'] == False or response['success'] == "false":
 #             raise ValueError(response['message'])
 
+
+###################################
+# FUNC INTRODUCTION 
+###################################
+
+def ver(instance, var=''): 
+    '''Get a version app'''
+    if var==1:
+        instance.isdone = 0
+        instance.log_message(f"Application version: {APP_VERSION}")
+        instance.isdone = 1
+    return APP_VERSION
+
+def help(instance,var=''):
+    '''Get list of functions'''
+    exclude_fun_list = ["mainfunc", "get_list_data", "datetime", "sync_playwright","check_stop", "handle_response", 
+                        'mergejson','run_api_request','get_playwright_page','expect','unquote', 'PlaywrightTimeoutError',
+                        'LZString']
+    if var == 1:
+        instance.isdone = 0
+        instance.log_message(f"List of available functions:")
+
+        for nama, objek in globals().items():
+            if (callable(objek) and 
+                not nama.startswith("__") and 
+                nama not in exclude_fun_list ):
+                # exclude function main and penunjang, hanya tampilin function side aja
+                
+                # Ambil docstring-nya, kalau kosong kasih teks default
+                deskripsi = objek.__doc__ if objek.__doc__ else ""# "Tidak ada deskripsi."
+
+                # print output
+                instance.log_area.insert("end", f"[-]")
+                instance.log_area.insert("end", f" {nama}" ,"red_tag")
+                instance.log_area.insert("end", f" ({deskripsi.strip().lower()})\n")
+                instance.log_area.see("end")
+
+        instance.log_area.insert("end", f"\n[-] Kosongin aja jika misal mau approval aja tanpa get data fasih-sm")
+        instance.log_area.insert("end", f"\n[-] Anda bisa mengganti isian default username sso dengan membuat file 'tempuser.txt' dan isinya adalah usernamesso + (enter) + password sso ")
+        instance.log_area.insert("end", "\n")
+        instance.isdone = 1
+    return exclude_fun_list
+
+def getrandom(instance, var): 
+    '''Get a random number'''
+    instance.isdone = 0
+    check_stop(instance)
+    for i in range(0,4):
+        time.sleep(1)
+        try:
+            instance.log_message(f"Hasil angka random-{i} {int(var)*random.random()}")
+        except:
+            instance.log_message(f"Hasil angka random-{i} {random.random()}")
+    instance.isdone = 1
+
 def render(instance,var):
     """Memanggil index.html dengan pilihan variable terlampir var='done', 'running', 'ready' """
     p_instance, browser, page = get_playwright_page() #konek ke playwr
@@ -63,32 +103,9 @@ def render(instance,var):
     #instance.isdone=1
     
 
-def help(instance,var):
-    '''Get list of functions'''
-    instance.isdone = 0
-    instance.log_message(f"List of available functions:")
-
-    for nama, objek in globals().items():
-        if (callable(objek) and 
-            not nama.startswith("__") and 
-            nama not in ["mainfunc", "get_list_data", "datetime", "sync_playwright","check_stop", "handle_response", 'mergejson','run_api_request','get_playwright_page','expect','unquote', 'PlaywrightTimeoutError'] ):
-            # exclude function main and penunjang, hanya tampilin function side aja
-            
-            # Ambil docstring-nya, kalau kosong kasih teks default
-            deskripsi = objek.__doc__ if objek.__doc__ else ""# "Tidak ada deskripsi."
-
-            # print output
-            instance.log_area.insert("end", f"[-]")
-            instance.log_area.insert("end", f" {nama}" ,"red_tag")
-            instance.log_area.insert("end", f" ({deskripsi.strip().lower()})\n")
-            instance.log_area.see("end")
-
-    instance.log_area.insert("end", f"\n[-] Kosongin aja jika misal mau approval aja tanpa get data fasih-sm")
-    instance.log_area.insert("end", f"\n[-] Anda bisa mengganti isian default username sso dengan membuat file 'tempuser.txt' dan isinya adalah usernamesso + (enter) + password sso ")
-    instance.log_area.insert("end", "\n")
-    instance.isdone = 1
-
-# --- SECTION MANAJEMEN MITRA ---
+###################################
+# FUNC SECTION MANAJEMEN MITRA
+###################################
 def mitra_geturl(instance=None,var='[]'):
     '''Generate url mitra dari var yg diinput. Var=["id_ms", "id_mitra", "kd_survei", 'id_keg', 'kd_prov']'''
 
@@ -325,8 +342,12 @@ def mitra_addpenawaran(instance, var):
 
     log_message('SLESE')
     # instance.isdone = 1
-# --- END SECTION MANAJEMEN MITRA ---
+# END SECTION MANAJEMEN MITRA ###################################
 
+
+###################################
+# FUNC ADDED
+###################################
 def getkurs(instance, var):
     '''Convert kurs data dari IDR.json hasil dari api web exchangerate-api.com [Pake "NonApprov"] [https://v6.exchangerate-api.com/v6/API-KEY/latest/IDR]'''
     instance.isdone = 0
@@ -395,7 +416,10 @@ def seedata(instance, var):
     instance.log_message("Done. Please enlarge the window")
     instance.isdone = 1
 
-# --- SECTION FUNGSI TAMBAHAN MAINFUNC ---
+
+###################################
+# FUNC SECTION FUNGSI TAMBAHAN MAINFUNC 
+###################################
 def getdataAll(namafile = 'data_survey.json'):
     '''FUNCTION FOR GETTING DATA GENERAL SURVEY (mybe ada kendala, tpi sementara ini deh), PAKE APPROVAL FASIH (TRUE/FALSE)'''
     # Open the file and load its content
@@ -608,10 +632,12 @@ def getdataPES(namafile='data_survey.json'):
 
     # FINISH
     return d
-# --- END SECTION FUNC TAMBAHAN MAINFUNC ---
+# END SECTION FUNC TAMBAHAN MAINFUNC ###################################
 
 
-# --- SECTION MAIN FUNC, DONT DISTURB ---
+###################################
+# FUNC SECTION MAIN FUNC, DONT DISTURB
+###################################
 # Function to get list data
 def get_list_data (instance, namadf,  mode="w", maxrow=0, sep=","):
     '''Get dataframe dari prelist link fasih untuk dijadikan bahan, kemudian export ke csv juga. '''
@@ -1022,4 +1048,5 @@ def check_stop(instance):
     '''Check if stop button is pressed'''
     if instance.stop_event.is_set():
         raise InterruptedError("Process stopped by user.")
-# --- END SECTION MAIN FUNC ---
+
+# END SECTION MAIN FUNC ###################################
