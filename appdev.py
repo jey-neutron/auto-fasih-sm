@@ -586,9 +586,11 @@ def run():
         # run_addpenawaran()
 
         # RUN add
-        nm = ''
-        idcari = '2002230093795'
-        idsubs = '5103040018000102'
+        nm = 'pascal'
+        idcari = '9120005133405'
+        idsubs = '5103040003000302'
+
+        # page.pause()
         for i in range(0,1):
             idsubs = str(idsubs).strip()
             if not idsubs:
@@ -602,13 +604,13 @@ def run():
             kdsls = idsubs[10:14]     # RIGHT(LEFT($A2:A,14),4)
             kdsubs = idsubs[14:16]     # RIGHT(LEFT($A2:A,16),2)
 
+            # CARI
             page.get_by_role("textbox", name="Cari...").click()
             page.get_by_role("textbox", name="Cari...").fill(idcari)
             time.sleep(1)
-            # page.get_by_role("cell", name="-").first.click(button="right")
-            # page.get_by_text(idcari).click(button="right")
             page.get_by_role("button", name=idcari).click(button="right")
 
+            # REALOKASI SUB
             page.get_by_role("menuitem", name="Ganti Wilayah").click()
             time.sleep(1)
 
@@ -634,9 +636,22 @@ def run():
             # page.get_by_role("button", name="Close toast").click()
             # Mengambil teks yang terlihat oleh pengguna di layar
             time.sleep(1)
-            teks_toast = page.locator("li[data-sonner-toast]").inner_text()
-            print(f"Status: {teks_toast}")
+            teks_toast = page.locator("li[data-sonner-toast][data-front='true']").inner_text()
+            print(f"Status REALOKASI: {teks_toast}")
+            time.sleep(1)
 
+            # ASSIGN
+            page.get_by_role("button", name=idcari).click(button="right")
+            page.get_by_role("menuitem", name="Assign Petugas").click()
+            page.get_by_role("combobox", name="Pengawas").click()
+            page.get_by_role("option").first.click()
+            page.get_by_role("combobox", name="Pencacah").click()
+            page.get_by_role("option").first.click()
+            page.get_by_role("button", name="Assign Petugas").click()
+            time.sleep(1)
+            teks_toast = page.locator("li[data-sonner-toast][data-front='true']").inner_text()
+            print(f"Status ASSIGN: {teks_toast}")
+            time.sleep(1)
         
 
         #
