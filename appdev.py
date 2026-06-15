@@ -74,6 +74,8 @@ def run():
         def log_message(txt, tag=''): #fungsi biar jalan aja dulu
             print('# '+ str(txt))
 
+        # page.pause()
+
 
         # ---BAB GET LIST DATA ---
 
@@ -582,6 +584,59 @@ def run():
 
         # RUN add penawaran
         # run_addpenawaran()
+
+        # RUN add
+        nm = ''
+        idcari = '2002230093795'
+        idsubs = '5103040018000102'
+        for i in range(0,1):
+            idsubs = str(idsubs).strip()
+            if not idsubs:
+                continue
+            
+            # Proses pemotongan teks (Slicing Python)
+            kdprov   = idsubs[:2]        # LEFT($A2:A,2)
+            kdkab  = idsubs[2:4]       # RIGHT(LEFT($A2:A,4),2)
+            kdkec  = idsubs[4:7]       # RIGHT(LEFT($A2:A,7),3)
+            kddes = idsubs[7:10]      # RIGHT(LEFT($A2:A,10),3)
+            kdsls = idsubs[10:14]     # RIGHT(LEFT($A2:A,14),4)
+            kdsubs = idsubs[14:16]     # RIGHT(LEFT($A2:A,16),2)
+
+            page.get_by_role("textbox", name="Cari...").click()
+            page.get_by_role("textbox", name="Cari...").fill(idcari)
+            time.sleep(1)
+            # page.get_by_role("cell", name="-").first.click(button="right")
+            # page.get_by_text(idcari).click(button="right")
+            page.get_by_role("button", name=idcari).click(button="right")
+
+            page.get_by_role("menuitem", name="Ganti Wilayah").click()
+            time.sleep(1)
+
+            page.get_by_role("combobox").first.click()
+            page.get_by_label("", exact=True).fill(kdprov)
+            page.get_by_label("", exact=True).press("Enter")
+            page.get_by_role("combobox").nth(1).click()
+            page.get_by_label("", exact=True).fill(kdkab)
+            page.get_by_label("", exact=True).press("Enter")
+            page.get_by_role("combobox").nth(2).click()
+            page.get_by_label("", exact=True).fill(kdkec)
+            page.get_by_label("", exact=True).press("Enter")
+            page.get_by_role("combobox").nth(3).click()
+            page.get_by_label("", exact=True).fill(kddes)
+            page.get_by_label("", exact=True).press("Enter")
+            page.get_by_role("combobox").nth(4).click()
+            page.get_by_label("", exact=True).fill(kdsls)
+            page.get_by_label("", exact=True).press("Enter")
+            page.get_by_role("combobox").filter(has_text="Pilih wilayah").click()
+            page.get_by_label("", exact=True).fill(kdsubs)
+            page.get_by_label("", exact=True).press("Enter")
+            page.get_by_role("button", name="Ubah Wilayah Assignment").click()
+            # page.get_by_role("button", name="Close toast").click()
+            # Mengambil teks yang terlihat oleh pengguna di layar
+            time.sleep(1)
+            teks_toast = page.locator("li[data-sonner-toast]").inner_text()
+            print(f"Status: {teks_toast}")
+
         
 
         #
@@ -667,5 +722,5 @@ templates = {
 # Cara Pakai:
 
 if __name__ == "__main__":
-    generate_custom_document("Jey Neutron", "link_data", templates["id_card"], "hasil_cocard.png")
-    # run()
+    #generate_custom_document("Jey Neutron", "link_data", templates["id_card"], "hasil_cocard.png")
+    run()
