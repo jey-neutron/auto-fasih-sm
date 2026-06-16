@@ -522,6 +522,7 @@ def run():
 
         # --- MAIN RUN, CHANGE THIS ---
         #page.reload()
+        # page.pause()
         print('Title page: ', page.title())
         # RUN Email broadcast fasih
         # alt 1
@@ -585,7 +586,74 @@ def run():
         # RUN add penawaran
         # run_addpenawaran()
 
-        # RUN add
+        # RUN apus assign
+        # 1. Klik tombol bin (sel kosong / target)
+        # import re
+        # out = 5000
+        # try:
+        #     while True:
+        #         page.get_by_role("cell").nth(4).click(timeout=out) #bin btn
+        #         print('\na. delete btn user click')
+
+        #         # Ambil semua elemen tombol untuk dicek jumlahnya
+        #         time.sleep(1)
+        #         tombol_step2 = page.get_by_role("button") #cek jml nth
+        #         jumlah_tombol = tombol_step2.count()
+
+        #         # JIKA jumlah tombol lebih dari 1, jalankan Step 2
+        #         # i = jumlah_tombol
+        #         print(f'a. loop {jumlah_tombol}x')
+        #         for i in range(1,jumlah_tombol):
+        #             if jumlah_tombol == 2: break
+        #             if jumlah_tombol > 1:
+                        
+        #                 time.sleep(1)
+        #                 try:
+        #                     tombol_step2.nth(i).click(timeout=out) # 2. Klik foreach nth di sana
+        #                     print(f'b. tombol delete wil ke-{i}')
+        #                     time.sleep(0.5)
+        #                     page.get_by_role("button", name="Hapus").click(timeout=out) # konfirm apus
+        #                     print('c. konfirm delete wil')
+
+        #                 except:
+        #                     time.sleep(0.5)
+        #                     page.get_by_role("button", name="Hapus").click(timeout=out) # konfirm apus
+        #                     print('c. konfirm delete wil')
+                        
+        #                 time.sleep(1)
+        #                 if jumlah_tombol-1 == i: 
+        #                     # page.get_by_role("button", name="Close").click()
+        #                     break
+        #                 page.get_by_role("cell").nth(4).click(timeout=out) #bin btn, then loop foreach
+        #                 print('\na. delete btn user click')
+        #                 # i -= 1
+                        
+        #             # if i == 1: break
+
+        #         # 3. Tiap foreach ada konfirmasi hapus (Selalu dijalankan)
+        #         page.get_by_role("button").filter(has_text=re.compile(r"^$")).nth(4).click(timeout=out) #refresh 2x
+        #         page.get_by_role("button").filter(has_text=re.compile(r"^$")).nth(4).click(timeout=out)
+        #         print('selese --- endings')
+        #         page.get_by_role("cell").nth(4).click(timeout=out) #bin btn
+        #         time.sleep(0.2)
+        #         try:
+        #             page.get_by_role("button", name="Hapus").click(timeout=out) #langsung apus
+        #         except:
+        #             continue
+
+        #         page.get_by_role("button").filter(has_text=re.compile(r"^$")).nth(4).click(timeout=out) #refresh 2x
+        #         page.get_by_role("button").filter(has_text=re.compile(r"^$")).nth(4).click(timeout=out)
+        #         print('refresh')
+        #         time.sleep(2)
+        
+        # except Exception as e:
+        #     print(e)
+        #     import sys
+        #     exc_type, exc_obj, exc_tb = sys.exc_info()
+        #     print(f"# Terjadi error di thread getlistdata on line: {str(exc_tb.tb_lineno)} {e} ")
+
+
+        # RUN change reg and assign
         nm = 'pascal'
         idcari = '9120005133405'
         idsubs = '5103040003000302'
@@ -661,8 +729,8 @@ def run():
         # browser.close()
 
 # UNKOMENNNNN THISSSSSSSSSSSSSSSSSSSSSSSSSS IF WANT TO OPEN BROWSER
-# if __name__ == "__main__":
-#     run()
+if __name__ == "__main__":
+    run()
 
 
 
@@ -736,6 +804,6 @@ templates = {
 
 # Cara Pakai:
 
-if __name__ == "__main__":
-    #generate_custom_document("Jey Neutron", "link_data", templates["id_card"], "hasil_cocard.png")
-    run()
+# if __name__ == "__main__":
+    # generate_custom_document("Jey Neutron", "link_data", templates["id_card"], "hasil_cocard.png")
+    # run()
