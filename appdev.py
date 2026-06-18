@@ -519,11 +519,198 @@ def run():
 
             # --- END 2 FUNC ---
 
+        # --- FUNC REALOKASI N REASSIGN ---
+        def run_resubs(realokasisubs,namafile, delete_assignment=False):
+            df = pd.read_csv(namafile)
+            lendf = len(df)
+            print('\n')
+            if 'KET' not in df.columns:
+                df['KET'] = ''
+            for i in range(len(df)):
+                nm = df.loc[i,'Nama Perusahaan']
+                idsubs = df.loc[i,'idsubsls']
+                idsubs = str(idsubs).strip()
+                idcari = df.loc[i,'idd']
+                if idcari == '' or pd.isna(idcari) or idcari=='v': #jika gada yg dicari, skip
+                    continue
+                if '5103' not in str(idsubs):
+                    if delete_assignment and 'delete' in str(idsubs):
+                        pass
+                    else:
+                        print(f'# Skip idsubs not valid: {nm}')
+                        continue
+                if df.loc[i,'KET'] == 'done' or 'skip' in str(df.loc[i,'KET']): #jika udah or flag skip, mk skip
+                    print(f'# Skip: {nm}')
+                    continue
+                
+                # Proses pemotongan teks (Slicing Python)
+                kdprov   = idsubs[:2]        # LEFT($A2:A,2)
+                kdkab  = idsubs[2:4]       # RIGHT(LEFT($A2:A,4),2)
+                kdkec  = idsubs[4:7]       # RIGHT(LEFT($A2:A,7),3)
+                kddes = idsubs[7:10]      # RIGHT(LEFT($A2:A,10),3)
+                kdsls = idsubs[10:14]     # RIGHT(LEFT($A2:A,14),4)
+                kdsubs = idsubs[14:16]     # RIGHT(LEFT($A2:A,16),2)
+
+                # CARI
+                print(f'# {i}/{lendf}| Processing {nm}, to {idsubs} with id {idcari}')
+                try:
+                    page.get_by_role("textbox", name="Cari...").click()
+                    page.get_by_role("textbox", name="Cari...").fill(idcari)
+                    time.sleep(1)
+                    page.get_by_role("button", name=idcari).click(button="right")#, timeout=10000)
+                except Exception as e:
+                    print(f'Tidak ditemukan: {e}')
+                    df.loc[i,'KET'] = 'kosong'
+                    continue
+
+                try:
+                    # DELETE ASSIGNMENT FLAGGED DELETE
+                    if 'delete' in str(idsubs) and delete_assignment:
+                        page.get_by_role("menuitem", name="Hapus Assignment").click()
+                        time.sleep(0.5)
+                        page.get_by_role("button", name="Ya, Hapus Assignment").click()
+                        time.sleep(1)
+                        teks_toast = page.locator("li[data-sonner-toast][data-front='true']").inner_text()
+                        print(f"Status {nm}: {teks_toast}")                    
+                        time.sleep(1)
+                        continue
+
+                    # REALOKASI SUB
+                    if realokasisubs:
+                        page.get_by_role("menuitem", name="Ganti Wilayah").click()
+                        time.sleep(1)
+
+                        page.get_by_role("combobox").first.click()
+                        page.get_by_label("", exact=True).fill(kdprov)
+                        page.get_by_label("", exact=True).press("Enter")
+                        time.sleep(0.5)
+                        page.get_by_role("combobox").nth(1).click()
+                        page.get_by_label("", exact=True).fill(kdkab)
+                        page.get_by_label("", exact=True).press("Enter")
+                        time.sleep(0.5)
+                        page.get_by_role("combobox").nth(2).click()
+                        page.get_by_label("", exact=True).fill(kdkec)
+                        page.get_by_label("", exact=True).press("Enter")
+                        time.sleep(0.5)
+                        page.get_by_role("combobox").nth(3).click()
+                        page.get_by_label("", exact=True).fill(kddes)
+                        page.get_by_label("", exact=True).press("Enter")
+                        time.sleep(0.5)
+                        page.get_by_role("combobox").nth(4).click()
+                        page.get_by_label("", exact=True).fill(kdsls)
+                        page.get_by_label("", exact=True).press("Enter")
+                        time.sleep(0.5)
+                        page.get_by_role("combobox").filter(has_text="Pilih wilayah").click()
+                        page.get_by_label("", exact=True).fill(kdsubs)
+                        page.get_by_label("", exact=True).press("Enter")
+                        time.sleep(0.5)
+                        # page.get_by_role("button", name="Ubah Wilayah Assignment").click()
+                        # page.get_by_role("button", name="Close toast").click()
+                        # Mengambil teks yang terlihat oleh pengguna di layar
+                        # time.sleep(1)
+                        # time.sleep(1)
+
+                        # ASSIGN
+                        # page.get_by_role("button", name=idcari).click(button="right")
+                        # page.get_by_role("menuitem", name="Assign Petugas").click()
+                        page.get_by_role("combobox", name="Pengawas").click()
+                        page.get_by_role("option").first.click()
+                        time.sleep(0.5)
+                        page.get_by_role("combobox", name="Pencacah").click()
+                        page.get_by_role("option").first.click()
+                        # page.get_by_role("button", name="Assign Petugas").click()
+                        page.get_by_role("button", name="Ubah Wilayah Assignment").click()
+                        time.sleep(1)
+                        teks_toast = page.locator("li[data-sonner-toast][data-front='true']").inner_text()
+                        print(f"Status REALOKASI: {teks_toast}")
+                        # teks_toast = page.locator("li[data-sonner-toast][data-front='true']").inner_text()
+                        # print(f"Status ASSIGN: {teks_toast}")
+                        time.sleep(1)
+                    
+                    else: #if assign_only
+                        # page.get_by_role("button", name=idcari).click(button="right")
+                        page.get_by_role("menuitem", name="Assign Petugas").click()
+                        page.get_by_role("combobox", name="Pengawas").click()
+                        page.get_by_role("option").first.click()
+                        time.sleep(0.5)
+                        page.get_by_role("combobox", name="Pencacah").click()
+                        page.get_by_role("option").first.click()
+                        page.get_by_role("button", name="Assign Petugas").click()
+                        # page.get_by_role("button", name="Ubah Wilayah Assignment").click()
+                        time.sleep(1)
+                        teks_toast = page.locator("li[data-sonner-toast][data-front='true']").inner_text()
+                        # print(f"Status REALOKASI: {teks_toast}")
+                        # teks_toast = page.locator("li[data-sonner-toast][data-front='true']").inner_text()
+                        print(f"Status ASSIGN: {teks_toast}")
+                        if 'sudah di assign' in teks_toast:
+                            page.keyboard.press("Escape")
+                        time.sleep(1)
+
+                    df.loc[i,'KET'] = 'done'
+                
+                except Exception as e:
+                    import sys
+                    exc_type, exc_obj, exc_tb = sys.exc_info()
+                    print(f"# Terjadi error on line: {str(exc_tb.tb_lineno)} {e} ")
+                    df.loc[i,'KET'] = f'Err line {exc_tb.tb_lineno} ({e})'
+                    continue
+            
+                df.to_csv(namafile,index=False)
+
+            print('seleseeeeeee')
+
+        # --- END FUNC REALOKASI N REASSIGN ---
+        
+        # --- FUNC GET SUBS FROM COORDINATE ---
+        from shapely import wkt
+        def get_subsls(coord_text, df):
+            if 'skip' in str(coord_text) or 'delete' in str(coord_text):
+                return coord_text
+            if pd.isna(coord_text) or not coord_text:
+                return "Koordinat Kosong"
+                
+            try:
+                # 1. Ubah teks "-8.58, 115.21" menjadi objek Point Shapely (lon dulu baru lat)
+                coorsplit = coord_text.split(",")
+                point = wkt.loads(f"Point({coorsplit[1].strip()} {coorsplit[0].strip()})")
+                
+                # 2. Cari polygon yang membungkus point tersebut
+                matches = df['polygon'].apply(lambda poly: point.within(poly))
+                matching_rows = df[matches]
+                
+                # 3. Jika ketemu, ambil teks info SLS yang diinginkan
+                if not matching_rows.empty:
+                    row = matching_rows.iloc[0]
+                    # return f"{row['nmsls']}, Desa {row['nmdesa']}, Kec. {row['nmkec']}"
+                    return row['idsubsls']
+                else:
+                    return "Di luar Kabupaten Badung"
+                    
+            except Exception as e:
+                return "Format Koordinat Salah"
+        # --- END FUNC GET SUBS ---
+
+
 
         # --- MAIN RUN, CHANGE THIS ---
         #page.reload()
         # page.pause()
         print('Title page: ', page.title())
+        
+        # RUN change reg and assign
+        # /master sls
+        # from shapely import wkt
+        # dfmaster = pd.read_csv(r"mfd_wilker25.csv")
+        # dfmaster['polygon'] = dfmaster['WKT'].apply(wkt.loads)
+
+        # df = pd.read_csv('temp.csv') # columns: Nama Perusahaan, idd, idsubsls, coordinate, KET
+        # df['idsubsls'] = df['coordinate'].apply(lambda x:  get_subsls(x, df=dfmaster))
+        # df.to_csv('temp.csv', index=False)
+        # print('done, cek file')
+
+        # /resub
+        run_resubs(namafile='temp.csv', realokasisubs=True, delete_assignment=True), #assign petugas pake yg first muncul
+
         # RUN Email broadcast fasih
         # alt 1
         #df: nama, idsbr, email
@@ -653,108 +840,6 @@ def run():
         #     print(f"# Terjadi error di thread getlistdata on line: {str(exc_tb.tb_lineno)} {e} ")
 
 
-        # RUN change reg and assign
-        # nm = 'pascal'
-        # idcari = '9120005133405'
-        # idsubs = '5103040003000302'
-
-        # page.pause()
-        df = pd.read_csv('temp.csv')
-        for i in range(len(df)):
-            idcari = df.loc[i,'idd']
-            if idcari == '' or pd.isna(idcari) or idcari=='v':
-                continue
-            idsubs = df.loc[i,'idsubsls']
-            idsubs = str(idsubs).strip()
-            if not idsubs:
-                continue
-            if df.loc[i,'KET'] == 'done':# or df.loc[i,'KET']=='kosong':
-                continue
-            nm = df.loc[i,'Nama Perusahaan']
-            
-            # Proses pemotongan teks (Slicing Python)
-            kdprov   = idsubs[:2]        # LEFT($A2:A,2)
-            kdkab  = idsubs[2:4]       # RIGHT(LEFT($A2:A,4),2)
-            kdkec  = idsubs[4:7]       # RIGHT(LEFT($A2:A,7),3)
-            kddes = idsubs[7:10]      # RIGHT(LEFT($A2:A,10),3)
-            kdsls = idsubs[10:14]     # RIGHT(LEFT($A2:A,14),4)
-            kdsubs = idsubs[14:16]     # RIGHT(LEFT($A2:A,16),2)
-
-            # CARI
-            print(f'# Processing {nm}')
-            try:
-                page.get_by_role("textbox", name="Cari...").click()
-                page.get_by_role("textbox", name="Cari...").fill(idcari)
-                time.sleep(1)
-                page.get_by_role("button", name=idcari).click(button="right")#, timeout=10000)
-            except Exception as e:
-                print(f'Tidak ditemukan: {e}')
-                df.loc[i,'KET'] = 'kosong'
-                continue
-
-            try:
-                # REALOKASI SUB
-                page.get_by_role("menuitem", name="Ganti Wilayah").click()
-                time.sleep(1)
-
-                page.get_by_role("combobox").first.click()
-                page.get_by_label("", exact=True).fill(kdprov)
-                page.get_by_label("", exact=True).press("Enter")
-                time.sleep(0.5)
-                page.get_by_role("combobox").nth(1).click()
-                page.get_by_label("", exact=True).fill(kdkab)
-                page.get_by_label("", exact=True).press("Enter")
-                time.sleep(0.5)
-                page.get_by_role("combobox").nth(2).click()
-                page.get_by_label("", exact=True).fill(kdkec)
-                page.get_by_label("", exact=True).press("Enter")
-                time.sleep(0.5)
-                page.get_by_role("combobox").nth(3).click()
-                page.get_by_label("", exact=True).fill(kddes)
-                page.get_by_label("", exact=True).press("Enter")
-                time.sleep(0.5)
-                page.get_by_role("combobox").nth(4).click()
-                page.get_by_label("", exact=True).fill(kdsls)
-                page.get_by_label("", exact=True).press("Enter")
-                time.sleep(0.5)
-                page.get_by_role("combobox").filter(has_text="Pilih wilayah").click()
-                page.get_by_label("", exact=True).fill(kdsubs)
-                page.get_by_label("", exact=True).press("Enter")
-                time.sleep(0.5)
-                # page.get_by_role("button", name="Ubah Wilayah Assignment").click()
-                # page.get_by_role("button", name="Close toast").click()
-                # Mengambil teks yang terlihat oleh pengguna di layar
-                # time.sleep(1)
-                # time.sleep(1)
-
-                # ASSIGN
-                # page.get_by_role("button", name=idcari).click(button="right")
-                # page.get_by_role("menuitem", name="Assign Petugas").click()
-                page.get_by_role("combobox", name="Pengawas").click()
-                page.get_by_role("option").first.click()
-                time.sleep(0.5)
-                page.get_by_role("combobox", name="Pencacah").click()
-                page.get_by_role("option").first.click()
-                # page.get_by_role("button", name="Assign Petugas").click()
-                page.get_by_role("button", name="Ubah Wilayah Assignment").click()
-                time.sleep(1)
-                teks_toast = page.locator("li[data-sonner-toast][data-front='true']").inner_text()
-                print(f"Status REALOKASI: {teks_toast}")
-                # teks_toast = page.locator("li[data-sonner-toast][data-front='true']").inner_text()
-                # print(f"Status ASSIGN: {teks_toast}")
-                time.sleep(1)
-
-                df.loc[i,'KET'] = 'done'
-            
-            except Exception as e:
-                import sys
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                print(f"# Terjadi error on line: {str(exc_tb.tb_lineno)} {e} ")
-                df.loc[i,'KET'] = f'Err line {exc_tb.tb_lineno} ({e})'
-                continue
-        
-        print('seleseeeeeee')
-        df.to_csv('temp.csv',index=False)
         #
         page.pause() #debugging, open recorder on playwright
         
