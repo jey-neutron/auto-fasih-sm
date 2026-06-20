@@ -360,12 +360,14 @@ def run():
         
         # --- BAB EMAIL FASIH BC---
         def run_emailbc(namafile):
+            """df columns: nama,idsbr,email"""
             #id = "5103020002000305 - UMK - 26"
             #id = "5103010006001218 - UMK - 10"
             #email="niluhsekarastuti96@gmail.com"
 
-            ggl = 1
-            df = pd.read_csv(namafile).astype(str)
+            ggl = 0
+            sks = 0
+            df = pd.read_csv(namafile, dtype=str)#.astype(str)
             
             if 'approved' not in df.columns:
                 df['approved'] = ""
@@ -375,16 +377,20 @@ def run():
                 # cek done yet
                 if df.loc[i, 'approved'] == 'done':
                     log_message(f"# {i,str(df['nama'][i])[:20]} | Dah dieksekusi, skip")
+                    sks+=1
                     continue
-                if df.loc[i, 'idsbr'] == '' or pd.isna(df.loc[i, 'idsbr']):
+                if df.loc[i, 'idsbr'] == '' or pd.isna(df.loc[i, 'idsbr']) or df.loc[i, 'idsbr'] == 'nan':
                     log_message(f"# {i,str(df['nama'][i])[:20]} | Not found idsbr")
                     continue
                 
-                log_message(f"# {i,str(df['nama'][i])[:20]} | {df['idsbr'][i]} {df['email'][i]}")
 
                 id = df['idsbr'][i]
                 email = str(df['email'][i]).lower()
+                if email == "" or email == '-':
+                    log_message(f"# {i,str(df['nama'][i])[:20]} | Not found email")
+                    continue
 
+                log_message(f"# {i,str(df['nama'][i])[:20]} | {df['idsbr'][i]} {df['email'][i]}")
                 try:
                     page.get_by_role("textbox", name="Cari...").click()
                     page.get_by_role("textbox", name="Cari...").fill(id)
@@ -410,16 +416,20 @@ def run():
                         page.get_by_role("button", name="Ganti Email").click()
                         page.get_by_role("button", name="Broadcast Email").click()
                         page.get_by_role("button", name="Broadcast Email").click()
+                        time.sleep(1)
+                        teks_toast = page.locator("li[data-sonner-toast][data-front='true']").inner_text()
+                        print(f"Status {id}: {teks_toast}")                    
                         
                     time.sleep(1)
                     page.keyboard.press("Escape")
                     #page.get_by_role("button", name="Close").click()
                     time.sleep(1)
                     df.loc[i, 'approved'] = 'done'
+                    sks += 1
 
                 except Exception as e:
                     ggl += 1
-                    if ggl%5 == 0:
+                    if ggl%10 == 0:
                         break
 
                     log_message(f"# {i,str(df['nama'][i])[:20]} | ERRR")
@@ -430,7 +440,7 @@ def run():
 
                 finally:
                     df.to_csv(namafile, index=False)
-
+            print(f"gagal:{ggl}, sukses:{sks}")
             # --- ENDEMAIL FASIH BC ---
 
 
@@ -572,6 +582,7 @@ def run():
                         time.sleep(1)
                         teks_toast = page.locator("li[data-sonner-toast][data-front='true']").inner_text()
                         print(f"Status {nm}: {teks_toast}")                    
+                        df.loc[i,'KET'] = 'done'
                         time.sleep(1)
                         continue
 
@@ -709,14 +720,14 @@ def run():
         # print('done, cek file')
 
         # /resub
-        run_resubs(namafile='temp.csv', realokasisubs=True, delete_assignment=True), #assign petugas pake yg first muncul
+        # run_resubs(namafile='temp.csv', realokasisubs=True, delete_assignment=True), #assign petugas pake yg first muncul
 
         # RUN Email broadcast fasih
         # alt 1
         #df: nama, idsbr, email
-        namafile = 'tempdata.csv'
-        # run_emailbc(namafile)
-        # log_message('FINISIHED')
+        namafile = 'temp.csv'
+        run_emailbc(namafile)
+        log_message('FINISIHED')
         # alt 2
         # 1. Change email
         # target_url = "https://fasih-sm.bps.go.id/app/api/email/api/v2/assignment/change-email?newPin=false"
