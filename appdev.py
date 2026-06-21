@@ -548,22 +548,68 @@ def get_subsls(coord_text, df):
 
 
 # --- BAB GET LIST DATA BY SEARCH ---
-def run_getlist_search(page, df):
+def run_getlist_search(page, val, per_batch=10, kolom_search='idsbr'):
+    '''Search in prelist fsh, val bisa berupa DataFrame or single string value to search, per_batch adalah jml row prelist yg muncul'''
     target_url = "https://fasih-sm.bps.go.id/app/api/analytic/api/v2/assignment/datatable-all-user-survey-periode"
-    # get req payload
-    with page.expect_request(target_url) as req_info:
-        page.reload()
-    time.sleep(1)
-    captured_req = req_info.value
-    api_url = captured_req.url
-    api_headers = captured_req.headers
-    api_payload = json.loads(captured_req.post_data)
-    # log_message(api_payload)
+    df = val
 
+    # 1. Cek apakah file payload sudah ada
+    nama_file_payload = "api_payload.json"
+    if os.path.exists(nama_file_payload):
+        print("Mengambil payload dari file lokal...")
+        with open(nama_file_payload, "r") as f:
+            api_payload = json.load(f)
+    else:
+        print("File tidak ditemukan. Menangkap payload dari jaringan...")
+        # 2. Ambil dari request jika file belum ada
+        with page.expect_request(target_url) as req_info:
+            page.reload()
+        time.sleep(1)
+    
+        captured_req = req_info.value
+        api_url = captured_req.url
+        api_headers = captured_req.headers
+        api_payload = json.loads(captured_req.post_data)
+    
+        # 3. Simpan sebagai file JSON untuk penggunaan berikutnya
+        with open(nama_file_payload, "w") as f:
+            json.dump(api_payload, f, indent=4)
+            
     # mod req
-    per_batch=10
     api_payload['length'] = per_batch 
     # api_payload['start'] = 0 # 50 100 150 dst
+    kolom_dicari = ['codeIdentity','data1','data2','data3','data4','data6']
+
+    # if df is not df
+    if not isinstance(df, pd.DataFrame):
+        search_value = str(df)
+        # get response on load
+        resp = run_api_request(page, "post", api_url, target_id=None, payload=api_payload)
+        # found = False
+        if resp is None:
+            raise ValueError("Failed to response")
+        for item in resp.get("searchData",[]):
+            log_message(f'- Response {per_batch} search value: {search_value}')
+            # if str(search_value) in str(item.get("data3")):
+            if any(str(search_value) in str(item.get(k, "")) for k in kolom_dicari):
+            
+                # Logika untuk membuat 'idsub' dari 'codeIdentity'
+                code_id = item.get("codeIdentity", "")
+                idsub = code_id[:16] if code_id.startswith("5103") else "-"
+
+                data_terpilih = {
+                    "id": item.get("id"),
+                    "codeIdentity": code_id,
+                    "idsub": idsub,
+                    "assignmentStatusAlias": item.get("assignmentStatusAlias"),
+                    "data1": item.get("data1"),
+                    "data2": item.get("data2"),
+                    "data3": item.get("data3"),
+                    "data6": item.get("data6"),
+                    "currentUserUsername": item.get("currentUserUsername"),
+                    "currentUserSurveyRoleName": item.get("currentUserSurveyRoleName")
+                }
+        return pd.DataFrame(data_terpilih)
 
     # read df n loop per df
     if 'id' not in df.columns:
@@ -574,26 +620,26 @@ def run_getlist_search(page, df):
         if pd.notna(df.loc[i, 'codeIdentity']) and df.loc[i, 'codeIdentity'] != '-': #artine udah isi maka skip
             log_message(f"# {i,str(df['nama'][i])[:20]} | skip")
             continue
-        time.sleep(1)
         msg = 'belum'
+        time.sleep(1)
         if df.loc[i, 'idsbr'] == '' or pd.isna(df.loc[i, 'idsbr']) or df.loc[i, 'idsbr'] == 'nan':
             msg = 'idsbr not found'
             log_message(f"# {i,str(df['nama'][i])[:20]} | {msg}")
             continue
-        search_value = str(df.loc[i,'idsbr'])
+        search_value = str(df.loc[i,kolom_search])
         api_payload['search']['value'] = search_value
-
-        # get response on load
-        resp = run_api_request(page, "post", api_url, target_id=None, payload=api_payload)
-        # found = False
-        # resp = json.loads(resp)
-        # total_hit = resp.get('totalHit', 0)
 
         # Lakukan perulangan untuk mengecek setiap data resp
         try:
+            # get response on load
+            resp = run_api_request(page, "post", api_url, target_id=None, payload=api_payload)
+            # found = False
+            if resp is None:
+                raise ValueError
             for item in resp.get("searchData",[]):
-                log_message(f'- Response {per_batch} idsbr: {item.get("data3")} == {search_value} ?')
-                if str(search_value) in str(item.get("data3")):
+                log_message(f'- Response {per_batch} search value: {search_value}')
+                # if str(search_value) in str(item.get("data3")):
+                if any(str(search_value) in str(item.get(k, "")) for k in kolom_dicari):
                     
                     # Logika untuk membuat 'idsub' dari 'codeIdentity'
                     code_id = item.get("codeIdentity", "")
@@ -640,15 +686,7 @@ def run_getlist_search(page, df):
             df.to_csv(namafile, index=False)
             continue
     
-    # 4. Ubah list hasil ekstrak menjadi DataFrame baru
-    # df_kolom_baru = pd.DataFrame(rows)
-
-    # 5. TEMPELKAN kolom baru tersebut ke DataFrame awal (Menggabungkan ke samping)
-    # df_akhir = pd.concat([df, df_kolom_baru], axis=1)
-    df_akhir = df
-
-    # Tampilkan hasil akhir
-    return df_akhir
+    return df
 
 # --- END GET LIST DATA BY SEARCH ---
 
