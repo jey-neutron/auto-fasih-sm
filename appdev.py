@@ -11,7 +11,7 @@ import os
 import pandas as pd
 
 
-def load_credentials():
+def get_credentials():
         try:
             path = os.path.join(os.getcwd(), 'tempuser.txt')
             if os.path.exists(path):
@@ -21,853 +21,641 @@ def load_credentials():
         except: pass
         return "jey.neutron", "password", "approv1", "Default"
 
-def run():
-    with sync_playwright() as playwright_instance:
-        # Coba hubungkan ke browser yang sudah ada
+def get_playwright_page(cdp_url="http://localhost:9222"):
+    """
+    Fungsi helper untuk connect ke browser Chrome yang sudah terbuka.
+    Bisa dipanggil di mana saja.
+    """
+    p_instance = sync_playwright().start()
+    try:
+        print("Mengecek browser yang terbuka...")
+        browser = p_instance.chromium.connect_over_cdp(cdp_url)
+        # Ambil page pertama yang aktif
+        page = browser.contexts[0].pages[0]
+        print("Berhasil terhubung ke browser yang sudah ada!")
+        return p_instance, browser, page
+    except Exception as e:
+        print("Browser tidak ditemukan. Membuka browser baru...")
+        subprocess.Popen(r'start chrome.exe --remote-debugging-port=9222 --user-data-dir="C:\chrometemp"', shell=True)
+        time.sleep(5)
+        # Loop sampai port aktif
+        import socket
+        port_siap = False
+        while not port_siap:
+            try:
+                with socket.create_connection(("127.0.0.1", 9222), timeout=1):
+                    port_siap = True
+            except (ConnectionRefusedError, socket.timeout):
+                time.sleep(0.5) # Cek ulang setiap 0.5 detik
         try:
-            print("Mengecek browser yang terbuka...")
-            browser = playwright_instance.chromium.connect_over_cdp("http://localhost:9222")                    
-            page = browser.contexts[0].pages[0]
-            print("Berhasil terhubung ke browser yang sudah ada!")
-            
+            browser = p_instance.chromium.connect_over_cdp(cdp_url)
+            context = browser.contexts[0] if browser.contexts else browser.new_context()
+            page = context.pages[0] if context.pages else context.new_page()
+            print("Berhasil terhubung ke browser baru!")
+            return p_instance, browser, page
         except Exception:
-            print("Browser tidak ditemukan. Membuka browser baru...")
-            subprocess.Popen(r'start chrome.exe --remote-debugging-port=9222 --user-data-dir="C:\chrometemp"', shell=True)
-            time.sleep(5)
-            # Loop sampai port aktif
-            import socket
-            port_siap = False
-            while not port_siap:
-                try:
-                    with socket.create_connection(("127.0.0.1", 9222), timeout=1):
-                        port_siap = True
-                except (ConnectionRefusedError, socket.timeout):
-                    time.sleep(0.5) # Cek ulang setiap 0.5 detik
+            print("Gagal terhubung ke Chrome. Pastikan port 9222 tidak diblokir.")
+
+def log_message(txt, tag=''): #fungsi biar jalan aja dulu
+    print('# '+ str(txt))
+
+# --- BAB ADD PENAWARAN MITRA ---
+def run_addpenawaran(page):
+    namafile = 'tempdata.csv'
+    df = pd.read_csv(namafile)
+    log_message('csv read')
+    gagal = 0
+    j = 0
+    
+    for i in range(len(df)):
+        log_message(f"# {df.loc[i, 'Nama']} otw")
+
+        if df.loc[i, 'status'] == 'skip' or df.loc[i, 'status'] == 'done' or df.loc[i, 'status'] == 'kosong':
+            log_message('already done')
+            continue
+        page.get_by_role("textbox", name="Cari").click()
+        page.get_by_role("textbox", name="Cari").fill(df.loc[i, 'Nama'])
+        time.sleep(1)
+        try:
+            # el = page.locator("div:nth-child(2) > .col-12.col-md-6")
+            el = page.locator("div").filter(has_text=df.loc[i, 'Nama'][:17] ).first
             try:
-                browser = playwright_instance.chromium.connect_over_cdp("http://localhost:9222")
-                context = browser.contexts[0] if browser.contexts else browser.new_context()
-                page = context.pages[0] if context.pages else context.new_page()
-                print("Berhasil terhubung ke browser baru!")
-            except Exception:
-                print("Gagal terhubung ke Chrome. Pastikan port 9222 tidak diblokir.")
-
-        # var
-        # usersso, passso, approv, msgsso = load_credentials()  
-  
-        # # Interaksi Login #UPDATED LOGINNNNNN ======
-        # print('# Goto web')
-        # print('# Login SSO')
-        # page.goto("https://fasih-sm.bps.go.id/oauth_login.html")
-        # page.get_by_role("link", name="Login SSO BPS").click()
-        # page.wait_for_load_state("networkidle", timeout=5000)
-        # username_field = page.get_by_role("textbox", name="Username or email")
-        # if username_field.count() > 0:
-        #     username_field.click()
-        #     username_field.fill(usersso)
-        #     password_field = page.get_by_role("textbox", name="Password")
-        #     if password_field.count() > 0:
-        #         password_field.click()
-        #         password_field.fill(passso)
-        #     page.get_by_role("button", name="Log In").click()
-        # print('# Logged in')
-
-        def log_message(txt, tag=''): #fungsi biar jalan aja dulu
-            print('# '+ str(txt))
-
-        # page.pause()
-
-
-        # ---BAB GET LIST DATA ---
-
-        # def handle_response(response, namejson='data_survey.json', target_url = "https://fasih-sm.bps.go.id/app/api/analytic/api/v2/assignment/datatable-all-user-survey-periode"):    
-        #     if target_url in response.url:
-        #         try:
-        #             data = response.json()
-        #             with open(namejson, "w", encoding="utf-8") as f:
-        #                 json.dump(data, f, indent=4, ensure_ascii=False)
-        #             print(f"[✓] Status {response.status}. Data disimpan ke '{namejson}'")
-                    
-        #         except Exception as e:
-        #             print(f'Gagal {response.text()[:500]}') # Cetak 500 karakter pertama
-
-
-        # def mergejson(dictlist, listcol, namejson='data_survey.json'):
-        #     '''Merge hasil response dari namejson ke dictlist existing dengan filtering listcol yang sama '''
-        #     with open(namejson, 'r') as file:
-        #         data = json.load(file)
-        #     #data['searchData'][0]#.keys()
-        #     for i in range(len(data['searchData'])):
-        #         dictlist.append({key: data['searchData'][i][key] for key in listcol if key in data['searchData'][i]})
-        #     return dictlist
-
-        # def run_getlistdata():
-        #     wait n getting response 
-        #     namejson = 'data_survey.json'
-        #     target_url = "https://fasih-sm.bps.go.id/app/api/analytic/api/v2/assignment/datatable-all-user-survey-periode"
-        #     page.on("response", lambda response: handle_response(response, namejson, target_url))
-
-        #     # page.goto("https://fasih-sm.bps.go.id/app/surveys?page=0&perPage=10&layout=list")
-        #     page.reload()
-        #     page.wait_for_timeout(2000) 
-        #     page.locator("h3").first.wait_for(
-        #         state="visible", 
-        #         timeout=10000
-        #     )
-        #     print('# Get response data on page 1')
-
-        #     # read json
-        #     ipage = 1
-        #     dflist = []
-        #     listcol = ['id', 'surveyPeriodId', 'codeIdentity', 'assignmentStatusId', 'assignmentStatusAlias', 'data1', 'data2', 'data3', 'data4', 'data5', 'data6', 'data7', 'data8', 'data9', 'data10', 'dateCreated', 'isActive', 'currentUserUsername','lockedByUser', 'lockedByAnother']
-        #     dflist = mergejson(dflist, listcol, namejson)
-
-        #     # next page        
-        #     #page.get_by_role("button", name="Go to next page").click()
-        #     while True:
-        #         # 1. Ambil locator tombol next
-        #         next_button = page.get_by_role("button", name="Go to next page")
-                
-        #         # 2. Cek apakah tombol ada, muncul, dan aktif (tidak disabled)
-        #         if next_button.is_visible() and next_button.is_enabled():
-        #             next_button.click()
-        #             ipage += 1
-        #             page.wait_for_timeout(2000) # Jeda 1 detik nunggu halaman muat
-        #             print(f'# Get response data from page {ipage}')
-        #             dflist = mergejson(dflist, listcol, namejson)
-        #         else:
-        #             print('# Selesai')
-        #             os.remove(namejson)
-        #             break # Berhenti loop jika tidak bisa diklik
-
-        #     time.sleep(2)
-        #     df = pd.DataFrame(dflist)
-        #     df.to_csv('data.csv')
-        #     print('# Export to data.csv')
-
-        # --- END GET LIST DATA ---
-
-        # --- ADD PENAWARAN ---
-        def run_addpenawaran():
-            namafile = 'tempdata.csv'
-            df = pd.read_csv(namafile)
-            log_message('csv read')
-            gagal = 0
-            j = 0
-            
-            for i in range(len(df)):
-                log_message(f"# {df.loc[i, 'Nama']} otw")
-
-                if df.loc[i, 'status'] == 'skip' or df.loc[i, 'status'] == 'done' or df.loc[i, 'status'] == 'kosong':
-                    log_message('already done')
+                el.wait_for(timeout=1000, state="visible")
+            # if el.count() > 0:
+                stat = el.first.text_content() 
+                if 'Sudah Terdaftar' in stat:
+                    df.loc[i,'status'] = 'skip'
+                    log_message('sudah daftar')
+                    df.to_csv(namafile)
                     continue
-                page.get_by_role("textbox", name="Cari").click()
-                page.get_by_role("textbox", name="Cari").fill(df.loc[i, 'Nama'])
+                page.locator(".fa.fa-plus.text-success").click()
+                df.loc[i,'status'] = 'done'
+
+                j += 1
+                time.sleep(0.5)
+
+            # else:
+            except PlaywrightTimeoutError:
+                df.loc[i,'status'] = 'kosong'
+                log_message('kosong')
+                df.to_csv(namafile)
+                continue
+            
+        except Exception as e:
+            df.loc[i, 'status'] = 'error'
+            log_message(e)
+            gagal +=1
+            if gagal > 3: break
+            df.to_csv(namafile)
+            continue
+            
+        # page.locator(".fa.fa-plus.text-success").click()
+        # page.get_by_role("link", name="Terpilih").click()
+        # page.locator(".d-flex.justify-content-between.px-2").first.click()
+
+        #i+= 1
+        if j > 20: 
+            time.sleep(1)
+            page.get_by_role("tab", name="Terpilih").click()
+            page.get_by_role("button", name="Tawarkan", exact=False).click()
+            # page.locator("#ptMeowOn6p1AEvFE > .modal-dialog > .modal-content > .modal-header > .btn-close").select_option("54")
+            page.locator("select.swal2-select").select_option(value="54")
+            page.get_by_role("button", name="Ya, Saya Yakin!").click()
+            page.get_by_role("button", name="Kosongkan", exact=False ).click()
+            page.get_by_role("button", name="Ya", exact=True).click()
+            time.sleep(2)
+            page.get_by_role("tab", name="Cari").click()
+            page.get_by_role("textbox", name="Cari").click()
+            df.to_csv(namafile)
+            j=0
+            # break
+            continue
+
+
+    log_message('SLESE')
+# --- END ADD PENAWARAN ---
+
+
+# --- BAB EMAIL FASIH BC---
+def run_emailbc(namafile, page):
+    """df columns: nama,idsbr,email"""
+    #id = "5103020002000305 - UMK - 26"
+    #id = "5103010006001218 - UMK - 10"
+    #email="niluhsekarastuti96@gmail.com"
+
+    ggl = 0
+    sks = 0
+    df = pd.read_csv(namafile, dtype=str)#.astype(str)
+    
+    if 'approved' not in df.columns:
+        df['approved'] = ""
+    # print(df.head(5))
+
+    for i in range(len(df)):
+        # cek done yet
+        if df.loc[i, 'approved'] == 'done':
+            log_message(f"# {i,str(df['nama'][i])[:20]} | Dah dieksekusi, skip")
+            sks+=1
+            continue
+        if df.loc[i, 'idsbr'] == '' or pd.isna(df.loc[i, 'idsbr']) or df.loc[i, 'idsbr'] == 'nan':
+            log_message(f"# {i,str(df['nama'][i])[:20]} | Not found idsbr")
+            continue
+        
+
+        id = df['idsbr'][i]
+        email = str(df['email'][i]).lower()
+        if email == "" or email == '-':
+            log_message(f"# {i,str(df['nama'][i])[:20]} | Not found email")
+            continue
+
+        log_message(f"# {i,str(df['nama'][i])[:20]} | {df['idsbr'][i]} {df['email'][i]}")
+        try:
+            page.get_by_role("textbox", name="Cari...").click()
+            page.get_by_role("textbox", name="Cari...").fill(id)
+            time.sleep(2)
+            #page.get_by_role("button", name=id).click()
+            page.get_by_role("cell", name=id).click(button="right")
+            page.get_by_role("menuitem", name="Pengaturan Email").click()
+            time.sleep(1)
+
+            # cek dlu apakah sama emailnya
+            email_locator = page.locator("span").filter(has_text=email)
+            # Cek apakah elemen tersebut ada di halaman (jumlahnya lebih dari 0)
+            if email_locator.count() > 0:
+                log_message("- Email sama. Skip / Continue ke proses berikutnya.")
+                # Gunakan 'continue' jika kode ini berada di dalam perulangan (loop)
+                # continue  
+            else:
+                log_message("- Eksekusi kode...")
+                page.get_by_role("button", name="Ganti Email").click()
+                page.get_by_role("textbox", name="Ganti Email").click()
+                page.get_by_role("textbox", name="Ganti Email").fill(email)
                 time.sleep(1)
-                try:
-                    # el = page.locator("div:nth-child(2) > .col-12.col-md-6")
-                    el = page.locator("div").filter(has_text=df.loc[i, 'Nama'][:17] ).first
-                    try:
-                        el.wait_for(timeout=1000, state="visible")
-                    # if el.count() > 0:
-                        stat = el.first.text_content() 
-                        if 'Sudah Terdaftar' in stat:
-                            df.loc[i,'status'] = 'skip'
-                            log_message('sudah daftar')
-                            df.to_csv(namafile)
-                            continue
-                        page.locator(".fa.fa-plus.text-success").click()
-                        df.loc[i,'status'] = 'done'
+                page.get_by_role("button", name="Ganti Email").click()
+                page.get_by_role("button", name="Broadcast Email").click()
+                page.get_by_role("button", name="Broadcast Email").click()
+                time.sleep(1)
+                teks_toast = page.locator("li[data-sonner-toast][data-front='true']").inner_text()
+                print(f"Status {id}: {teks_toast}")                    
+                
+            time.sleep(1)
+            page.keyboard.press("Escape")
+            #page.get_by_role("button", name="Close").click()
+            time.sleep(1)
+            df.loc[i, 'approved'] = 'done'
+            sks += 1
 
-                        j += 1
-                        time.sleep(0.5)
+        except Exception as e:
+            ggl += 1
+            if ggl%10 == 0:
+                break
 
-                    # else:
-                    except PlaywrightTimeoutError:
-                        df.loc[i,'status'] = 'kosong'
-                        log_message('kosong')
-                        df.to_csv(namafile)
-                        continue
-                    
-                except Exception as e:
-                    df.loc[i, 'status'] = 'error'
-                    log_message(e)
-                    gagal +=1
-                    if gagal > 3: break
-                    df.to_csv(namafile)
-                    continue
-                    
-                # page.locator(".fa.fa-plus.text-success").click()
-                # page.get_by_role("link", name="Terpilih").click()
-                # page.locator(".d-flex.justify-content-between.px-2").first.click()
+            log_message(f"# {i,str(df['nama'][i])[:20]} | ERRR")
+            log_message(f"Error: {e}")
+            df.loc[i, 'approved'] = 'error'
+            time.sleep(2)
+            continue
 
-                #i+= 1
-                if j > 20: 
-                    time.sleep(1)
-                    page.get_by_role("tab", name="Terpilih").click()
-                    page.get_by_role("button", name="Tawarkan", exact=False).click()
-                    # page.locator("#ptMeowOn6p1AEvFE > .modal-dialog > .modal-content > .modal-header > .btn-close").select_option("54")
-                    page.locator("select.swal2-select").select_option(value="54")
-                    page.get_by_role("button", name="Ya, Saya Yakin!").click()
-                    page.get_by_role("button", name="Kosongkan", exact=False ).click()
-                    page.get_by_role("button", name="Ya", exact=True).click()
-                    time.sleep(2)
-                    page.get_by_role("tab", name="Cari").click()
-                    page.get_by_role("textbox", name="Cari").click()
-                    df.to_csv(namafile)
-                    j=0
-                    # break
-                    continue
+        finally:
+            df.to_csv(namafile, index=False)
+    print(f"gagal:{ggl}, sukses:{sks}")
+    # --- ENDEMAIL FASIH BC ---
 
 
-            log_message('SLESE')
-        # --- END ADD PENAWARAN ---
+# --- BAB REQ API ---
+from urllib.parse import unquote
 
-
-        # --- BAB GET PES ---
-        # parse dari response api json ke csv, khusus untuk PES
-
-        def run_getdataPES(namafile='data_survey.json'):
-            # Open the file and load its content
-            with open(namafile, 'r') as file:
-                df = json.load(file)
-            dff = json.loads(df['data']['data'])['answers']
-            dffT = {item["dataKey"]: item for item in dff}
-
-            ids4 = ['number_group_member', 'currency_spending', 'details_spending', 'var_spending', 'local_package_tour_spending', 'accommodation_spending', 'food_spending', 'domestic_flight_spending', 'local_transport_bus', 'local_transport_train', 'local_transport_water_transport', 'other_local_transportation_spending', 'vehicle_rent_spending', 'shopping_spending', 'entertainment_spending', 'health_spending', 'training_spending', 'charity_spending', 'others_spending', ]
-            # init a dict for data
-            col_list = \
-                [f"r{i}" for i in range(1,6)] + \
-                ["r5b"] + [f"r{i}" for i in range(6,9)] + ["r9ab","r9ac"] + \
-                [f"r9b{j}" for j in range(1,6)] + [f"r9b{j}c" for j in range(1,6)] + \
-                [f"r10.{j}.1" for j in range(1,14)] + \
-                [f"r10.{j}.2" for j in range(1,14)] + \
-                [f"r11.{j}" for j in range(1,5)] + ['r12'] + ids4 + \
-                [f"r{i}" for i in range(14,18)] + \
-                [f"r18a_{k}" for k in ['arrival','departure']] + [f"r18b_{k}" for k in ['arrival','departure']] + [f"r18c_{k}" for k in ['arrival','departure']] + \
-                [f"r19_{j}" for j in range(1,15)] +\
-                [f"r{i}" for i in range(20,27)]
-            d = dict.fromkeys(col_list, '--')
-
-            d['r1'] = dffT['name']['answer'] if 'name' in dffT else '--'
-            d['r2'] = dffT['age']['answer'] if 'age' in dffT else '--'
-            d['r3'] = dffT['sex']['answer'][0]['value'] if 'sex' in dffT and dffT['sex'].get('answer') else '--'
-            d['r4'] = dffT['nationality']['answer'][0]['label'] if 'nationality' in dffT and dffT['nationality'].get('answer') else '--'
-            d['r5'] = dffT['country_residence']['answer'][0]['label'] if 'country_residence' in dffT and dffT['country_residence'].get('answer') else '--'
-            d['r5b'] = dffT['city_residence']['answer'][0]['label'] if 'city_residence' in dffT and dffT['city_residence'].get('answer') else '--'
-            d['r6'] = dffT['main_purpose']['answer'][0]['value'] if 'main_purpose' in dffT and dffT['main_purpose'].get('answer') else '--'
-
-            # BLOK2
-            d['r7'] = dffT['port_entry']['answer'][0]['label'] if 'port_entry' in dffT and dffT['port_entry'].get('answer') else '--'
-            d['r8'] = dffT['length_of_stay']['answer'] if 'length_of_stay' in dffT else '--'
-
-            # main dest
-            main_dest_kab_key = 'main_destination_kab'
-            d['r9ab'] = dffT[main_dest_kab_key]['answer'][0]['label'] if main_dest_kab_key in dffT and dffT[main_dest_kab_key].get('answer') else '--'
-            len_stay_main_dest_key = 'len_stay_main_dest'
-            d['r9ac'] = dffT[len_stay_main_dest_key]['answer'] if len_stay_main_dest_key in dffT else '--'
-
-            # other dest
-            for i in range(1, 6):
-                prov_key = f"other_destination_prov_{i}"
-                # Check if the key exists and has a non-empty 'answer' list before attempting to access
-                if prov_key not in dffT or not dffT[prov_key].get('answer'):
-                    continue
-
-                # a = dffT[prov_key]['answer'][0]['label']
-                # Keeping the original logic for skipping if label is default/empty, though direct `dffT` access might reduce this need
-                # if a in ["", "Select an option", "Pilih salah satu"]:
-                #    continue
-                kab_key = f"other_destination_kab_{i}"
-                d[f"r9b{i}"] = dffT[kab_key]['answer'][0]['label'] if kab_key in dffT and dffT[kab_key].get('answer') else '--'
-
-                len_key = f"len_stay_other_dest_{i}"
-                d[f"r9b{i}c"] = dffT[len_key]['answer'] if len_key in dffT else '--'
-
-            # BLOK3
-            for i in range(1,14):
-                key_attr = f"tourism_attraction_{i:02}"
-                d[f"r10.{i}.1"] = dffT[key_attr]['answer'][0]['value'] if key_attr in dffT and dffT[key_attr].get('answer') else '--'
-                # jika ada terpilih
-                if d[f"r10.{i}.1"] == '1':
-                    key_len = f"len_stay_tourism_{i}"
-                    d[f"r10.{i}.2"] = dffT[key_len]['answer'] if key_len in dffT else '--'
-
-            #BLOK4
-            # tidak semua datanya diambil sih
-            for i in range(1,5):
-                key_accom = f"accommodation_{i:02}"
-                d[f"r11.{i}"] = dffT[key_accom]['answer'][0]['value'] if key_accom in dffT and dffT[key_accom].get('answer') else '--'
-            use_tour_package_key = 'use_tour_package'
-            d[f"r12"] = dffT[use_tour_package_key]['answer'][0]['value'] if use_tour_package_key in dffT and dffT[use_tour_package_key].get('answer') else '--'
-
-            #BLOK5
-            ids4 = ['number_group_member', 'currency_spending', 'details_spending', 'var_spending', 'local_package_tour_spending', 'accommodation_spending', 'food_spending', 'domestic_flight_spending', 'local_transport_bus', 'local_transport_train', 'local_transport_water_transport', 'other_local_transportation_spending', 'vehicle_rent_spending', 'shopping_spending', 'entertainment_spending', 'health_spending', 'training_spending', 'charity_spending', 'others_spending', ]
-            for id4 in ids4:
-                if id4 in dffT: # Check if id4 exists in dffT
-                    if id4 == 'currency_spending':
-                        d[id4] = dffT[id4]['answer'][0]['label'] if dffT[id4].get('answer') else '--'
-                    elif id4 == 'var_spending':
-                        d[id4] = int(dffT[id4]['answer'].replace(',','')) if dffT[id4].get('answer') else '--'
-                    else:
-                        d[id4] = dffT[id4]['answer']
-                else:
-                    d[id4] = '--' # Assign '--' if key not found in dffT
-
-            #BLOK6
-            main_occupation_key = 'main_occupation'
-            d['r14'] = dffT[main_occupation_key]['answer'][0]['value'] if main_occupation_key in dffT and dffT[main_occupation_key].get('answer') else '--'
-            # r15 skip (original comment)
-            freq_visit_key = 'freq_visit'
-            d['r16'] = dffT[freq_visit_key]['answer'] if freq_visit_key in dffT else '--'
-            #
-            for i in ['arrival', 'departure']:
-                key_airline = f'airline_{i}'
-                d[f'r18a_{i}'] = dffT[key_airline]['answer'][0]['label'] if key_airline in dffT and dffT[key_airline].get('answer') else '--'
-
-                key_currency = f'currency_{i}'
-                d[f'r18b_{i}'] = dffT[key_currency]['answer'][0]['label'] if key_currency in dffT and dffT[key_currency].get('answer') else '--'
-
-                key_value = f'value_{i}'
-                d[f'r18c_{i}'] = dffT[key_value]['answer'] if key_value in dffT else '--'
-
-            #BLOK7
-            for i in range(1,15):
-                key_activities = f'activities_{i:02}'
-                d[f'r19_{i}'] = dffT[key_activities]['answer'][0]['value'] if key_activities in dffT and dffT[key_activities].get('answer') else '--'
-                #d[f'r19_{i}'] = page.locator(f"//div[@id='activities_{i:02}']//input[@type='checkbox']").is_selected() # Original commented out
-
-            wonderful_indonesia_key = 'wonderful_indonesia'
-            d['r20'] = dffT[wonderful_indonesia_key]['answer'][0]['value'] if wonderful_indonesia_key in dffT and dffT[wonderful_indonesia_key].get('answer') else '--'
-            ecofriendly_principle_key = 'ecofriendly_principle'
-            d['r21'] = dffT[ecofriendly_principle_key]['answer'][0]['value'] if ecofriendly_principle_key in dffT and dffT[ecofriendly_principle_key].get('answer') else '--'
-            satisfaction_lvl_key = 'satisfaction_lvl'
-            d['r22'] = dffT[satisfaction_lvl_key]['answer'][0]['value'] if satisfaction_lvl_key in dffT and dffT[satisfaction_lvl_key].get('answer') else '--'
-            intention_to_visit_key = 'intention_to_visit'
-            d['r23'] = dffT[intention_to_visit_key]['answer'][0]['value'] if intention_to_visit_key in dffT and dffT[intention_to_visit_key].get('answer') else '--'
-
-            #BLOK8
-            note_key = 'note'
-            d['r24'] = dffT[note_key]['answer'] if note_key in dffT else '--'
-            impression_key = 'impression'
-            d['r25'] = dffT[impression_key]['answer'] if impression_key in dffT else '--'
-            viplounge_key = 'viplounge'
-            d['r26'] = dffT[viplounge_key]['answer'][0]['value'] if viplounge_key in dffT and dffT[viplounge_key].get('answer') else '--'
-
-            return d
-
-        # --- END ---
-
+def run_api_request(page, method, target_url, target_id, msg="", payload=None, filename="data_survey.json"):
+    """
+    Fungsi tunggal untuk menangani GET dan POST request ke API BPS.
+    method: 'GET' atau 'POST'
+    """
+    try:
+        method = method.upper()
+        msg = method if msg == "" else msg
         
-        # --- BAB EMAIL FASIH BC---
-        def run_emailbc(namafile):
-            """df columns: nama,idsbr,email"""
-            #id = "5103020002000305 - UMK - 26"
-            #id = "5103010006001218 - UMK - 10"
-            #email="niluhsekarastuti96@gmail.com"
+        # 1. AMBIL COOKIE CSRF (Dipakai bersama)
+        csrf_token = ""
+        for cookie in page.context.cookies():
+            if cookie['name'] == 'XSRF-TOKEN': 
+                csrf_token = unquote(cookie['value'])
+                break
+        
+        # 2. SELEKSI HEADERS BERDASARKAN METHOD
+        headers = {
+            "X-XSRF-TOKEN": csrf_token,
+            "Referer": "https://bps.go.id"
+        }
+        if method == "POST":
+            headers["Content-Type"] = "application/json"
 
-            ggl = 0
-            sks = 0
-            df = pd.read_csv(namafile, dtype=str)#.astype(str)
-            
-            if 'approved' not in df.columns:
-                df['approved'] = ""
-            # print(df.head(5))
+        log_message(f"- Try {msg} request...")
 
-            for i in range(len(df)):
-                # cek done yet
-                if df.loc[i, 'approved'] == 'done':
-                    log_message(f"# {i,str(df['nama'][i])[:20]} | Dah dieksekusi, skip")
-                    sks+=1
-                    continue
-                if df.loc[i, 'idsbr'] == '' or pd.isna(df.loc[i, 'idsbr']) or df.loc[i, 'idsbr'] == 'nan':
-                    log_message(f"# {i,str(df['nama'][i])[:20]} | Not found idsbr")
-                    continue
-                
-
-                id = df['idsbr'][i]
-                email = str(df['email'][i]).lower()
-                if email == "" or email == '-':
-                    log_message(f"# {i,str(df['nama'][i])[:20]} | Not found email")
-                    continue
-
-                log_message(f"# {i,str(df['nama'][i])[:20]} | {df['idsbr'][i]} {df['email'][i]}")
-                try:
-                    page.get_by_role("textbox", name="Cari...").click()
-                    page.get_by_role("textbox", name="Cari...").fill(id)
-                    time.sleep(2)
-                    #page.get_by_role("button", name=id).click()
-                    page.get_by_role("cell", name=id).click(button="right")
-                    page.get_by_role("menuitem", name="Pengaturan Email").click()
-                    time.sleep(1)
-
-                    # cek dlu apakah sama emailnya
-                    email_locator = page.locator("span").filter(has_text=email)
-                    # Cek apakah elemen tersebut ada di halaman (jumlahnya lebih dari 0)
-                    if email_locator.count() > 0:
-                        log_message("- Email sama. Skip / Continue ke proses berikutnya.")
-                        # Gunakan 'continue' jika kode ini berada di dalam perulangan (loop)
-                        # continue  
-                    else:
-                        log_message("- Eksekusi kode...")
-                        page.get_by_role("button", name="Ganti Email").click()
-                        page.get_by_role("textbox", name="Ganti Email").click()
-                        page.get_by_role("textbox", name="Ganti Email").fill(email)
-                        time.sleep(1)
-                        page.get_by_role("button", name="Ganti Email").click()
-                        page.get_by_role("button", name="Broadcast Email").click()
-                        page.get_by_role("button", name="Broadcast Email").click()
-                        time.sleep(1)
-                        teks_toast = page.locator("li[data-sonner-toast][data-front='true']").inner_text()
-                        print(f"Status {id}: {teks_toast}")                    
-                        
-                    time.sleep(1)
-                    page.keyboard.press("Escape")
-                    #page.get_by_role("button", name="Close").click()
-                    time.sleep(1)
-                    df.loc[i, 'approved'] = 'done'
-                    sks += 1
-
-                except Exception as e:
-                    ggl += 1
-                    if ggl%10 == 0:
-                        break
-
-                    log_message(f"# {i,str(df['nama'][i])[:20]} | ERRR")
-                    log_message(f"Error: {e}")
-                    df.loc[i, 'approved'] = 'error'
-                    time.sleep(2)
-                    continue
-
-                finally:
-                    df.to_csv(namafile, index=False)
-            print(f"gagal:{ggl}, sukses:{sks}")
-            # --- ENDEMAIL FASIH BC ---
-
-
-        # --- BAB MAIN FUNC --- 
-        # main func pindah ke bawah pake api. ====== kata kunci:
-        # if func : get api detail data, run_api_request(method=get), then per survei aja dibuat parse ke csv
-        # if cekapprov : get api approv, run_api_request(method=post)
-        # --- END MAIN FUNC ---
-
-        # --- BAB GABUNGIN 2 FUNC APPROV N GETDATA ALL---
-        from urllib.parse import unquote
-
-        def run_api_request(page, method, target_url, target_id, msg="", payload=None, filename="data_survey.json"):
-            """
-            Fungsi tunggal untuk menangani GET dan POST request ke API BPS.
-            method: 'GET' atau 'POST'
-            """
-            try:
-                method = method.upper()
-                msg = method if msg == "" else msg
-                
-                # 1. AMBIL COOKIE CSRF (Dipakai bersama)
-                csrf_token = ""
-                for cookie in page.context.cookies():
-                    if cookie['name'] == 'XSRF-TOKEN': 
-                        csrf_token = unquote(cookie['value'])
-                        break
-                
-                # 2. SELEKSI HEADERS BERDASARKAN METHOD
-                headers = {
-                    "X-XSRF-TOKEN": csrf_token,
-                    "Referer": "https://bps.go.id"
+        # 3. EKSEKUSI REQUEST (GET vs POST)
+        if method == "POST":
+            # Jika payload tidak diisi manual, buat payload default approval
+            if not payload:
+                status_approv = 'false' if 'revoke' in target_url else 'true' 
+                payload = {
+                    "assignmentId": target_id,
+                    "statusApproval": status_approv,
+                    "comment": "\"\""
                 }
-                if method == "POST":
-                    headers["Content-Type"] = "application/json"
-
-                log_message(f"Mencoba {msg} request...")
-
-                # 3. EKSEKUSI REQUEST (GET vs POST)
-                if method == "POST":
-                    # Jika payload tidak diisi manual, buat payload default approval
-                    if not payload:
-                        status_approv = 'false' if 'revoke' in target_url else 'true' # ====== buat juga misal ada reject
-                        payload = {
-                            "assignmentId": target_id,
-                            "statusApproval": status_approv,
-                            "comment": "\"\""
-                        }
-                    response = page.request.post(target_url, headers=headers, data=payload)
-                    
-                elif method == "GET":
-                    # Jika target_id dimasukkan sebagai Query Parameter (?assignmentId=123)
-                    response = page.request.get(target_url, headers=headers, params={"assignmentId": target_id}) # ====== gaperlukah payload di GET? next
-                    # Jika ID dimasukkan langsung di dalam URL path (misal: /api/data/123)
-                    # url_with_id = f"{target_url}/{target_id}"
-                    # response = page.request.get(url_with_id, headers=headers)
-                
-                else:
-                    log_message(f"Method {method} tidak didukung.")
-                    return None
-
-                # 4. HANDLE RESPONSE (Dipakai bersama)
-                if response.ok:
-                    response_json = response.json()
-                    log_message(f"{msg} Berhasil! Status: {response.status}")
-                    
-                    # Jika GET, simpan ke file JSON
-                    if method == "GET":
-                        with open(filename, "w", encoding="utf-8") as f:
-                            json.dump(response_json, f, indent=4, ensure_ascii=False)
-                        #log_message(f"Data disimpan ke '{filename}'")
-                    
-                    # Jika POST, lakukan UI refresh halaman
-                    # elif method == "POST":
-                    #     page.reload()
-                    #     page.locator("h1").first.wait_for(state="visible", timeout=10000)
-                        
-                    return response_json
-                else:
-                    log_message(f"{method} Gagal! Status: {response.status} - {response.text()}")
-                    return None
-
-            except Exception as e:
-                log_message(f'Error pada {method} request: {e}')
-                return None
-
-            # --- END 2 FUNC ---
-
-        # --- FUNC REALOKASI N REASSIGN ---
-        def run_resubs(realokasisubs,namafile, delete_assignment=False):
-            df = pd.read_csv(namafile)
-            lendf = len(df)
-            print('\n')
-            if 'KET' not in df.columns:
-                df['KET'] = ''
-            for i in range(len(df)):
-                nm = df.loc[i,'Nama Perusahaan']
-                idsubs = df.loc[i,'idsubsls']
-                idsubs = str(idsubs).strip()
-                idcari = df.loc[i,'idd']
-                if idcari == '' or pd.isna(idcari) or idcari=='v': #jika gada yg dicari, skip
-                    continue
-                if '5103' not in str(idsubs):
-                    if delete_assignment and 'delete' in str(idsubs):
-                        pass
-                    else:
-                        print(f'# Skip idsubs not valid: {nm}')
-                        continue
-                if df.loc[i,'KET'] == 'done' or 'skip' in str(df.loc[i,'KET']): #jika udah or flag skip, mk skip
-                    print(f'# Skip: {nm}')
-                    continue
-                
-                # Proses pemotongan teks (Slicing Python)
-                kdprov   = idsubs[:2]        # LEFT($A2:A,2)
-                kdkab  = idsubs[2:4]       # RIGHT(LEFT($A2:A,4),2)
-                kdkec  = idsubs[4:7]       # RIGHT(LEFT($A2:A,7),3)
-                kddes = idsubs[7:10]      # RIGHT(LEFT($A2:A,10),3)
-                kdsls = idsubs[10:14]     # RIGHT(LEFT($A2:A,14),4)
-                kdsubs = idsubs[14:16]     # RIGHT(LEFT($A2:A,16),2)
-
-                # CARI
-                print(f'# {i}/{lendf}| Processing {nm}, to {idsubs} with id {idcari}')
-                try:
-                    page.get_by_role("textbox", name="Cari...").click()
-                    page.get_by_role("textbox", name="Cari...").fill(idcari)
-                    time.sleep(1)
-                    page.get_by_role("button", name=idcari).click(button="right")#, timeout=10000)
-                except Exception as e:
-                    print(f'Tidak ditemukan: {e}')
-                    df.loc[i,'KET'] = 'kosong'
-                    continue
-
-                try:
-                    # DELETE ASSIGNMENT FLAGGED DELETE
-                    if 'delete' in str(idsubs) and delete_assignment:
-                        page.get_by_role("menuitem", name="Hapus Assignment").click()
-                        time.sleep(0.5)
-                        page.get_by_role("button", name="Ya, Hapus Assignment").click()
-                        time.sleep(1)
-                        teks_toast = page.locator("li[data-sonner-toast][data-front='true']").inner_text()
-                        print(f"Status {nm}: {teks_toast}")                    
-                        df.loc[i,'KET'] = 'done'
-                        time.sleep(1)
-                        continue
-
-                    # REALOKASI SUB
-                    if realokasisubs:
-                        page.get_by_role("menuitem", name="Ganti Wilayah").click()
-                        time.sleep(1)
-
-                        page.get_by_role("combobox").first.click()
-                        page.get_by_label("", exact=True).fill(kdprov)
-                        page.get_by_label("", exact=True).press("Enter")
-                        time.sleep(0.5)
-                        page.get_by_role("combobox").nth(1).click()
-                        page.get_by_label("", exact=True).fill(kdkab)
-                        page.get_by_label("", exact=True).press("Enter")
-                        time.sleep(0.5)
-                        page.get_by_role("combobox").nth(2).click()
-                        page.get_by_label("", exact=True).fill(kdkec)
-                        page.get_by_label("", exact=True).press("Enter")
-                        time.sleep(0.5)
-                        page.get_by_role("combobox").nth(3).click()
-                        page.get_by_label("", exact=True).fill(kddes)
-                        page.get_by_label("", exact=True).press("Enter")
-                        time.sleep(0.5)
-                        page.get_by_role("combobox").nth(4).click()
-                        page.get_by_label("", exact=True).fill(kdsls)
-                        page.get_by_label("", exact=True).press("Enter")
-                        time.sleep(0.5)
-                        page.get_by_role("combobox").filter(has_text="Pilih wilayah").click()
-                        page.get_by_label("", exact=True).fill(kdsubs)
-                        page.get_by_label("", exact=True).press("Enter")
-                        time.sleep(0.5)
-                        # page.get_by_role("button", name="Ubah Wilayah Assignment").click()
-                        # page.get_by_role("button", name="Close toast").click()
-                        # Mengambil teks yang terlihat oleh pengguna di layar
-                        # time.sleep(1)
-                        # time.sleep(1)
-
-                        # ASSIGN
-                        # page.get_by_role("button", name=idcari).click(button="right")
-                        # page.get_by_role("menuitem", name="Assign Petugas").click()
-                        page.get_by_role("combobox", name="Pengawas").click()
-                        page.get_by_role("option").first.click()
-                        time.sleep(0.5)
-                        page.get_by_role("combobox", name="Pencacah").click()
-                        page.get_by_role("option").first.click()
-                        # page.get_by_role("button", name="Assign Petugas").click()
-                        page.get_by_role("button", name="Ubah Wilayah Assignment").click()
-                        time.sleep(1)
-                        teks_toast = page.locator("li[data-sonner-toast][data-front='true']").inner_text()
-                        print(f"Status REALOKASI: {teks_toast}")
-                        # teks_toast = page.locator("li[data-sonner-toast][data-front='true']").inner_text()
-                        # print(f"Status ASSIGN: {teks_toast}")
-                        time.sleep(1)
-                    
-                    else: #if assign_only
-                        # page.get_by_role("button", name=idcari).click(button="right")
-                        page.get_by_role("menuitem", name="Assign Petugas").click()
-                        page.get_by_role("combobox", name="Pengawas").click()
-                        page.get_by_role("option").first.click()
-                        time.sleep(0.5)
-                        page.get_by_role("combobox", name="Pencacah").click()
-                        page.get_by_role("option").first.click()
-                        page.get_by_role("button", name="Assign Petugas").click()
-                        # page.get_by_role("button", name="Ubah Wilayah Assignment").click()
-                        time.sleep(1)
-                        teks_toast = page.locator("li[data-sonner-toast][data-front='true']").inner_text()
-                        # print(f"Status REALOKASI: {teks_toast}")
-                        # teks_toast = page.locator("li[data-sonner-toast][data-front='true']").inner_text()
-                        print(f"Status ASSIGN: {teks_toast}")
-                        if 'sudah di assign' in teks_toast:
-                            page.keyboard.press("Escape")
-                        time.sleep(1)
-
-                    df.loc[i,'KET'] = 'done'
-                
-                except Exception as e:
-                    import sys
-                    exc_type, exc_obj, exc_tb = sys.exc_info()
-                    print(f"# Terjadi error on line: {str(exc_tb.tb_lineno)} {e} ")
-                    df.loc[i,'KET'] = f'Err line {exc_tb.tb_lineno} ({e})'
-                    continue
+            response = page.request.post(target_url, headers=headers, data=payload)
             
-                df.to_csv(namafile,index=False)
-
-            print('seleseeeeeee')
-
-        # --- END FUNC REALOKASI N REASSIGN ---
+        elif method == "GET":
+            # Jika target_id dimasukkan sebagai Query Parameter (?assignmentId=123)
+            response = page.request.get(target_url, headers=headers, params={"assignmentId": target_id}) # ====== gaperlukah payload di GET? next
+        elif method == "GET2":
+            # Jika ID dimasukkan langsung di dalam URL path (misal: /api/data/123)
+            url_with_id = f"{target_url}/{target_id}"
+            response = page.request.get(url_with_id, headers=headers)
         
-        # --- FUNC GET SUBS FROM COORDINATE ---
-        from shapely import wkt
-        def get_subsls(coord_text, df):
-            if 'skip' in str(coord_text) or 'delete' in str(coord_text):
-                return coord_text
-            if pd.isna(coord_text) or not coord_text:
-                return "Koordinat Kosong"
+        else:
+            log_message(f"- Method {method} tidak didukung.")
+            return None
+
+        # 4. HANDLE RESPONSE (Dipakai bersama)
+        if response.ok:
+            response_json = response.json()
+            log_message(f"- {msg} success!")
+            
+            # Jika GET, simpan ke file JSON
+            if method == "GET":
+                with open(filename, "w", encoding="utf-8") as f:
+                    json.dump(response_json, f, indent=4, ensure_ascii=False)
+                #log_message(f"- Data disimpan ke '{filename}'")
+            
+            # Jika POST, lakukan UI refresh halaman
+            # elif method == "POST":
+            #     page.reload()
+            #     page.locator("h1").first.wait_for(state="visible", timeout=10000)
                 
-            try:
-                # 1. Ubah teks "-8.58, 115.21" menjadi objek Point Shapely (lon dulu baru lat)
-                coorsplit = coord_text.split(",")
-                point = wkt.loads(f"Point({coorsplit[1].strip()} {coorsplit[0].strip()})")
-                
-                # 2. Cari polygon yang membungkus point tersebut
-                matches = df['polygon'].apply(lambda poly: point.within(poly))
-                matching_rows = df[matches]
-                
-                # 3. Jika ketemu, ambil teks info SLS yang diinginkan
-                if not matching_rows.empty:
-                    row = matching_rows.iloc[0]
-                    # return f"{row['nmsls']}, Desa {row['nmdesa']}, Kec. {row['nmkec']}"
-                    return row['idsubsls']
-                else:
-                    return "Di luar Kabupaten Badung"
+            return response_json
+        else:
+            log_message(f"- {method} Gagal! Status: {response.status} - {response.text()}")
+            return None
+
+    except Exception as e:
+        import sys
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+        log_message(f"- Terjadi error pada {method} req on line: {str(exc_tb.tb_lineno)} {e} ")
+        # log_message(f'- Error pada {method} request: {e}')
+        return None
+
+    # --- END REQ API ---
+
+# --- BAB FUNC REALOKASI N REASSIGN ---
+def run_resubs(realokasisubs,namafile, delete_assignment=False):
+    df = pd.read_csv(namafile)
+    lendf = len(df)
+    print('\n')
+    if 'KET' not in df.columns:
+        df['KET'] = ''
+    for i in range(len(df)):
+        nm = df.loc[i,'Nama Perusahaan']
+        idsubs = df.loc[i,'idsubsls']
+        idsubs = str(idsubs).strip()
+        idcari = df.loc[i,'idd']
+        if idcari == '' or pd.isna(idcari) or idcari=='v': #jika gada yg dicari, skip
+            continue
+        if '5103' not in str(idsubs):
+            if delete_assignment and 'delete' in str(idsubs):
+                pass
+            else:
+                print(f'# Skip idsubs not valid: {nm}')
+                continue
+        if df.loc[i,'KET'] == 'done' or 'skip' in str(df.loc[i,'KET']): #jika udah or flag skip, mk skip
+            print(f'# Skip: {nm}')
+            continue
+        
+        # Proses pemotongan teks (Slicing Python)
+        kdprov   = idsubs[:2]        # LEFT($A2:A,2)
+        kdkab  = idsubs[2:4]       # RIGHT(LEFT($A2:A,4),2)
+        kdkec  = idsubs[4:7]       # RIGHT(LEFT($A2:A,7),3)
+        kddes = idsubs[7:10]      # RIGHT(LEFT($A2:A,10),3)
+        kdsls = idsubs[10:14]     # RIGHT(LEFT($A2:A,14),4)
+        kdsubs = idsubs[14:16]     # RIGHT(LEFT($A2:A,16),2)
+
+        # CARI
+        print(f'# {i}/{lendf}| Processing {nm}, to {idsubs} with id {idcari}')
+        try:
+            page.get_by_role("textbox", name="Cari...").click()
+            page.get_by_role("textbox", name="Cari...").fill(idcari)
+            time.sleep(1)
+            page.get_by_role("button", name=idcari).click(button="right")#, timeout=10000)
+        except Exception as e:
+            print(f'Tidak ditemukan: {e}')
+            df.loc[i,'KET'] = 'kosong'
+            continue
+
+        try:
+            # DELETE ASSIGNMENT FLAGGED DELETE
+            if 'delete' in str(idsubs) and delete_assignment:
+                page.get_by_role("menuitem", name="Hapus Assignment").click()
+                time.sleep(0.5)
+                page.get_by_role("button", name="Ya, Hapus Assignment").click()
+                time.sleep(1)
+                teks_toast = page.locator("li[data-sonner-toast][data-front='true']").inner_text()
+                print(f"Status {nm}: {teks_toast}")                    
+                df.loc[i,'KET'] = 'done'
+                time.sleep(1)
+                continue
+
+            # REALOKASI SUB
+            if realokasisubs:
+                page.get_by_role("menuitem", name="Ganti Wilayah").click()
+                time.sleep(1)
+
+                page.get_by_role("combobox").first.click()
+                page.get_by_label("", exact=True).fill(kdprov)
+                page.get_by_label("", exact=True).press("Enter")
+                time.sleep(0.5)
+                page.get_by_role("combobox").nth(1).click()
+                page.get_by_label("", exact=True).fill(kdkab)
+                page.get_by_label("", exact=True).press("Enter")
+                time.sleep(0.5)
+                page.get_by_role("combobox").nth(2).click()
+                page.get_by_label("", exact=True).fill(kdkec)
+                page.get_by_label("", exact=True).press("Enter")
+                time.sleep(0.5)
+                page.get_by_role("combobox").nth(3).click()
+                page.get_by_label("", exact=True).fill(kddes)
+                page.get_by_label("", exact=True).press("Enter")
+                time.sleep(0.5)
+                page.get_by_role("combobox").nth(4).click()
+                page.get_by_label("", exact=True).fill(kdsls)
+                page.get_by_label("", exact=True).press("Enter")
+                time.sleep(0.5)
+                page.get_by_role("combobox").filter(has_text="Pilih wilayah").click()
+                page.get_by_label("", exact=True).fill(kdsubs)
+                page.get_by_label("", exact=True).press("Enter")
+                time.sleep(0.5)
+                # page.get_by_role("button", name="Ubah Wilayah Assignment").click()
+                # page.get_by_role("button", name="Close toast").click()
+                # Mengambil teks yang terlihat oleh pengguna di layar
+                # time.sleep(1)
+                # time.sleep(1)
+
+                # ASSIGN
+                # page.get_by_role("button", name=idcari).click(button="right")
+                # page.get_by_role("menuitem", name="Assign Petugas").click()
+                page.get_by_role("combobox", name="Pengawas").click()
+                page.get_by_role("option").first.click()
+                time.sleep(0.5)
+                page.get_by_role("combobox", name="Pencacah").click()
+                page.get_by_role("option").first.click()
+                # page.get_by_role("button", name="Assign Petugas").click()
+                page.get_by_role("button", name="Ubah Wilayah Assignment").click()
+                time.sleep(1)
+                teks_toast = page.locator("li[data-sonner-toast][data-front='true']").inner_text()
+                print(f"Status REALOKASI: {teks_toast}")
+                # teks_toast = page.locator("li[data-sonner-toast][data-front='true']").inner_text()
+                # print(f"Status ASSIGN: {teks_toast}")
+                time.sleep(1)
+            
+            else: #if assign_only
+                # page.get_by_role("button", name=idcari).click(button="right")
+                page.get_by_role("menuitem", name="Assign Petugas").click()
+                page.get_by_role("combobox", name="Pengawas").click()
+                page.get_by_role("option").first.click()
+                time.sleep(0.5)
+                page.get_by_role("combobox", name="Pencacah").click()
+                page.get_by_role("option").first.click()
+                page.get_by_role("button", name="Assign Petugas").click()
+                # page.get_by_role("button", name="Ubah Wilayah Assignment").click()
+                time.sleep(1)
+                teks_toast = page.locator("li[data-sonner-toast][data-front='true']").inner_text()
+                # print(f"Status REALOKASI: {teks_toast}")
+                # teks_toast = page.locator("li[data-sonner-toast][data-front='true']").inner_text()
+                print(f"Status ASSIGN: {teks_toast}")
+                if 'sudah di assign' in teks_toast:
+                    page.keyboard.press("Escape")
+                time.sleep(1)
+
+            df.loc[i,'KET'] = 'done'
+        
+        except Exception as e:
+            import sys
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            print(f"# Terjadi error on line: {str(exc_tb.tb_lineno)} {e} ")
+            df.loc[i,'KET'] = f'Err line {exc_tb.tb_lineno} ({e})'
+            continue
+    
+        df.to_csv(namafile,index=False)
+
+    print('seleseeeeeee')
+
+# --- END FUNC REALOKASI N REASSIGN ---
+
+# --- BAB FUNC GET SUBS FROM COORDINATE ---
+from shapely import wkt
+def get_subsls(coord_text, df):
+    if 'skip' in str(coord_text) or 'delete' in str(coord_text):
+        return coord_text
+    if pd.isna(coord_text) or not coord_text:
+        return "Koordinat Kosong"
+        
+    try:
+        # 1. Ubah teks "-8.58, 115.21" menjadi objek Point Shapely (lon dulu baru lat)
+        coorsplit = coord_text.split(",")
+        point = wkt.loads(f"Point({coorsplit[1].strip()} {coorsplit[0].strip()})")
+        
+        # 2. Cari polygon yang membungkus point tersebut
+        matches = df['polygon'].apply(lambda poly: point.within(poly))
+        matching_rows = df[matches]
+        
+        # 3. Jika ketemu, ambil teks info SLS yang diinginkan
+        if not matching_rows.empty:
+            row = matching_rows.iloc[0]
+            # return f"{row['nmsls']}, Desa {row['nmdesa']}, Kec. {row['nmkec']}"
+            return row['idsubsls']
+        else:
+            return "Di luar Kabupaten Badung"
+            
+    except Exception as e:
+        return "Format Koordinat Salah"
+# --- END FUNC GET SUBS ---
+
+
+# --- BAB FUNC APUS ASSIGNMENT ---
+# def run_apus_assign(page):
+#     #1. Klik tombol bin (sel kosong / target)
+#     import re
+#     out = 5000
+#     try:
+#         while True:
+#             page.get_by_role("cell").nth(4).click(timeout=out) #bin btn
+#             print('\na. delete btn user click')
+
+#             # Ambil semua elemen tombol untuk dicek jumlahnya
+#             time.sleep(1)
+#             tombol_step2 = page.get_by_role("button") #cek jml nth
+#             jumlah_tombol = tombol_step2.count()
+
+#             # JIKA jumlah tombol lebih dari 1, jalankan Step 2
+#             # i = jumlah_tombol
+#             print(f'a. loop {jumlah_tombol}x')
+#             for i in range(1,jumlah_tombol):
+#                 if jumlah_tombol == 2: break
+#                 if jumlah_tombol > 1:
                     
-            except Exception as e:
-                return "Format Koordinat Salah"
-        # --- END FUNC GET SUBS ---
+#                     time.sleep(1)
+#                     try:
+#                         tombol_step2.nth(i).click(timeout=out) # 2. Klik foreach nth di sana
+#                         print(f'b. tombol delete wil ke-{i}')
+#                         time.sleep(0.5)
+#                         page.get_by_role("button", name="Hapus").click(timeout=out) # konfirm apus
+#                         print('c. konfirm delete wil')
+
+#                     except:
+#                         time.sleep(0.5)
+#                         page.get_by_role("button", name="Hapus").click(timeout=out) # konfirm apus
+#                         print('c. konfirm delete wil')
+                    
+#                     time.sleep(1)
+#                     if jumlah_tombol-1 == i: 
+#                         # page.get_by_role("button", name="Close").click()
+#                         break
+#                     page.get_by_role("cell").nth(4).click(timeout=out) #bin btn, then loop foreach
+#                     print('\na. delete btn user click')
+#                     # i -= 1
+                    
+#                 # if i == 1: break
+
+#             # 3. Tiap foreach ada konfirmasi hapus (Selalu dijalankan)
+#             page.get_by_role("button").filter(has_text=re.compile(r"^$")).nth(4).click(timeout=out) #refresh 2x
+#             page.get_by_role("button").filter(has_text=re.compile(r"^$")).nth(4).click(timeout=out)
+#             print('selese --- endings')
+#             page.get_by_role("cell").nth(4).click(timeout=out) #bin btn
+#             time.sleep(0.2)
+#             try:
+#                 page.get_by_role("button", name="Hapus").click(timeout=out) #langsung apus
+#             except:
+#                 continue
+
+#             page.get_by_role("button").filter(has_text=re.compile(r"^$")).nth(4).click(timeout=out) #refresh 2x
+#             page.get_by_role("button").filter(has_text=re.compile(r"^$")).nth(4).click(timeout=out)
+#             print('refresh')
+#             time.sleep(2)
+
+#     except Exception as e:
+#         print(e)
+#         import sys
+#         exc_type, exc_obj, exc_tb = sys.exc_info()
+#         print(f"# Terjadi error di thread getlistdata on line: {str(exc_tb.tb_lineno)} {e} ")
+# --- BAB FUNC APUS ASSIGNMENT ---
 
 
+# --- BAB GET LIST DATA BY SEARCH ---
+def run_getlist_search(page, df):
+    target_url = "https://fasih-sm.bps.go.id/app/api/analytic/api/v2/assignment/datatable-all-user-survey-periode"
+    # get req payload
+    with page.expect_request(target_url) as req_info:
+        page.reload()
+    time.sleep(1)
+    captured_req = req_info.value
+    api_url = captured_req.url
+    api_headers = captured_req.headers
+    api_payload = json.loads(captured_req.post_data)
+    # log_message(api_payload)
 
-        # --- MAIN RUN, CHANGE THIS ---
-        #page.reload()
-        # page.pause()
-        print('Title page: ', page.title())
-        
-        # RUN change reg and assign
-        # /master sls
-        # from shapely import wkt
-        # dfmaster = pd.read_csv(r"mfd_wilker25.csv")
-        # dfmaster['polygon'] = dfmaster['WKT'].apply(wkt.loads)
+    # mod req
+    per_batch=10
+    api_payload['length'] = per_batch 
+    # api_payload['start'] = 0 # 50 100 150 dst
 
-        # df = pd.read_csv('temp.csv') # columns: Nama Perusahaan, idd, idsubsls, coordinate, KET
-        # df['idsubsls'] = df['coordinate'].apply(lambda x:  get_subsls(x, df=dfmaster))
-        # df.to_csv('temp.csv', index=False)
-        # print('done, cek file')
+    # read df n loop per df
+    if 'id' not in df.columns:
+        df['id'] = ''
+        df['codeIdentity'] =''
+    # rows=[]
+    for i in range(0,len(df)):
+        if pd.notna(df.loc[i, 'codeIdentity']) and df.loc[i, 'codeIdentity'] != '-': #artine udah isi maka skip
+            log_message(f"# {i,str(df['nama'][i])[:20]} | skip")
+            continue
+        time.sleep(1)
+        msg = 'belum'
+        if df.loc[i, 'idsbr'] == '' or pd.isna(df.loc[i, 'idsbr']) or df.loc[i, 'idsbr'] == 'nan':
+            msg = 'idsbr not found'
+            log_message(f"# {i,str(df['nama'][i])[:20]} | {msg}")
+            continue
+        search_value = str(df.loc[i,'idsbr'])
+        api_payload['search']['value'] = search_value
 
-        # /resub
-        # run_resubs(namafile='temp.csv', realokasisubs=True, delete_assignment=True), #assign petugas pake yg first muncul
+        # get response on load
+        resp = run_api_request(page, "post", api_url, target_id=None, payload=api_payload)
+        # found = False
+        # resp = json.loads(resp)
+        # total_hit = resp.get('totalHit', 0)
 
-        # RUN Email broadcast fasih
-        # alt 1
-        #df: nama, idsbr, email
-        namafile = 'temp.csv'
-        run_emailbc(namafile)
-        log_message('FINISIHED')
-        # alt 2
-        # 1. Change email
-        # target_url = "https://fasih-sm.bps.go.id/app/api/email/api/v2/assignment/change-email?newPin=false"
-        # payload = {
-        #     "assignmentId": "3adf0903-c295-4584-b3aa-3a3190e5bc23",
-        #     "surveyPeriodId": "fd68e454-ba45-4b85-8205-f3bf777ded24",
-        #     "email": "deliamanda1218@gmail.com",
-        #     "reminder": False
-        #     }
-        # cek sukses is True
-        # run_api_request(page, "post", target_url, )
-        # 2. Send email
-        # target_url = "https://fasih-sm.bps.go.id/app/api/email/api/v1/assignment/send-email-by-assignment?newPin=false"
-        # payload = {
-        #     "reminder": False,
-        #     "surveyPeriodId": "fd68e454-ba45-4b85-8205-f3bf777ded24",
-        #     "assignmentIds": [
-        #         "3adf0903-c295-4584-b3aa-3a3190e5bc23"
-        #     ]
-        #     }
-        # cek sukses is True
-        #
-        # RUN Approval, revoke, reject fasih by id
-        # target_url = "https://fasih-sm.bps.go.id/app/api/assignment-approval/api/v2/approval" #approv
-        # target_url = "https://fasih-sm.bps.go.id/app/api/assignment-approval/api/v2/revoke-approval" #revoke
-        # target_url = blm nyoba reject by api ======
-        # target_id = "6a4f9604-dba9-4ef3-a284-7b1c56f127fa"
-        # ====== if get statusnya udah approv, skip cekapprov
-        # run_api_request(page, method="post", target_url=target_url, target_id=target_id, msg="Approving")
-        # 
-        # RUN Get detail data
-        # base_url = "https://fasih-sm.bps.go.id/app/api/assignment-general/api/assignment/get-by-assignment-id"
-        # target_id = "f2ad1748-8b8b-4af4-a1a0-c3af0ed0bdd9"
-        # response = run_api_request(page, method="get", target_url=base_url, target_id=target_id, msg="GetData")
-        # print(response)
-        # if response['success'] == False or response['success'] == "False":
-        #     print(response['message'])
-        # 
-        # Udah get detail data kan, abistu convert per data survei yg sesuai
-        # RUN Get PES
-        # ====== ketika apireq get nya success, maka kesini, jika ga, skip. ketika dah selese loop, delete data_survey.json
-        # resultDict = run_getdataPES()    
-        # print(resultDict)
-        # plan A
-        # for key,value in resultDict.items():
-        #     df.loc[i, key] = value
-        # df.to_csv(filename, index=False)
-        # plan B
-        # df = pd.DataFrame(resultDict, index=[0])
-        # df.to_csv('tempdata.csv', index=False)
-        #
-        # ---
+        # Lakukan perulangan untuk mengecek setiap data resp
+        try:
+            for item in resp.get("searchData",[]):
+                log_message(f'- Response {per_batch} idsbr: {item.get("data3")} == {search_value} ?')
+                if str(search_value) in str(item.get("data3")):
+                    
+                    # Logika untuk membuat 'idsub' dari 'codeIdentity'
+                    code_id = item.get("codeIdentity", "")
+                    idsub = code_id[:16] if code_id.startswith("5103") else "-"
 
-        # RUN add penawaran
-        # run_addpenawaran()
+                    data_terpilih = {
+                        "id": item.get("id"),
+                        "codeIdentity": code_id,
+                        "idsub": idsub,
+                        "assignmentStatusAlias": item.get("assignmentStatusAlias"),
+                        "data1": item.get("data1"),
+                        "data2": item.get("data2"),
+                        "data3": item.get("data3"),
+                        "data6": item.get("data6"),
+                        "currentUserUsername": item.get("currentUserUsername"),
+                        "currentUserSurveyRoleName": item.get("currentUserSurveyRoleName")
+                    }
+                    
+                    # Masukkan ke dalam list hasil
+                    # rows.append(data_terpilih)
+                    # found = True
+                    msg = 'done'
+                    break
+            if msg == 'belum':
+                # Isi dengan data kosong agar jumlah barisnya tetap pas dengan df_awal
+                # rows.append({k: "-" for k in ["id", "codeIdentity", "idsub", "assignmentStatusAlias", "data1", "data2", "data3", "data6", "currentUserUsername", "currentUserSurveyRoleName"]})
+                data_terpilih = {k: "-" for k in ["id", "codeIdentity", "idsub", "assignmentStatusAlias", "data1", "data2", "data3", "data6", "currentUserUsername", "currentUserSurveyRoleName"]}
+                msg = 'failed'
 
-        # RUN apus assign
-        # 1. Klik tombol bin (sel kosong / target)
-        # import re
-        # out = 5000
-        # try:
-        #     while True:
-        #         page.get_by_role("cell").nth(4).click(timeout=out) #bin btn
-        #         print('\na. delete btn user click')
+            for key,value in data_terpilih.items():
+                df.at[i, key] = value
+            df.to_csv(namafile, index=False)
+            log_message(f"# {i,str(df['nama'][i])[:20]} | {msg}")
+        except Exception as e:
+            import sys
+            # log_message(f'Response: {resp}')
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            log_message(f"# Terjadi error on line: {str(exc_tb.tb_lineno)} {e} ")
+            df.at[i,'id']=str(e)
+            # break
+            time.sleep(5)
+            page.reload()
+            time.sleep(5)
+            df.to_csv(namafile, index=False)
+            continue
+    
+    # 4. Ubah list hasil ekstrak menjadi DataFrame baru
+    # df_kolom_baru = pd.DataFrame(rows)
 
-        #         # Ambil semua elemen tombol untuk dicek jumlahnya
-        #         time.sleep(1)
-        #         tombol_step2 = page.get_by_role("button") #cek jml nth
-        #         jumlah_tombol = tombol_step2.count()
+    # 5. TEMPELKAN kolom baru tersebut ke DataFrame awal (Menggabungkan ke samping)
+    # df_akhir = pd.concat([df, df_kolom_baru], axis=1)
+    df_akhir = df
 
-        #         # JIKA jumlah tombol lebih dari 1, jalankan Step 2
-        #         # i = jumlah_tombol
-        #         print(f'a. loop {jumlah_tombol}x')
-        #         for i in range(1,jumlah_tombol):
-        #             if jumlah_tombol == 2: break
-        #             if jumlah_tombol > 1:
-                        
-        #                 time.sleep(1)
-        #                 try:
-        #                     tombol_step2.nth(i).click(timeout=out) # 2. Klik foreach nth di sana
-        #                     print(f'b. tombol delete wil ke-{i}')
-        #                     time.sleep(0.5)
-        #                     page.get_by_role("button", name="Hapus").click(timeout=out) # konfirm apus
-        #                     print('c. konfirm delete wil')
+    # Tampilkan hasil akhir
+    return df_akhir
 
-        #                 except:
-        #                     time.sleep(0.5)
-        #                     page.get_by_role("button", name="Hapus").click(timeout=out) # konfirm apus
-        #                     print('c. konfirm delete wil')
-                        
-        #                 time.sleep(1)
-        #                 if jumlah_tombol-1 == i: 
-        #                     # page.get_by_role("button", name="Close").click()
-        #                     break
-        #                 page.get_by_role("cell").nth(4).click(timeout=out) #bin btn, then loop foreach
-        #                 print('\na. delete btn user click')
-        #                 # i -= 1
-                        
-        #             # if i == 1: break
-
-        #         # 3. Tiap foreach ada konfirmasi hapus (Selalu dijalankan)
-        #         page.get_by_role("button").filter(has_text=re.compile(r"^$")).nth(4).click(timeout=out) #refresh 2x
-        #         page.get_by_role("button").filter(has_text=re.compile(r"^$")).nth(4).click(timeout=out)
-        #         print('selese --- endings')
-        #         page.get_by_role("cell").nth(4).click(timeout=out) #bin btn
-        #         time.sleep(0.2)
-        #         try:
-        #             page.get_by_role("button", name="Hapus").click(timeout=out) #langsung apus
-        #         except:
-        #             continue
-
-        #         page.get_by_role("button").filter(has_text=re.compile(r"^$")).nth(4).click(timeout=out) #refresh 2x
-        #         page.get_by_role("button").filter(has_text=re.compile(r"^$")).nth(4).click(timeout=out)
-        #         print('refresh')
-        #         time.sleep(2)
-        
-        # except Exception as e:
-        #     print(e)
-        #     import sys
-        #     exc_type, exc_obj, exc_tb = sys.exc_info()
-        #     print(f"# Terjadi error di thread getlistdata on line: {str(exc_tb.tb_lineno)} {e} ")
-
-
-        #
-        page.pause() #debugging, open recorder on playwright
-        
-        page.wait_for_timeout(5000)
-        # browser.close()
-
-# UNKOMENNNNN THISSSSSSSSSSSSSSSSSSSSSSSSSS IF WANT TO OPEN BROWSER
-if __name__ == "__main__":
-    run()
-
-
+# --- END GET LIST DATA BY SEARCH ---
 
 
 from PIL import Image, ImageDraw, ImageFont
 import qrcode
 import textwrap
-import os
 
 def generate_custom_document(nama, data_qr, config, output_name):
     cfg = config
@@ -931,8 +719,85 @@ templates = {
     }
 }
 
-# Cara Pakai:
-
-# if __name__ == "__main__":
+# UNKOMENNNNN THISSSSSSSSSSSSSSSSSSSSSSSSSS
+if __name__ == "__main__":
+    # ===== RUN no need browser =====
     # generate_custom_document("Jey Neutron", "link_data", templates["id_card"], "hasil_cocard.png")
-    # run()
+    
+    # ===== RUN need browser =====
+    p_instance, browser, page = get_playwright_page() #konek ke playwr
+    
+    # usersso, passso, approv, msgsso = get_credentials()  
+    # # Interaksi Login #UPDATED LOGINNNNNN ======
+    # print('# Goto web')
+    # print('# Login SSO')
+    # page.goto("https://fasih-sm.bps.go.id/oauth_login.html")
+    # page.get_by_role("link", name="Login SSO BPS").click()
+    # page.wait_for_load_state("networkidle", timeout=5000)
+    # username_field = page.get_by_role("textbox", name="Username or email")
+    # if username_field.count() > 0:
+    #     username_field.click()
+    #     username_field.fill(usersso)
+    #     password_field = page.get_by_role("textbox", name="Password")
+    #     if password_field.count() > 0:
+    #         password_field.click()
+    #         password_field.fill(passso)
+    #     page.get_by_role("button", name="Log In").click()
+    # print('# Logged in')
+    # page.reload()
+    print('Title page: ', page.title())
+    # ===== MAIN FUNC =====
+
+    # RUN change reg and assign
+    # /master sls
+    # from shapely import wkt
+    # dfmaster = pd.read_csv(r"mfd_wilker25.csv")
+    # dfmaster['polygon'] = dfmaster['WKT'].apply(wkt.loads)
+
+    # df = pd.read_csv('temp.csv') # columns: Nama Perusahaan, idd, idsubsls, coordinate, KET
+    # df['idsubsls'] = df['coordinate'].apply(lambda x:  get_subsls(x, df=dfmaster))
+    # df.to_csv('temp.csv', index=False)
+    # print('done, cek file')
+
+    # /resub
+    # run_resubs(namafile='temp.csv', realokasisubs=True, delete_assignment=True), #assign petugas pake yg first muncul
+
+    # RUN Email broadcast fasih
+    # alt 1
+    #df: nama, idsbr, email
+    # namafile = 'temp.csv'
+    # run_emailbc(namafile)
+    # log_message('FINISIHED')
+    # alt 2
+    # 1. Change email
+    # target_url = "https://fasih-sm.bps.go.id/app/api/email/api/v2/assignment/change-email?newPin=false"
+    # payload = {
+    #     "assignmentId": "3adf0903-c295-4584-b3aa-3a3190e5bc23",
+    #     "surveyPeriodId": "fd68e454-ba45-4b85-8205-f3bf777ded24",
+    #     "email": "deliamanda1218@gmail.com",
+    #     "reminder": False
+    #     }
+    # cek sukses is True
+    # run_api_request(page, "post", target_url, )
+    # 2. Send email
+    # target_url = "https://fasih-sm.bps.go.id/app/api/email/api/v1/assignment/send-email-by-assignment?newPin=false"
+    # payload = {
+    #     "reminder": False,
+    #     "surveyPeriodId": "fd68e454-ba45-4b85-8205-f3bf777ded24",
+    #     "assignmentIds": [
+    #         "3adf0903-c295-4584-b3aa-3a3190e5bc23"
+    #     ]
+    #     }
+    # cek sukses is True
+
+    # RUN add penawaran
+    # run_addpenawaran()
+
+    # RUN get list data by search
+    namafile = 'temp.csv'
+    df = pd.read_csv(namafile)
+    df2 = run_getlist_search(page, df)
+    df2.to_csv(namafile, index=False)
+
+    # ===== END MAIN FUNC =====
+    # page.pause() #debugging, open recorder on playwright
