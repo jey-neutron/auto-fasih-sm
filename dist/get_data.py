@@ -875,8 +875,20 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
         else: msgapprov=""
         instance.log_message(f"# Loading for {lendf-int(mulai)} data, length dataframe: {lendf}-mulai data{msgapprov}...")
 
+        # back first to fsh-sm
+        history_length = page.evaluate("window.history.length")
+        if history_length > 1:
+            try:
+                page.go_back(timeout=5000)
+            except Exception:
+                pass
+        else: pass
         # get header from reloading page opened rn
         captured_req, api_url, api_payload, api_headers = get_headers(page, page.url())
+        time.sleep(0.5)
+        # kembaliin ke page show robot
+        page.goto(instance.getassets('index.html'))
+        page.evaluate("document.body.setAttribute('data-status', 'running')")
 
         # start loop per df
         if mulai <0 : i=-1
