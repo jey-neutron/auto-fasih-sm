@@ -1,4 +1,4 @@
-APP_VERSION = 'v2.3.2' #updated headers 
+APP_VERSION = 'v2.3.3' #updated headers and bug fixes
 # konfig
 from datetime import datetime
 import pandas as pd
@@ -6,6 +6,7 @@ import time
 import random
 import os
 import json
+import csv
 from playwright.sync_api import sync_playwright, expect, TimeoutError as PlaywrightTimeoutError
 from urllib.parse import unquote
 import json
@@ -703,7 +704,11 @@ def get_list_data (instance, namadf,  mode="w", maxrow=0, sep=","):
             df = df[[c for c in listcol if c in df.columns]]
             df['link'] = 'https://fasih-sm.bps.go.id/app/assignment/'+ df['surveyPeriodId'].astype(str) + "/" + df['id'].astype(str)
 
-            instance.log_message(f"Done. Link data saved to '{namadf}'. Total baris: {df.shape[0]}","green_tag")
+            # get csv jml row
+            with open (namadf,'r') as file:
+                reader = csv.reader(file)
+                jml_brs = len(list(reader)) - 1 #minus header
+            instance.log_message(f"Done. Link data saved to '{namadf}'. Total baris: {jml_brs}","green_tag")
 
             # save as csv
             if mode=="w":
@@ -884,8 +889,8 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
                 pass
         else: pass
         # get header from reloading page opened rn
-        captured_req, api_url, api_payload, api_headers = get_headers(page, page.url())
-        time.sleep(0.5)
+        captured_req, api_url, api_payload, api_headers = get_headers(page, page.url)
+        time.sleep(1)
         # kembaliin ke page show robot
         page.goto(instance.getassets('index.html'))
         page.evaluate("document.body.setAttribute('data-status', 'running')")
@@ -994,7 +999,18 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
                         response = run_api_request(instance, page, method="post", target_url=target_url, target_id=target_id, msg=msg, payload=payload, headers=api_headers) 
 
                         if response is None:
-                            raise ValueError("API tidak mengembalikan data (Response is None)")
+                            try:
+                                i-=1
+                                page.go_back(timeout=5000)
+                                time.sleep(3)
+                                # page.go_forward()
+                                # kembaliin ke page show robot
+                                page.goto(instance.getassets('index.html'))
+                                page.evaluate("document.body.setAttribute('data-status', 'running')")
+                                time.sleep(2)
+                                continue
+                            except:
+                                raise ValueError("API tidak mengembalikan data (Response is None)")
                         if response['success'] == False or response['success'] == "false":
                             raise ValueError(response['message'])
 
@@ -1022,8 +1038,12 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
                 dfbaru.to_csv(filename, index=False)
                 
                 # kasih jeda
-                if i%10 == 0 and i!=0: time.sleep(30); instance.log_message('# Waiting...')
-                if i%100 == 0 and i!=0: time.sleep(60); instance.log_message('# Waiting...')
+                if i%10 == 0 and i!=0:
+                    instance.log_message('# Waiting...')
+                    time.sleep(30)
+                if i%100 == 0 and i!=0: 
+                    instance.log_message('# Waiting...')
+                    time.sleep(30)
                 
             except Exception as e:
                 # coba refresh n login ulang
