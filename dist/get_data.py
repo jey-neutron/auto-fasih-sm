@@ -1,4 +1,4 @@
-APP_VERSION = 'v2.3.1' 
+APP_VERSION = 'v2.3.2' #updated headers 
 # konfig
 from datetime import datetime
 import pandas as pd
@@ -54,7 +54,7 @@ def help(instance,var=''):
     '''Get list of functions'''
     exclude_fun_list = ["mainfunc", "get_list_data", "datetime", "sync_playwright","check_stop", "handle_response", 
                         'mergejson','run_api_request','get_playwright_page','expect','unquote', 'PlaywrightTimeoutError',
-                        'LZString']
+                        'LZString','get_headers']
     if var == 1:
         instance.isdone = 0
         instance.log_message(f"List of available functions:")
@@ -645,21 +645,15 @@ def get_list_data (instance, namadf,  mode="w", maxrow=0, sep=","):
     try:
         p_instance, browser, page = get_playwright_page() #konek ke playwr
         target_url = "https://fasih-sm.bps.go.id/app/api/analytic/api/v2/assignment/datatable-all-user-survey-periode"
-        # get req payload
-        with page.expect_request(target_url) as req_info:
-            page.reload()
-        time.sleep(1)
-        captured_req = req_info.value
-        api_url = captured_req.url
-        api_headers = captured_req.headers
-        api_payload = json.loads(captured_req.post_data)
-
+        # get req payload from reloading page
+        captured_req, api_url, api_payload, api_headers = get_headers(page, target_url=target_url)
+        
         # mod req
         per_batch = 50
         api_payload['length'] = per_batch 
         api_payload['start'] = 0 # 50 100 150 dst
         # get response first load
-        resp = run_api_request(instance, page, "post", api_url, target_id=None, payload=api_payload)
+        resp = run_api_request(instance, page, "post", api_url, target_id=None, payload=api_payload, headers=api_headers)
         # resp = json.loads(response_json)
         total_hit = resp.get('totalHit', 0)
         instance.log_message(f"# Total data terdeteksi: {total_hit}")
@@ -689,7 +683,7 @@ def get_list_data (instance, namadf,  mode="w", maxrow=0, sep=","):
             time.sleep(random.uniform(1.5, 5.0))
             
             # Tembak API untuk batch sekarang
-            resp_next = run_api_request(instance, page, "post", api_url, target_id=None, payload=api_payload)
+            resp_next = run_api_request(instance, page, "post", api_url, target_id=None, payload=api_payload, headers=api_headers)
             # resp_next = json.loads(response_json_next)
             
             data_batch = resp_next.get('searchData', [])
@@ -742,7 +736,7 @@ def get_list_data (instance, namadf,  mode="w", maxrow=0, sep=","):
             pass
 
 # Function penunjang approv (and get data)
-def run_api_request(instance, page, method, target_url, target_id, msg="", payload=None, filename="data_survey.json"):
+def run_api_request(instance, page, method, target_url, target_id, msg="", payload=None, filename="data_survey.json", headers=""):
     """
     Fungsi tunggal untuk menangani GET dan POST request ke API BPS. Method: 'GET', 'GET2' atau 'POST'. 'GET' untuk Query Parameter (?assignmentId=123), 'GET2' untuk id di dalam URL path (/api/data/123)
     """
@@ -759,12 +753,13 @@ def run_api_request(instance, page, method, target_url, target_id, msg="", paylo
                 break
         
         # 2. SELEKSI HEADERS BERDASARKAN METHOD
-        headers = {
-            "X-XSRF-TOKEN": csrf_token,
-            "Referer": "https://bps.go.id"
-        }
-        if method == "POST":
-            headers["Content-Type"] = "application/json"
+        if headers == "":
+            headers = {
+                "X-XSRF-TOKEN": csrf_token,
+                "Referer": "https://bps.go.id"
+            }
+            if method == "POST":
+                headers["Content-Type"] = "application/json"
 
         log_message(f"- Try {msg} request...")
 
@@ -778,15 +773,15 @@ def run_api_request(instance, page, method, target_url, target_id, msg="", paylo
                     "statusApproval": status_approv,
                     "comment": "\"\""
                 }
-            response = page.request.post(target_url, headers=headers, data=payload)
+            response = page.request.post(target_url, headers=headers, data=payload, timeout=60000)
             
         elif method == "GET":
             # Jika target_id dimasukkan sebagai Query Parameter (?assignmentId=123)
-            response = page.request.get(target_url, headers=headers, params={"assignmentId": target_id}) # ====== gaperlukah payload di GET? next
+            response = page.request.get(target_url, headers=headers, params={"assignmentId": target_id},timeout=60000) # ====== gaperlukah payload di GET? next
         elif method == "GET2":
             # Jika ID dimasukkan langsung di dalam URL path (misal: /api/data/123)
             url_with_id = f"{target_url}/{target_id}"
-            response = page.request.get(url_with_id, headers=headers)
+            response = page.request.get(url_with_id, headers=headers,timeout=60000)
         
         else:
             log_message(f"- Method {method} tidak didukung.")
@@ -814,8 +809,40 @@ def run_api_request(instance, page, method, target_url, target_id, msg="", paylo
             return None
 
     except Exception as e:
-        log_message(f'- Error pada {method} request: {e}')
+        log_message(f'- Error pada {method} request: {str(e).split('Call log:')[0]}')
         return None
+
+# Function penunjang
+def get_headers(page, target_url):
+    # get header from reloading page
+    with page.expect_request(target_url) as req_info:
+        page.reload()
+    captured_req = req_info.value
+    api_url = captured_req.url
+    #### moded headers
+    # moded payload
+    api_payload = None
+    if captured_req.post_data:
+        try:
+            api_payload = json.loads(captured_req.post_data)
+        except json.JSONDecodeError:
+            # Jika bukan JSON (misal form submission biasa), ambil text mentahnya
+            api_payload = captured_req.post_data
+    # moded headers
+    api_headers = dict(captured_req.headers)  # Dibuat dict agar bisa di-pop
+    pseudo_headers = [":authority", ":method", ":path", ":scheme", "content-length"]
+    for key in pseudo_headers:
+        api_headers.pop(key, None)
+    # moded csrf token refreshing
+    csrf_token = ""
+    for cookie in page.context.cookies():
+        if cookie['name'] == 'XSRF-TOKEN': 
+            csrf_token = unquote(cookie['value'])
+            break
+    if csrf_token:
+        api_headers["X-XSRF-TOKEN"] = csrf_token
+    ### end moded headers
+    return captured_req, api_url, api_payload, api_headers
 
 # Function approv (and get data)
 def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdentity', sep=','):
@@ -848,6 +875,9 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
         else: msgapprov=""
         instance.log_message(f"# Loading for {lendf-int(mulai)} data, length dataframe: {lendf}-mulai data{msgapprov}...")
 
+        # get header from reloading page opened rn
+        captured_req, api_url, api_payload, api_headers = get_headers(page, page.url())
+
         # start loop per df
         if mulai <0 : i=-1
         else: i = mulai-1
@@ -873,7 +903,7 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
                     try:
                         # send and get response (get data detail all)
                         base_url = "https://fasih-sm.bps.go.id/app/api/assignment-general/api/assignment/get-by-assignment-id"
-                        response = run_api_request(instance, page, method="get", target_url=base_url, target_id=target_id, msg=f"GetData-row-{i}")
+                        response = run_api_request(instance, page, method="get", target_url=base_url, target_id=target_id, msg=f"GetData-row-{i}", headers=api_headers)
                         if response is None:
                             raise ValueError("API tidak mengembalikan data (Response is None)")
                         if response['success'] == False or response['success'] == "false":
@@ -925,12 +955,12 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
                             # cek by gettin btn approval
                             target_url = f"https://fasih-sm.bps.go.id/app/api/assignment-approval/api/v2/get-button-approval?assignmentId={target_id}"
                             #instance, page, method, target_url, target_id, msg="", payload=None, filename="data_survey.json"
-                            response = run_api_request(instance, page, method="post", target_url=target_url, target_id=target_id, msg=f"Cek-status-row-{i}", payload={}) 
+                            response = run_api_request(instance, page, method="post", target_url=target_url, target_id=target_id, msg=f"Cek-status-row-{i}", payload={}, headers=api_headers) 
                             time.sleep(1)
                             if response['data'] >= 2: #artinya udah approv
                                 # makanya revoke
                                 target_url = "https://fasih-sm.bps.go.id/app/api/assignment-approval/api/v2/revoke-approval" #revoke
-                                response = run_api_request(instance, page, method="post", target_url=target_url, target_id=target_id, msg=f"Revoking-row-{i}") 
+                                response = run_api_request(instance, page, method="post", target_url=target_url, target_id=target_id, msg=f"Revoking-row-{i}", headers=api_headers) 
                                 time.sleep(1)
                             elif response['data'] == 1: pass
                             else: 
@@ -949,7 +979,7 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
                         
                         # reject or approv
                         target_url = "https://fasih-sm.bps.go.id/app/api/assignment-approval/api/v2/approval" 
-                        response = run_api_request(instance, page, method="post", target_url=target_url, target_id=target_id, msg=msg, payload=payload) 
+                        response = run_api_request(instance, page, method="post", target_url=target_url, target_id=target_id, msg=msg, payload=payload, headers=api_headers) 
 
                         if response is None:
                             raise ValueError("API tidak mengembalikan data (Response is None)")
