@@ -1,4 +1,9 @@
-APP_VERSION = 'v2.3.3' #updated headers and bug fixes
+# konfig var
+APP_VERSION = 'v2.3.4' #updated headers and make thread workers
+TIMEOUT_REQUEST = 60000 #ms
+ROW_REQUEST = 50 #jml row yg diambil dari request
+MAX_WORKERS = 3 #jml tab dibuka
+CHROME_PORT = "http://localhost:9222"
 # konfig
 from datetime import datetime
 import pandas as pd
@@ -6,21 +11,26 @@ import time
 import random
 import os
 import json
-import csv
 from playwright.sync_api import sync_playwright, expect, TimeoutError as PlaywrightTimeoutError
 from urllib.parse import unquote
 import json
+import sys
+import csv
+import threading
+from concurrent.futures import ThreadPoolExecutor, wait
 # harus ada di mainapp, import fitur added
 from lzstring import LZString
 import ast
 import qrcode
 from PIL import Image, ImageDraw, ImageFont
 import textwrap
-    
+# Lock untuk mengamankan penulisan dari beberapa thread sekaligus
+csv_lock = threading.Lock()    
+tab_lock = threading.Lock()
 
-###################################
+# =====================================================================
 # FUNC DRAFT 
-###################################
+# =====================================================================
 
 # def inputwebdash(instance, var)
 # def assignselect(instance, var)
@@ -39,23 +49,15 @@ import textwrap
 #             raise ValueError(response['message'])
 
 
-###################################
+# =====================================================================
 # FUNC INTRODUCTION 
-###################################
-
-def ver(instance, var=''): 
-    '''Get a version app'''
-    if var==1:
-        instance.isdone = 0
-        instance.log_message(f"Application version: {APP_VERSION}")
-        instance.isdone = 1
-    return APP_VERSION
+# =====================================================================
 
 def help(instance,var=''):
     '''Get list of functions'''
     exclude_fun_list = ["mainfunc", "get_list_data", "datetime", "sync_playwright","check_stop", "handle_response", 
                         'mergejson','run_api_request','get_playwright_page','expect','unquote', 'PlaywrightTimeoutError',
-                        'LZString','get_headers']
+                        'LZString','get_headers','row_mainfunc','ThreadPoolExecutor','wait']
     if var == 1:
         instance.isdone = 0
         instance.log_message(f"List of available functions:")
@@ -104,9 +106,9 @@ def render(instance,var):
     #instance.isdone=1
     
 
-###################################
+# =====================================================================
 # FUNC SECTION MANAJEMEN MITRA
-###################################
+# =====================================================================
 def mitra_geturl(instance=None,var='[]'):
     '''Generate url mitra dari var yg diinput. Var=["id_ms", "id_mitra", "kd_survei", 'id_keg', 'kd_prov']'''
 
@@ -343,12 +345,11 @@ def mitra_addpenawaran(instance, var):
 
     log_message('SLESE')
     # instance.isdone = 1
-# END SECTION MANAJEMEN MITRA ###################################
 
 
-###################################
+# =====================================================================
 # FUNC ADDED
-###################################
+# =====================================================================
 def getkurs(instance, var):
     '''Convert kurs data dari IDR.json hasil dari api web exchangerate-api.com [Pake "NonApprov"] [https://v6.exchangerate-api.com/v6/API-KEY/latest/IDR]'''
     instance.isdone = 0
@@ -418,9 +419,9 @@ def seedata(instance, var):
     instance.isdone = 1
 
 
-###################################
+# =====================================================================
 # FUNC SECTION FUNGSI TAMBAHAN MAINFUNC 
-###################################
+# =====================================================================
 def getdataAll(namafile = 'data_survey.json'):
     '''FUNCTION FOR GETTING DATA GENERAL SURVEY (mybe ada kendala, tpi sementara ini deh), PAKE APPROVAL FASIH (TRUE/FALSE)'''
     # Open the file and load its content
@@ -633,12 +634,18 @@ def getdataPES(namafile='data_survey.json'):
 
     # FINISH
     return d
-# END SECTION FUNC TAMBAHAN MAINFUNC ###################################
 
+def ver(instance, var=''): 
+    '''Get a version app'''
+    if var==1:
+        instance.isdone = 0
+        instance.log_message(f"Application version: {APP_VERSION}")
+        instance.isdone = 1
+    return APP_VERSION
 
-###################################
+# =====================================================================
 # FUNC SECTION MAIN FUNC, DONT DISTURB
-###################################
+# =====================================================================
 # Function to get list data
 def get_list_data (instance, namadf,  mode="w", maxrow=0, sep=","):
     '''Get dataframe dari prelist link fasih untuk dijadikan bahan, kemudian export ke csv juga. '''
@@ -650,11 +657,14 @@ def get_list_data (instance, namadf,  mode="w", maxrow=0, sep=","):
         captured_req, api_url, api_payload, api_headers = get_headers(page, target_url=target_url)
         
         # mod req
-        per_batch = 50
-        api_payload['length'] = per_batch 
+        api_payload['length'] = ROW_REQUEST 
         api_payload['start'] = 0 # 50 100 150 dst
         # get response first load
         resp = run_api_request(instance, page, "post", api_url, target_id=None, payload=api_payload, headers=api_headers)
+        if resp is None:
+            raise ValueError("API tidak mengembalikan data (Response is None)")
+        if 'success' in resp and resp['success'] in [False, "false"]:
+            raise ValueError(resp['message'])
         # resp = json.loads(response_json)
         total_hit = resp.get('totalHit', 0)
         instance.log_message(f"# Total data terdeteksi: {total_hit}")
@@ -668,10 +678,10 @@ def get_list_data (instance, namadf,  mode="w", maxrow=0, sep=","):
         master_data_list = []
         data_awal = resp.get('searchData', []) 
         master_data_list.extend(data_awal)
-        instance.log_message(f"# Get {per_batch} batch data pertama")
+        instance.log_message(f"# Get {ROW_REQUEST} batch data pertama")
 
         # LOOP PENCICILAN (Mulai dari start=50, karena start=0 sudah diambil di atas)
-        start_point = per_batch
+        start_point = ROW_REQUEST
         while start_point < total_hit:
             check_stop(instance)
             page.goto(instance.getassets('index.html'))
@@ -685,6 +695,10 @@ def get_list_data (instance, namadf,  mode="w", maxrow=0, sep=","):
             
             # Tembak API untuk batch sekarang
             resp_next = run_api_request(instance, page, "post", api_url, target_id=None, payload=api_payload, headers=api_headers)
+            if resp_next is None:
+                raise ValueError("API tidak mengembalikan data (Response is None)")
+            if 'success' in resp_next and resp_next['success'] in [False, "false"]:
+                raise ValueError(resp_next['message'])
             # resp_next = json.loads(response_json_next)
             
             data_batch = resp_next.get('searchData', [])
@@ -696,7 +710,7 @@ def get_list_data (instance, namadf,  mode="w", maxrow=0, sep=","):
             instance.log_message(f"- Berhasil ambil {len(data_batch)} data. Total: {len(master_data_list)}")
             
             # Naikkan kelipatan start (0 -> 50 -> 100 -> 150 dst)
-            start_point += per_batch
+            start_point += ROW_REQUEST
         
         if master_data_list:
             df = pd.DataFrame(master_data_list)
@@ -704,18 +718,18 @@ def get_list_data (instance, namadf,  mode="w", maxrow=0, sep=","):
             df = df[[c for c in listcol if c in df.columns]]
             df['link'] = 'https://fasih-sm.bps.go.id/app/assignment/'+ df['surveyPeriodId'].astype(str) + "/" + df['id'].astype(str)
 
-            # get csv jml row
-            with open (namadf,'r') as file:
-                reader = csv.reader(file)
-                jml_brs = len(list(reader)) - 1 #minus header
-            instance.log_message(f"Done. Link data saved to '{namadf}'. Total baris: {jml_brs}","green_tag")
-
             # save as csv
             if mode=="w":
                 df.to_csv(namadf, index=False, sep=sep, mode="w")
             elif mode=="a":
                 df.to_csv(namadf, index=False, sep=sep, mode="a", header=False)
 
+            # get csv jml row
+            with open (namadf,'r') as file:
+                reader = csv.reader(file)
+                jml_brs = len(list(reader)) - 1 #minus header
+            instance.log_message(f"Done. Link data saved to '{namadf}'. Total baris: {jml_brs}","green_tag")
+            
             # return df
         else:
             instance.log_message("Tidak ada data yang berhasil dikumpulkan.", "red_tag")
@@ -731,7 +745,10 @@ def get_list_data (instance, namadf,  mode="w", maxrow=0, sep=","):
         exc_type, exc_obj, exc_tb = sys.exc_info()
         instance.log_message(f"# Terjadi error di thread getlistdata on line: {str(exc_tb.tb_lineno)} {e} ", "red_tag")
     finally:
+        time.sleep(1)
         instance.isdone = 1
+        page.goto(instance.getassets('index.html'))
+        page.evaluate("document.body.setAttribute('data-status', 'done')")
         # Selalu tutup p_instance di blok 'finally' agar tidak hang
         try:
             p_instance.stop()
@@ -741,7 +758,7 @@ def get_list_data (instance, namadf,  mode="w", maxrow=0, sep=","):
             pass
 
 # Function penunjang approv (and get data)
-def run_api_request(instance, page, method, target_url, target_id, msg="", payload=None, filename="data_survey.json", headers=""):
+def run_api_request(instance, page, method, target_url, target_id, msg="", payload=None, filename="data_survey.json", headers="", prefix_log=''):
     """
     Fungsi tunggal untuk menangani GET dan POST request ke API BPS. Method: 'GET', 'GET2' atau 'POST'. 'GET' untuk Query Parameter (?assignmentId=123), 'GET2' untuk id di dalam URL path (/api/data/123)
     """
@@ -766,7 +783,7 @@ def run_api_request(instance, page, method, target_url, target_id, msg="", paylo
             if method == "POST":
                 headers["Content-Type"] = "application/json"
 
-        log_message(f"- Try {msg} request...")
+        log_message(f"{prefix_log}- Try {msg} request...")
 
         # 3. EKSEKUSI REQUEST (GET vs POST)
         if method == "POST":
@@ -778,24 +795,24 @@ def run_api_request(instance, page, method, target_url, target_id, msg="", paylo
                     "statusApproval": status_approv,
                     "comment": "\"\""
                 }
-            response = page.request.post(target_url, headers=headers, data=payload, timeout=60000)
+            response = page.request.post(target_url, headers=headers, data=payload, timeout=TIMEOUT_REQUEST)
             
         elif method == "GET":
             # Jika target_id dimasukkan sebagai Query Parameter (?assignmentId=123)
-            response = page.request.get(target_url, headers=headers, params={"assignmentId": target_id},timeout=60000) # ====== gaperlukah payload di GET? next
+            response = page.request.get(target_url, headers=headers, params={"assignmentId": target_id},timeout=TIMEOUT_REQUEST) # ====== gaperlukah payload di GET? next
         elif method == "GET2":
             # Jika ID dimasukkan langsung di dalam URL path (misal: /api/data/123)
             url_with_id = f"{target_url}/{target_id}"
-            response = page.request.get(url_with_id, headers=headers,timeout=60000)
+            response = page.request.get(url_with_id, headers=headers,timeout=TIMEOUT_REQUEST)
         
         else:
-            log_message(f"- Method {method} tidak didukung.")
+            log_message(f"{prefix_log}- Method {method} tidak didukung.")
             return None
 
         # 4. HANDLE RESPONSE (Dipakai bersama)
         if response.ok:
             response_json = response.json()
-            log_message(f"- {msg} success!")
+            log_message(f"{prefix_log}- {msg} success!")
             
             # Jika GET, simpan ke file JSON
             if method == "GET":
@@ -810,14 +827,14 @@ def run_api_request(instance, page, method, target_url, target_id, msg="", paylo
                 
             return response_json
         else:
-            log_message(f"- {method} Gagal! Status: {response.status} - {response.text()}")
+            log_message(f"{prefix_log}- {method} Gagal! Status: {response.status} - {response.text()}")
             return None
 
     except Exception as e:
-        log_message(f'- Error pada {method} request: {str(e).split('Call log:')[0]}')
+        log_message(f'{prefix_log}- Error pada {method} request: {str(e).split('Call log:')[0]}')
         return None
 
-# Function penunjang
+# Function penunjang get header utk diinject
 def get_headers(page, target_url):
     # get header from reloading page
     with page.expect_request(target_url) as req_info:
@@ -849,12 +866,179 @@ def get_headers(page, target_url):
     ### end moded headers
     return captured_req, api_url, api_payload, api_headers
 
+# Function penunjang process per row
+def row_mainfunc(i, instance, lendf, dflist, idlog, filename, func, api_headers, cekapprov, idwork, cdp_url):
+    # Buat context dan tab baru khusus untuk thread ini agar tidak bentrok
+    # instance.log_message(f"[tab:{idwork}] # {i}/{lendf-1} | {str(dflist[i][idlog])[:20]} | loading")
+
+    log_msg_list = []
+    # Fungsi pembantu lokal agar kode di bawah tetap bersih
+    def log_local(message, tag=None):
+        log_msg_list.append((message, tag))
+
+    with sync_playwright() as p_instance:
+        try:
+            with tab_lock:
+                # p_instance = sync_playwright().start()
+                browser = p_instance.chromium.connect_over_cdp(cdp_url)
+                # context = browser.new_context()
+                page = browser.contexts[0].new_page()
+                time.sleep(0.2)  # Jeda mikro agar websocket browser stabil
+        
+            check_stop(instance)
+
+            # 1. CEK DAH APPROVED LOM ke1
+            if dflist[i]['approved'] in [True, "True"]:
+                log_local(f"[tab:{idwork}] # {i}/{lendf-1} | {str(dflist[i][idlog])[:20]} | Approv'd, skip")
+                return
+            # perlukah cek approv yg ke2? ======
+
+            target_id = dflist[i]['id']
+            # 2. FUNCTION TAMBAHAN HERE
+            if func:
+                try:
+                    base_url = "https://fasih-sm.bps.go.id/app/api/assignment-general/api/assignment/get-by-assignment-id"
+                    response = run_api_request(instance, page, method="get", target_url=base_url, target_id=target_id, msg=f"GetData-row-{i}", headers=api_headers, prefix_log=f'[tab:{idwork}] ')
+                    
+                    if response is None:
+                        raise ValueError("API tidak mengembalikan data (Response is None)")
+                    if 'success' in response and response['success'] in [False, "false"]:
+                        raise ValueError(response['message'])
+                    
+                    # ketika apireq get nya success, maka kesini, jika ga, skip. 
+                    # get a dict value per row from web (init dict from func)
+                    resultDict = func()
+
+                    for key, value in resultDict.items():
+                        if "err" in key.lower():
+                            log_local(f"Ada error dengan value: {value}")
+                            raise ValueError(f"Ada error dengan value: {value}")
+                    
+                    # Update data 
+                    dflist[i].update(resultDict)
+                    time.sleep(random.uniform(1, 2)) #kasih jeda
+                    
+                except ValueError as e:
+                    err_msg = str(e).split("Stacktrace:")[0]
+                    log_local(f"# Terjadi error on GetData: ")
+                    log_local(err_msg, "red_tag")
+                    
+                    return
+
+            # 3. PROSES APPROVE / REJECT
+            if cekapprov != False:
+                try:
+                    if cekapprov == True:
+                        payload = {
+                            "assignmentId": target_id,
+                            "statusApproval": 'true',
+                            "comment": "\"\""
+                        }
+                        msg = f"Approving-row-{i}"
+
+                    elif cekapprov == "Reject":
+                        target_url = f"https://fasih-sm.bps.go.id/app/api/assignment-approval/api/v2/get-button-approval?assignmentId={target_id}"
+                        response = run_api_request(instance, page, method="post", target_url=target_url, target_id=target_id, msg=f"Cek-status-row-{i}", payload={}, headers=api_headers, prefix_log=f'[tab:{idwork}] ') 
+                        time.sleep(1)
+                        
+                        if response['data'] >= 2: # Sudah diapprove pengawas
+                            target_url = "https://fasih-sm.bps.go.id/app/api/assignment-approval/api/v2/revoke-approval" # Revoke
+                            response = run_api_request(instance, page, method="post", target_url=target_url, target_id=target_id, msg=f"Revoking-row-{i}", headers=api_headers, prefix_log=f'[tab:{idwork}] ') 
+                            time.sleep(1)
+                        elif response['data'] == 1: 
+                            pass
+                        else: 
+                            raise ValueError(f"{response['message']} - Error code {response['errorCode']}")
+
+                        payload = {
+                            "assignmentId": target_id,
+                            "statusApproval": "false",
+                            "comment": "\"\""
+                        }
+                        msg = f"Rejecting-row-{i}"
+                    
+                    # reject or approv
+                    target_url = "https://fasih-sm.bps.go.id/app/api/assignment-approval/api/v2/approval"
+                    response = run_api_request(instance, page, method="post", target_url=target_url, target_id=target_id, msg=msg, payload=payload, headers=api_headers, prefix_log=f'[tab:{idwork}] ') 
+
+                    if response is None:
+                        # try:
+                        #     # Jika respon hilang, coba balik utk refresh ====== need update
+                        #     page.go_back(timeout=5000)
+                        #     time.sleep(3)
+                        #     page.goto(instance.getassets('index.html'))
+                        #     page.evaluate("document.body.setAttribute('data-status', 'running')")
+                        #     time.sleep(2)
+                        #     return
+                        # except:
+                        raise ValueError("API tidak mengembalikan data (Response is None)")
+                            
+                    if 'success' in response and response['success'] in [False, "false"]:
+                        raise ValueError(response['message'])
+
+                    time.sleep(random.uniform(1, 2)) #jeda
+
+                except Exception as e:
+                    err_msg = str(e).split("Stacktrace:")[0]
+                    log_local(f"[tab:{idwork}] # {i}/{lendf-1} | {str(dflist[i][idlog])[:20]} | Skip gabisa approv")
+                    log_local(f"Error approv {e}", "red_tag")
+                    
+                    return
+
+            if not cekapprov and not func: #artine ga approv ga get data juga
+                # log_local('NGAPAIN BRUH?', 'red_tag')
+                # return
+                log_local(f"[tab:{idwork}] # {i}/{lendf-1} | {str(dflist[i][idlog])[:20]} | bisa approv si") # buat coba2 tadi
+                time.sleep(2)
+
+            # 4. END RESULT IF SUCCESS
+            err_msg = None
+            # Jeda berkala per thread index
+            if i % 10 == 0 and i != 0:
+                log_local('# Waiting 30s-60s...')
+                time.sleep(30)
+                if i%100 == 0 and i!=0: # add jeda lagi
+                    time.sleep(30)
+
+        except Exception as e:
+            try:
+                if 'Server Not Found' in page.title(): 
+                    log_local(f"# Error server not found, CEK VPN -------------------------------------------\n", "red_tag")
+                    return
+                
+                page.goto(dflist[i]['link'])
+                exc_type, exc_obj, exc_tb = sys.exc_info()
+                log_local(f"# Terjadi error on line: {str(exc_tb.tb_lineno)} ")
+                log_local(str(e).split("Stacktrace:")[0]+"\n", "red_tag")
+                # try relogin sso ====== need update
+                #
+            except:
+                exc_type, exc_obj, exc_tb = sys.exc_info()
+                log_local(f"# Terjadi error on line: {str(exc_tb.tb_lineno)} ")
+                log_local(str(e).split("Stacktrace:")[0]+"\n", "red_tag")
+                
+        finally:
+            # Tampilkan status done dan tutup tab lokal agar hemat resource RAM
+            log_local(f"[tab:{idwork}] # {i}/{lendf-1} | {str(dflist[i][idlog])[:20]} | Done")
+            # log to main app
+            for msg, tag in log_msg_list:
+                instance.log_message(msg, tag)
+            # end and save to csv
+            if err_msg:
+                dflist[i]['approved'] = err_msg
+            else: 
+                dflist[i]['approved'] = True
+            with csv_lock:
+                dfbaru = pd.DataFrame(dflist)
+                dfbaru.to_csv(filename, index=False)
+            page.close()
+            # context.close()
+
 # Function approv (and get data)
 def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdentity', sep=','):
     '''Get data dari Fasih dengan membuka linknya dari dataframe df, kemudian export ke csv. Kemudian akan approv juga jika tercentang sekalian approv'''
     # konfig
-    import sys
-    instance.isdone = 0    
+    instance.isdone = 0
 
     try:
         p_instance, browser, page = get_playwright_page() #konek ke playwr
@@ -891,186 +1075,46 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
         # get header from reloading page opened rn
         captured_req, api_url, api_payload, api_headers = get_headers(page, page.url)
         time.sleep(1)
-        # kembaliin ke page show robot
+        # 1. Kembaliin ke page UI user (di tab yg page utama)
         page.goto(instance.getassets('index.html'))
         page.evaluate("document.body.setAttribute('data-status', 'running')")
 
-        # start loop per df
-        if mulai <0 : i=-1
-        else: i = mulai-1
-        while True: 
-            check_stop(instance)
-            # LOOOOOOOOOP
-            i += 1
-            if i >= lendf:
-                instance.log_message(f"# DONEEE file {filename} updated ---------------------------------")
-                break
-            try:
-                # CEK DAH APPROVED LOM ke1 (cek dari hasil csv)------------------------------------------------------------
-                # if df.loc[i, 'approved'] == True or df.loc[i, 'approved'] == "True":
-                if dflist[i]['approved'] == True or dflist[i]['approved'] == "True":
-                    instance.log_message(f"# {i}/{lendf-1} | {str(dflist[i][idlog])[:20]} | Approv'd, skip")
-                    continue
+        # start loop per df, ## UPDATED
+        # 2. Tentukan Index Awal Loop
+        if mulai < 0: 
+            start_idx = -1
+        else: 
+            start_idx = mulai - 1
+        row_indices = range(start_idx + 1, lendf)
 
-                # perlukah cek approv yg ke2? ======
-
-                # function tambahan here
-                target_id = dflist[i]['id']
-                if func:
-                    try:
-                        # send and get response (get data detail all)
-                        base_url = "https://fasih-sm.bps.go.id/app/api/assignment-general/api/assignment/get-by-assignment-id"
-                        response = run_api_request(instance, page, method="get", target_url=base_url, target_id=target_id, msg=f"GetData-row-{i}", headers=api_headers)
-                        if response is None:
-                            raise ValueError("API tidak mengembalikan data (Response is None)")
-                        if response['success'] == False or response['success'] == "false":
-                            raise ValueError(response['message'])
-                        
-                        # ketika apireq get nya success, maka kesini, jika ga, skip. 
-                        # get a dict value per row from web (init dict from func)
-                        resultDict = func()
-
-                        for key,value in resultDict.items():
-                            if "err" in key.lower():
-                                instance.log_message(f"Ada error dengan value: {value}")
-                                raise ValueError(f"Ada error dengan value: {value}")
-                            # df.at[i, key] = value
-                        # update as df list 
-                        dflist[i].update(resultDict)
-                        dfbaru = pd.DataFrame(dflist)
-                        dfbaru.to_csv(filename, index=False)
-
-                        # kasih jeda
-                        time.sleep(random.uniform(1, 2))
-                        
-                    except ValueError as e:
-                        instance.log_message(f"# Terjadi error on GetData: ")
-                        instance.log_message(str(e).split("Stacktrace:")[0], "red_tag")
-                        # logging
-                        dflist[i]['approved'] = str(e).split("Stacktrace:")[0]
-                        # df.to_csv(filename, index=False)
-                        dfbaru = pd.DataFrame(dflist)
-                        dfbaru.to_csv(filename, index=False)
-                        #continue
-                        break
-                # 
-
-                # mulai approve jika approv 
-                if cekapprov != False:
-                    try:
-                        # send and get response (approv)
-                        if cekapprov == True:
-                            payload = {
-                                "assignmentId": target_id,
-                                "statusApproval": 'true',
-                                "comment": "\"\""
-                            }
-                            msg = f"Approving-row-{i}"
-
-                        elif cekapprov == "Reject":
-                            # revoke dlu if assignment udah diacc pengawas/admin
-                            # cek by gettin btn approval
-                            target_url = f"https://fasih-sm.bps.go.id/app/api/assignment-approval/api/v2/get-button-approval?assignmentId={target_id}"
-                            #instance, page, method, target_url, target_id, msg="", payload=None, filename="data_survey.json"
-                            response = run_api_request(instance, page, method="post", target_url=target_url, target_id=target_id, msg=f"Cek-status-row-{i}", payload={}, headers=api_headers) 
-                            time.sleep(1)
-                            if response['data'] >= 2: #artinya udah approv
-                                # makanya revoke
-                                target_url = "https://fasih-sm.bps.go.id/app/api/assignment-approval/api/v2/revoke-approval" #revoke
-                                response = run_api_request(instance, page, method="post", target_url=target_url, target_id=target_id, msg=f"Revoking-row-{i}", headers=api_headers) 
-                                time.sleep(1)
-                            elif response['data'] == 1: pass
-                            else: 
-                                #instance.log_message(f"{response['message']} - Error code {response['errorCode']}")
-                                raise ValueError(f"{response['message']} - Error code {response['errorCode']}")
-
-                            # baru abistu reject
-                            payload = {
-                                "assignmentId": target_id,
-                                "statusApproval": "false",
-                                "comment": "\"\""
-                            }
-                            msg = f"Rejecting-row-{i}"
-                            #instance.log_message('cek reject target url')
-                            #raise ValueError("Maaf reject blm nyoba")
-                        
-                        # reject or approv
-                        target_url = "https://fasih-sm.bps.go.id/app/api/assignment-approval/api/v2/approval" 
-                        response = run_api_request(instance, page, method="post", target_url=target_url, target_id=target_id, msg=msg, payload=payload, headers=api_headers) 
-
-                        if response is None:
-                            try:
-                                i-=1
-                                page.go_back(timeout=5000)
-                                time.sleep(3)
-                                # page.go_forward()
-                                # kembaliin ke page show robot
-                                page.goto(instance.getassets('index.html'))
-                                page.evaluate("document.body.setAttribute('data-status', 'running')")
-                                time.sleep(2)
-                                continue
-                            except:
-                                raise ValueError("API tidak mengembalikan data (Response is None)")
-                        if response['success'] == False or response['success'] == "false":
-                            raise ValueError(response['message'])
-
-                        # kasih jeda
-                        time.sleep(random.uniform(1, 2))
-
-                    except Exception as e:
-                        instance.log_message(f"# {i}/{lendf-1} | {str(dflist[i][idlog])[:20]} | Skip gabisa approv")
-                        instance.log_message(f"Error approv {e}", "red_tag")
-                        # logging
-                        dflist[i]['approved'] = str(e).split("Stacktrace:")[0]
-                        # df.to_csv(filename, index=False)
-                        dfbaru = pd.DataFrame(dflist)
-                        dfbaru.to_csv(filename, index=False)
-                        continue
-
-                if not cekapprov and not func:
-                    instance.log_message('NGAPAIN BRUH?', 'red_tag')
-                    break
-
-                # end result if success
-                dflist[i]['approved'] = True
-                # df.to_csv(filename, index=False)
-                dfbaru = pd.DataFrame(dflist)
-                dfbaru.to_csv(filename, index=False)
-                
-                # kasih jeda
-                if i%10 == 0 and i!=0:
-                    instance.log_message('# Waiting...')
-                    time.sleep(30)
-                if i%100 == 0 and i!=0: 
-                    instance.log_message('# Waiting...')
-                    time.sleep(30)
-                
-            except Exception as e:
-                # coba refresh n login ulang
-                try:
-                    if 'Server Not Found' in page.title(): 
-                        instance.log_message(f"# Error server not found, CEK VPN -------------------------------------------\n", "red_tag")
-                        break
-                    # reload
-                    page.goto(dflist[i]['link'])
-                    if i < -1: i=-1
-                    exc_type, exc_obj, exc_tb = sys.exc_info()
-                    instance.log_message(f"# Terjadi error on line: {str(exc_tb.tb_lineno)} ")
-                    instance.log_message(str(e).split("Stacktrace:")[0]+"\n", "red_tag")
-                    # try relogin sso ====== need update
-                    #
-                    continue
-
-                except:
-                    exc_type, exc_obj, exc_tb = sys.exc_info()
-                    instance.log_message(f"# Terjadi error on line: {str(exc_tb.tb_lineno)} ")
-                    instance.log_message(str(e).split("Stacktrace:")[0]+"\n", "red_tag")
-                    continue
+        # 3. Jalankan Multi-tab Pekerja via ThreadPoolExecutor
+        # Sesuaikan `max_workers` dengan kekuatan CPU/RAM (misal: 3 s.d 5 tab sekaligus)
+        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            futures = []
             
-            # jika satu row dah selesai, entah error or sukses    
-            instance.log_message(f"# {i}/{lendf-1} | {str(dflist[i][idlog])[:20]} | Done")
-            continue
+            for idx, i in enumerate(row_indices):
+                worker_id = (idx % MAX_WORKERS) + 1
+                try:
+                    f = executor.submit(
+                        row_mainfunc, i, instance, lendf, dflist, idlog, filename, func, 
+                        api_headers, cekapprov, worker_id, CHROME_PORT
+                    ) 
+                    futures.append(f)
+                    # instance.log_message(f"Baris index-{i} berhasil didaftarkan ke Worker {worker_id}")
+                    # time.sleep(0.2) # Jeda mikro pendaftaran
+                except Exception as e_submit:
+                    instance.log_message(f"Gagal memasukkan index-{i} ke Thread Pool: {e_submit}", "red_tag")
 
+            instance.log_message(f"Menunggu seluruh antrean selesai bekerja ({MAX_WORKERS} tab)...")
+            
+            # Cara paling aman dan baku di Python untuk menahan main thread sampai semua futures beres
+            from concurrent.futures import wait, ALL_COMPLETED
+            wait(futures, return_when=ALL_COMPLETED)
+            
+        # 4. Selesai Semua
+        instance.log_message(f"# DONEEE file {filename} updated ---------------------------------")
+        instance.isdone = 1
+        ##
 
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
@@ -1078,11 +1122,14 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
         instance.log_message(f"Error di thread data mainfunc: {e}", tag="red_tag")
     finally:
         # Selalu tutup p_instance di blok 'finally' agar tidak hang
-        instance.isdone = 1
         try: 
             instance.log_message('Removing temporary file')
             os.remove('data_survey.json')
-        except: instance.log_message("Ups, File emang gada")
+        except: 
+            instance.log_message("Ups, File emang gada")
+        instance.isdone = 1
+        page.goto(instance.getassets('index.html'))
+        page.evaluate("document.body.setAttribute('data-status', 'done')")
         try:
             p_instance.stop()
             instance.log_message("Koneksi Playwright di thread ditutup.")
@@ -1090,7 +1137,7 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
             # Terjadi jika get playwright page() gagal total di awal
             pass
 
-def get_playwright_page(cdp_url="http://localhost:9222"):
+def get_playwright_page(cdp_url=CHROME_PORT):
     """
     Fungsi helper untuk connect ke browser Chrome yang sudah terbuka.
     Bisa dipanggil di thread mana saja.
@@ -1110,5 +1157,3 @@ def check_stop(instance):
     '''Check if stop button is pressed'''
     if instance.stop_event.is_set():
         raise InterruptedError("Process stopped by user.")
-
-# END SECTION MAIN FUNC ###################################
