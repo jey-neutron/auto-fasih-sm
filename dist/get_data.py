@@ -4,6 +4,7 @@ TIMEOUT_REQUEST = 60000 #ms
 ROW_REQUEST = 50 #jml row yg diambil dari request
 MAX_WORKERS = 3 #jml tab dibuka
 CHROME_PORT = "http://localhost:9222"
+
 # konfig
 from datetime import datetime
 import pandas as pd
@@ -47,7 +48,7 @@ worker_pause_event.set() # True berarti jalan, False berarti pause
         
 #         # send and get response (get data detail all)
 #         base_url = "https://mitra-api.bps.go.id/api/mitra/reveal-info/nik"
-#         response = run_api_request(instance, page, method="get", target_url=base_url, target_id=target_id, msg=f"GetNIK-row-{i}")
+#         response = run_api_request(instance, , method="get", target_url=base_url, target_id=target_id, msg=f"GetNIK-row-{i}")
 #         if response is None:
 #             raise ValueError("API tidak mengembalikan data (Response is None)")
 #         if response['success'] == False or response['success'] == "false":
@@ -62,7 +63,7 @@ def help(instance,var=''):
     '''Get list of functions'''
     exclude_fun_list = ["mainfunc", "get_list_data", "datetime", "sync_playwright","check_stop", "handle_response", 
                         'mergejson','run_api_request','get_playwright_page','expect','unquote', 'PlaywrightTimeoutError',
-                        'LZString','get_headers','row_mainfunc','ThreadPoolExecutor','wait']
+                        'LZString','get_headers','row_mainfunc','ThreadPoolExecutor','wait','isdone']
     if var == 1:
         instance.isdone = 0
         instance.log_message(f"List of available functions:")
@@ -102,7 +103,7 @@ def getrandom(instance, var):
 
 def render(instance,var):
     """Memanggil index.html dengan pilihan variable terlampir var='done', 'running', 'ready' """
-    p_instance, browser, page = get_playwright_page() #konek ke playwr
+    p_instance, ctx, page = get_playwright_page() #konek ke playwr
     instance.log_message(f'Rendering HTML. Var="done", "running", "ready". Chosen: {var} ')
     page.goto(instance.getassets('index.html'))
     if var != 1:
@@ -271,7 +272,7 @@ def gen_mergemail(instance, var, nama=None, data_qr=None, cfg={}, output_name=''
 def mitra_addpenawaran(instance, var):
     '''Manmit autobrowser add to penawaran survey dari mitra kepka, df.columns = nama, status (kosong). Pastikan browser sudah sampe ke menu milih dari kepka.'''
     log_message = instance.log_message
-    p_instance, browser, page = get_playwright_page() #konek ke playwr
+    p_instance, ctx, page = get_playwright_page() #konek ke playwr
     
     namafile = instance.filename_entry.get()
     df = pd.read_csv(namafile)
@@ -656,7 +657,7 @@ def get_list_data (instance, namadf,  mode="w", maxrow=0, sep=","):
     '''Get dataframe dari prelist link fasih untuk dijadikan bahan, kemudian export ke csv juga. '''
     instance.isdone=0
     try:
-        p_instance, browser, page = get_playwright_page() #konek ke playwr
+        p_instance, ctx, page = get_playwright_page() #konek ke playwr
         target_url = "https://fasih-sm.bps.go.id/app/api/analytic/api/v2/assignment/datatable-all-user-survey-periode"
         # get req payload from reloading page
         captured_req, api_url, api_payload, api_headers = get_headers(page, target_url=target_url)
@@ -665,7 +666,7 @@ def get_list_data (instance, namadf,  mode="w", maxrow=0, sep=","):
         api_payload['length'] = ROW_REQUEST 
         api_payload['start'] = 0 # 50 100 150 dst
         # get response first load
-        resp = run_api_request(instance, page, "post", api_url, target_id=None, payload=api_payload, headers=api_headers)
+        resp = run_api_request(instance, ctx, "post", api_url, target_id=None, payload=api_payload, headers=api_headers)
         if resp is None:
             raise ValueError("API tidak mengembalikan data (Response is None)")
         if 'success' in resp and resp['success'] in [False, "false"]:
@@ -699,7 +700,7 @@ def get_list_data (instance, namadf,  mode="w", maxrow=0, sep=","):
             time.sleep(random.uniform(1.5, 5.0))
             
             # Tembak API untuk batch sekarang
-            resp_next = run_api_request(instance, page, "post", api_url, target_id=None, payload=api_payload, headers=api_headers)
+            resp_next = run_api_request(instance, ctx, "post", api_url, target_id=None, payload=api_payload, headers=api_headers)
             if resp_next is None:
                 raise ValueError("API tidak mengembalikan data (Response is None)")
             if 'success' in resp_next and resp_next['success'] in [False, "false"]:
@@ -744,16 +745,13 @@ def get_list_data (instance, namadf,  mode="w", maxrow=0, sep=","):
         #     json.dump(response_json, f, indent=4, ensure_ascii=False)
         # instance.log_message('exportedddddddddddddddddd')
 
-
     except Exception as e:
         import sys
         exc_type, exc_obj, exc_tb = sys.exc_info()
         instance.log_message(f"# Terjadi error di thread getlistdata on line: {str(exc_tb.tb_lineno)} {e} ", "red_tag")
     finally:
         time.sleep(1)
-        instance.isdone = 1
-        page.goto(instance.getassets('index.html'))
-        page.evaluate("document.body.setAttribute('data-status', 'done')")
+        isdone(instance, page=page, output=True)
         # Selalu tutup p_instance di blok 'finally' agar tidak hang
         try:
             p_instance.stop()
@@ -763,7 +761,7 @@ def get_list_data (instance, namadf,  mode="w", maxrow=0, sep=","):
             pass
 
 # Function penunjang approv (and get data)
-def run_api_request(instance, page, method, target_url, target_id, msg="", payload=None, filename="data_survey.json", headers="", prefix_log=''):
+def run_api_request(instance, context, method, target_url, target_id, msg="", payload=None, filename="data_survey.json", headers="", prefix_log=''):
     """
     Fungsi tunggal untuk menangani GET dan POST request ke API BPS. Method: 'GET', 'GET2' atau 'POST'. 'GET' untuk Query Parameter (?assignmentId=123), 'GET2' untuk id di dalam URL path (/api/data/123)
     """
@@ -774,7 +772,7 @@ def run_api_request(instance, page, method, target_url, target_id, msg="", paylo
         
         # 1. AMBIL COOKIE CSRF (Dipakai bersama)
         csrf_token = ""
-        for cookie in page.context.cookies():
+        for cookie in context.cookies():
             if cookie['name'] == 'XSRF-TOKEN': 
                 csrf_token = unquote(cookie['value'])
                 break
@@ -800,15 +798,15 @@ def run_api_request(instance, page, method, target_url, target_id, msg="", paylo
                     "statusApproval": status_approv,
                     "comment": "\"\""
                 }
-            response = page.request.post(target_url, headers=headers, data=payload, timeout=TIMEOUT_REQUEST)
+            response = context.request.post(target_url, headers=headers, data=payload, timeout=TIMEOUT_REQUEST)
             
         elif method == "GET":
             # Jika target_id dimasukkan sebagai Query Parameter (?assignmentId=123)
-            response = page.request.get(target_url, headers=headers, params={"assignmentId": target_id},timeout=TIMEOUT_REQUEST) # ====== gaperlukah payload di GET? next
+            response = context.request.get(target_url, headers=headers, params={"assignmentId": target_id},timeout=TIMEOUT_REQUEST) # ====== gaperlukah payload di GET? next
         elif method == "GET2":
             # Jika ID dimasukkan langsung di dalam URL path (misal: /api/data/123)
             url_with_id = f"{target_url}/{target_id}"
-            response = page.request.get(url_with_id, headers=headers,timeout=TIMEOUT_REQUEST)
+            response = context.request.get(url_with_id, headers=headers,timeout=TIMEOUT_REQUEST)
         
         else:
             log_message(f"{prefix_log}- Method {method} tidak didukung.")
@@ -824,11 +822,6 @@ def run_api_request(instance, page, method, target_url, target_id, msg="", paylo
                 with open(filename, "w", encoding="utf-8") as f:
                     json.dump(response_json, f, indent=4, ensure_ascii=False)
                 #log_message(f"- Data disimpan ke '{filename}'")
-            
-            # Jika POST, lakukan UI refresh halaman
-            # elif method == "POST":
-            #     page.reload()
-            #     page.locator("h1").first.wait_for(state="visible", timeout=10000)
                 
             return response_json
         else:
@@ -872,7 +865,7 @@ def get_headers(page, target_url):
     return captured_req, api_url, api_payload, api_headers
 
 # Function penunjang process per row
-def row_mainfunc(i, instance, lendf, dflist, idlog, filename, func, api_headers, cekapprov, idwork, cdp_url, main_page=None):
+def row_mainfunc(i, instance, lendf, dflist, idlog, filename, func, api_headers, cekapprov, idwork, cdp_url):
     # Buat context dan tab baru khusus untuk thread ini agar tidak bentrok
     # instance.log_message(f"[tab:{idwork}] # {i}/{lendf-1} | {str(dflist[i][idlog])[:20]} | loading")
 
@@ -880,6 +873,9 @@ def row_mainfunc(i, instance, lendf, dflist, idlog, filename, func, api_headers,
     # Fungsi pembantu lokal agar kode di bawah tetap bersih
     def log_local(message, tag=None):
         log_msg_list.append((message, tag))
+    class LogWrapper:
+        def log_message(self, msg, tag=None): log_local(msg, tag)
+    local_logger = LogWrapper()
 
     # Fungsi jeda
     def check_hitapi_rate_and_pause():
@@ -900,36 +896,31 @@ def row_mainfunc(i, instance, lendf, dflist, idlog, filename, func, api_headers,
                 time.sleep(30)
 
     with sync_playwright() as p_instance:
-        page = None
+        ctx = None
         try:
-            with tab_lock:
-                # p_instance = sync_playwright().start()
-                browser = p_instance.chromium.connect_over_cdp(cdp_url)
-                # context = browser.new_context()
-                page = browser.contexts[0].new_page()
-                if main_page:
-                    try: 
-                        time.sleep(0.3)
-                        main_page.evaluate("window.focus()")
-                        main_page.bring_to_front() #focus ke main page
-                    except: pass
-                time.sleep(0.2)  # Jeda mikro agar websocket browser stabil
-        
-            check_stop(instance)
-
-            # 1. CEK DAH APPROVED LOM ke1
+            # 0. CEK DAH APPROVED LOM ke1
             if dflist[i]['approved'] in [True, "True"]:
                 log_local(f"[tab:{idwork}] {i}/{lendf-1} | {str(dflist[i][idlog])[:20]} | Approv'd, skip")
                 err_msg=None
                 return
             # perlukah cek approv yg ke2? ======
 
+            # 1. CONNECT CONTEXT
+            with tab_lock:
+                # p_instance = sync_playwright().start()
+                browser = p_instance.chromium.connect_over_cdp(cdp_url)
+                ctx = browser.contexts[0]#()
+                # page = browser.contexts[0].new_page()
+                time.sleep(0.2)  # Jeda mikro agar websocket browser stabil
+        
+            check_stop(instance)
+
             # 2. FUNCTION TAMBAHAN HERE
             target_id = dflist[i]['id']
             if func:
                 try:
                     base_url = "https://fasih-sm.bps.go.id/app/api/assignment-general/api/assignment/get-by-assignment-id"
-                    response = run_api_request(instance, page, method="get", target_url=base_url, target_id=target_id, msg=f"GetData-row-{i}", headers=api_headers, prefix_log=f'[tab:{idwork}] ')
+                    response = run_api_request(local_logger, ctx, method="get", target_url=base_url, target_id=target_id, msg=f"GetData-row-{i}", headers=api_headers, prefix_log=f'[tab:{idwork}] ')
                     
                     if response is None:
                         worker_pause_event.clear() # Perintahkan main thread untuk pause & refresh
@@ -971,12 +962,12 @@ def row_mainfunc(i, instance, lendf, dflist, idlog, filename, func, api_headers,
 
                     elif cekapprov == "Reject":
                         target_url = f"https://fasih-sm.bps.go.id/app/api/assignment-approval/api/v2/get-button-approval?assignmentId={target_id}"
-                        response = run_api_request(instance, page, method="post", target_url=target_url, target_id=target_id, msg=f"Cek-status-row-{i}", payload={}, headers=api_headers, prefix_log=f'[tab:{idwork}] ') 
+                        response = run_api_request(local_logger, ctx, method="post", target_url=target_url, target_id=target_id, msg=f"Cek-status-row-{i}", payload={}, headers=api_headers, prefix_log=f'[tab:{idwork}] ') 
                         time.sleep(1)
                         
                         if response['data'] >= 2: # Sudah diapprove pengawas
                             target_url = "https://fasih-sm.bps.go.id/app/api/assignment-approval/api/v2/revoke-approval" # Revoke
-                            response = run_api_request(instance, page, method="post", target_url=target_url, target_id=target_id, msg=f"Revoking-row-{i}", headers=api_headers, prefix_log=f'[tab:{idwork}] ') 
+                            response = run_api_request(local_logger, ctx, method="post", target_url=target_url, target_id=target_id, msg=f"Revoking-row-{i}", headers=api_headers, prefix_log=f'[tab:{idwork}] ') 
                             time.sleep(1)
                         elif response['data'] == 1: 
                             pass
@@ -992,7 +983,7 @@ def row_mainfunc(i, instance, lendf, dflist, idlog, filename, func, api_headers,
                     
                     # reject or approv
                     target_url = "https://fasih-sm.bps.go.id/app/api/assignment-approval/api/v2/approval"
-                    response = run_api_request(instance, page, method="post", target_url=target_url, target_id=target_id, msg=msg, payload=payload, headers=api_headers, prefix_log=f'[tab:{idwork}] ') 
+                    response = run_api_request(local_logger, ctx, method="post", target_url=target_url, target_id=target_id, msg=msg, payload=payload, headers=api_headers, prefix_log=f'[tab:{idwork}] ') 
 
                     if response is None:
                         worker_pause_event.clear() # Perintahkan main thread untuk pause & refresh
@@ -1013,10 +1004,10 @@ def row_mainfunc(i, instance, lendf, dflist, idlog, filename, func, api_headers,
 
             # 4. JIKA GADA APA APA
             if not cekapprov and not func: # artine ga approv ga get data juga
-                # log_local('NGAPAIN BRUH?', 'red_tag')
-                # return
-                log_local(f"[tab:{idwork}] {i}/{lendf-1} | {str(dflist[i][idlog])[:20]} | bisa approv si") # buat coba2 tadi
-                time.sleep(2)
+                log_local('NGAPAIN BRUH?', 'red_tag')
+                return
+                # log_local(f"[tab:{idwork}] {i}/{lendf-1} | {str(dflist[i][idlog])[:20]} | bisa approv si") # buat coba2 tadi
+                # time.sleep(2)
             else: # artine ada hit api req
                 # PANGGIL fungsi hitung & jeda sebelum request API
                 check_hitapi_rate_and_pause()
@@ -1025,21 +1016,14 @@ def row_mainfunc(i, instance, lendf, dflist, idlog, filename, func, api_headers,
             err_msg = None
 
         except Exception as e:
-            try:
-                if 'Server Not Found' in page.title(): 
-                    log_local(f"# Error server not found, CEK VPN -------------------------------------------\n", "red_tag")
-                    return
-                
-                page.goto(dflist[i]['link'])
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                log_local(f"# Terjadi error on line: {str(exc_tb.tb_lineno)} ")
-                log_local(str(e).split("Stacktrace:")[0]+"\n", "red_tag")
-                # try relogin sso ====== need update
-                #
-            except:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                log_local(f"# Terjadi error on line: {str(exc_tb.tb_lineno)} ")
-                log_local(str(e).split("Stacktrace:")[0]+"\n", "red_tag")
+            # if 'Server Not Found' in page.title(): 
+            #     log_local(f"# Error server not found, CEK VPN -------------------------------------------\n", "red_tag")
+            #     return
+            # page.goto(dflist[i]['link'])
+            # try relogin sso ====== need update
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            log_local(f"# Terjadi error process row on line: {str(exc_tb.tb_lineno)} ")
+            log_local(str(e).split("Stacktrace:")[0]+"\n", "red_tag")
                 
         finally:
             # Tampilkan status done dan tutup tab lokal agar hemat resource RAM
@@ -1051,9 +1035,7 @@ def row_mainfunc(i, instance, lendf, dflist, idlog, filename, func, api_headers,
             with csv_lock:
                 dfbaru = pd.DataFrame(dflist)
                 dfbaru.to_csv(filename, index=False)
-            if page:
-                try: page.close()
-                except: pass
+            time.sleep(0.2)
             # context.close()
 
 # Function approv (and get data)
@@ -1063,7 +1045,7 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
     instance.isdone = 0
 
     try:
-        p_instance, browser, page = get_playwright_page() #konek ke playwr
+        p_instance, ctx, page = get_playwright_page() #konek ke playwr
         # read data csv result from get list data
         try:
             df = pd.read_csv(filename, sep=sep)
@@ -1111,7 +1093,6 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
 
         # 3. Jalankan Multi-tab Pekerja via ThreadPoolExecutor
         # Sesuaikan `max_workers` dengan kekuatan CPU/RAM (misal: 3 s.d 5 tab sekaligus)
-        main_page = page
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
             futures = []
             
@@ -1120,7 +1101,7 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
                 try:
                     f = executor.submit(
                         row_mainfunc, i, instance, lendf, dflist, idlog, filename, func, 
-                        api_headers, cekapprov, worker_id, CHROME_PORT, main_page
+                        api_headers, cekapprov, worker_id, CHROME_PORT
                     ) 
                     futures.append(f)
                     # instance.log_message(f"Baris index-{i} berhasil didaftarkan ke Worker {worker_id}")
@@ -1139,10 +1120,12 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
                     instance.log_message("Worker mendeteksi API None. Merefresh page utama...", "red_tag")
                     try:
                         # === REFRESH PAGE UTAMA DISINI ===
-                        main_page.go_back(timeout=10000)
-                        time.sleep(3)
-                        main_page.goto(instance.getassets('index.html'))
-                        main_page.evaluate("document.body.setAttribute('data-status', 'running')")
+                        page.go_back(timeout=10000)
+                        time.sleep(5)
+                        page.reload()
+                        time.sleep(5)
+                        page.goto(instance.getassets('index.html'))
+                        page.evaluate("document.body.setAttribute('data-status', 'running')")
                         time.sleep(2)
                         # =================================
                     except Exception as e:
@@ -1158,7 +1141,6 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
             
         # 4. Selesai Semua
         instance.log_message(f"# DONEEE file {filename} updated ---------------------------------")
-        instance.isdone = 1
         ##
 
     except Exception as e:
@@ -1172,9 +1154,7 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
             os.remove('data_survey.json')
         except: 
             instance.log_message("Ups, File emang gada")
-        instance.isdone = 1
-        main_page.goto(instance.getassets('index.html'))
-        main_page.evaluate("document.body.setAttribute('data-status', 'done')")
+        isdone(instance, page=page, output=True)
         try:
             p_instance.stop()
             instance.log_message("Koneksi Playwright di thread ditutup.")
@@ -1190,9 +1170,10 @@ def get_playwright_page(cdp_url=CHROME_PORT):
     p_instance = sync_playwright().start()
     try:
         browser = p_instance.chromium.connect_over_cdp(cdp_url)
+        context = browser.contexts[0]
         # Ambil page pertama yang aktif
         page = browser.contexts[0].pages[0]
-        return p_instance, browser, page
+        return p_instance, context, page
     except Exception as e:
         # Jika gagal, pastikan instance playwright ditutup agar tidak memory leak
         p_instance.stop()
@@ -1202,3 +1183,14 @@ def check_stop(instance):
     '''Check if stop button is pressed'''
     if instance.stop_event.is_set():
         raise InterruptedError("Process stopped by user.")
+
+def isdone(instance, page=None,output=None):
+    '''Alternatif instance.isdone=1 karena bug'''
+    instance.change_status("STATUS: DONE! Running selesai", color="green")
+    if page:
+        page.goto(instance.getassets('index.html'))
+        page.evaluate("document.body.setAttribute('data-status', 'done')")
+    if output:
+        instance.log_message(f"Running program berhasil diproses. Cek file output", tag="green_tag")        
+    else:
+        instance.log_message(f"Running program berhasil diproses. Cek file output", tag="green_tag")        
