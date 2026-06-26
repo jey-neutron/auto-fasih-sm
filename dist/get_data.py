@@ -1,5 +1,5 @@
 # konfig var
-APP_VERSION = 'v2.3.4' #updated headers and make thread workers
+APP_VERSION = 'v2.3.5' #updated headers and make thread workers, bug fixes jeda
 TIMEOUT_REQUEST = 60000 #ms
 ROW_REQUEST = 50 #jml row yg diambil dari request
 MAX_WORKERS = 3 #jml tab dibuka
@@ -24,9 +24,14 @@ import ast
 import qrcode
 from PIL import Image, ImageDraw, ImageFont
 import textwrap
+
 # Lock untuk mengamankan penulisan dari beberapa thread sekaligus
 csv_lock = threading.Lock()    
 tab_lock = threading.Lock()
+hitapi_counter_lock = threading.Lock()
+global_hitapi_counter = 0
+worker_pause_event = threading.Event()
+worker_pause_event.set() # True berarti jalan, False berarti pause
 
 # =====================================================================
 # FUNC DRAFT 
@@ -867,7 +872,7 @@ def get_headers(page, target_url):
     return captured_req, api_url, api_payload, api_headers
 
 # Function penunjang process per row
-def row_mainfunc(i, instance, lendf, dflist, idlog, filename, func, api_headers, cekapprov, idwork, cdp_url):
+def row_mainfunc(i, instance, lendf, dflist, idlog, filename, func, api_headers, cekapprov, idwork, cdp_url, main_page=None):
     # Buat context dan tab baru khusus untuk thread ini agar tidak bentrok
     # instance.log_message(f"[tab:{idwork}] # {i}/{lendf-1} | {str(dflist[i][idlog])[:20]} | loading")
 
@@ -876,31 +881,59 @@ def row_mainfunc(i, instance, lendf, dflist, idlog, filename, func, api_headers,
     def log_local(message, tag=None):
         log_msg_list.append((message, tag))
 
+    # Fungsi jeda
+    def check_hitapi_rate_and_pause():
+        global global_hitapi_counter
+        # 1. Cek / Tunggu jika page utama sedang refresh
+        worker_pause_event.wait()
+        
+        # 2. Hitung kelipatan 10 global
+        with hitapi_counter_lock:
+            global_hitapi_counter += 1
+            current_count = global_hitapi_counter
+            
+        if current_count % 10 == 0 and current_count != 0:
+            log_local(f'[tab:{idwork}] Global API Count: {current_count} # Waiting 30s-60s...')
+            # Menggunakan tab_lock opsional, tapi lock ini memastikan mereka antre saat jeda selesai
+            time.sleep(30)
+            if current_count % 100 == 0 and current_count != 0:
+                time.sleep(30)
+
     with sync_playwright() as p_instance:
+        page = None
         try:
             with tab_lock:
                 # p_instance = sync_playwright().start()
                 browser = p_instance.chromium.connect_over_cdp(cdp_url)
                 # context = browser.new_context()
                 page = browser.contexts[0].new_page()
+                if main_page:
+                    try: 
+                        time.sleep(0.3)
+                        main_page.evaluate("window.focus()")
+                        main_page.bring_to_front() #focus ke main page
+                    except: pass
                 time.sleep(0.2)  # Jeda mikro agar websocket browser stabil
         
             check_stop(instance)
 
             # 1. CEK DAH APPROVED LOM ke1
             if dflist[i]['approved'] in [True, "True"]:
-                log_local(f"[tab:{idwork}] # {i}/{lendf-1} | {str(dflist[i][idlog])[:20]} | Approv'd, skip")
+                log_local(f"[tab:{idwork}] {i}/{lendf-1} | {str(dflist[i][idlog])[:20]} | Approv'd, skip")
+                err_msg=None
                 return
             # perlukah cek approv yg ke2? ======
 
-            target_id = dflist[i]['id']
             # 2. FUNCTION TAMBAHAN HERE
+            target_id = dflist[i]['id']
             if func:
                 try:
                     base_url = "https://fasih-sm.bps.go.id/app/api/assignment-general/api/assignment/get-by-assignment-id"
                     response = run_api_request(instance, page, method="get", target_url=base_url, target_id=target_id, msg=f"GetData-row-{i}", headers=api_headers, prefix_log=f'[tab:{idwork}] ')
                     
                     if response is None:
+                        worker_pause_event.clear() # Perintahkan main thread untuk pause & refresh
+                        worker_pause_event.wait()  # Worker ini ikut tertidur menunggu refresh selesai
                         raise ValueError("API tidak mengembalikan data (Response is None)")
                     if 'success' in response and response['success'] in [False, "false"]:
                         raise ValueError(response['message'])
@@ -962,15 +995,8 @@ def row_mainfunc(i, instance, lendf, dflist, idlog, filename, func, api_headers,
                     response = run_api_request(instance, page, method="post", target_url=target_url, target_id=target_id, msg=msg, payload=payload, headers=api_headers, prefix_log=f'[tab:{idwork}] ') 
 
                     if response is None:
-                        # try:
-                        #     # Jika respon hilang, coba balik utk refresh ====== need update
-                        #     page.go_back(timeout=5000)
-                        #     time.sleep(3)
-                        #     page.goto(instance.getassets('index.html'))
-                        #     page.evaluate("document.body.setAttribute('data-status', 'running')")
-                        #     time.sleep(2)
-                        #     return
-                        # except:
+                        worker_pause_event.clear() # Perintahkan main thread untuk pause & refresh
+                        worker_pause_event.wait()  # Worker ini ikut tertidur menunggu refresh selesai
                         raise ValueError("API tidak mengembalikan data (Response is None)")
                             
                     if 'success' in response and response['success'] in [False, "false"]:
@@ -980,25 +1006,23 @@ def row_mainfunc(i, instance, lendf, dflist, idlog, filename, func, api_headers,
 
                 except Exception as e:
                     err_msg = str(e).split("Stacktrace:")[0]
-                    log_local(f"[tab:{idwork}] # {i}/{lendf-1} | {str(dflist[i][idlog])[:20]} | Skip gabisa approv")
+                    log_local(f"[tab:{idwork}] {i}/{lendf-1} | {str(dflist[i][idlog])[:20]} | Skip gabisa approv")
                     log_local(f"Error approv {e}", "red_tag")
                     
                     return
 
-            if not cekapprov and not func: #artine ga approv ga get data juga
+            # 4. JIKA GADA APA APA
+            if not cekapprov and not func: # artine ga approv ga get data juga
                 # log_local('NGAPAIN BRUH?', 'red_tag')
                 # return
-                log_local(f"[tab:{idwork}] # {i}/{lendf-1} | {str(dflist[i][idlog])[:20]} | bisa approv si") # buat coba2 tadi
+                log_local(f"[tab:{idwork}] {i}/{lendf-1} | {str(dflist[i][idlog])[:20]} | bisa approv si") # buat coba2 tadi
                 time.sleep(2)
+            else: # artine ada hit api req
+                # PANGGIL fungsi hitung & jeda sebelum request API
+                check_hitapi_rate_and_pause()
 
-            # 4. END RESULT IF SUCCESS
+            # 5. END RESULT IF SUCCESS
             err_msg = None
-            # Jeda berkala per thread index
-            if i % 10 == 0 and i != 0:
-                log_local('# Waiting 30s-60s...')
-                time.sleep(30)
-                if i%100 == 0 and i!=0: # add jeda lagi
-                    time.sleep(30)
 
         except Exception as e:
             try:
@@ -1019,19 +1043,17 @@ def row_mainfunc(i, instance, lendf, dflist, idlog, filename, func, api_headers,
                 
         finally:
             # Tampilkan status done dan tutup tab lokal agar hemat resource RAM
-            log_local(f"[tab:{idwork}] # {i}/{lendf-1} | {str(dflist[i][idlog])[:20]} | Done")
+            log_local(f"[tab:{idwork}] {i}/{lendf-1} | {str(dflist[i][idlog])[:20]} | Done")
             # log to main app
-            for msg, tag in log_msg_list:
-                instance.log_message(msg, tag)
+            for msg, tag in log_msg_list: instance.log_message(msg, tag)
             # end and save to csv
-            if err_msg:
-                dflist[i]['approved'] = err_msg
-            else: 
-                dflist[i]['approved'] = True
+            dflist[i]['approved'] = err_msg if err_msg else True
             with csv_lock:
                 dfbaru = pd.DataFrame(dflist)
                 dfbaru.to_csv(filename, index=False)
-            page.close()
+            if page:
+                try: page.close()
+                except: pass
             # context.close()
 
 # Function approv (and get data)
@@ -1089,6 +1111,7 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
 
         # 3. Jalankan Multi-tab Pekerja via ThreadPoolExecutor
         # Sesuaikan `max_workers` dengan kekuatan CPU/RAM (misal: 3 s.d 5 tab sekaligus)
+        main_page = page
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
             futures = []
             
@@ -1097,7 +1120,7 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
                 try:
                     f = executor.submit(
                         row_mainfunc, i, instance, lendf, dflist, idlog, filename, func, 
-                        api_headers, cekapprov, worker_id, CHROME_PORT
+                        api_headers, cekapprov, worker_id, CHROME_PORT, main_page
                     ) 
                     futures.append(f)
                     # instance.log_message(f"Baris index-{i} berhasil didaftarkan ke Worker {worker_id}")
@@ -1105,11 +1128,33 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
                 except Exception as e_submit:
                     instance.log_message(f"Gagal memasukkan index-{i} ke Thread Pool: {e_submit}", "red_tag")
 
-            instance.log_message(f"Menunggu seluruh antrean selesai bekerja ({MAX_WORKERS} tab)...")
+            instance.log_message(f"# Work mengantre ({MAX_WORKERS} tab)...")
             
             # Cara paling aman dan baku di Python untuk menahan main thread sampai semua futures beres
-            from concurrent.futures import wait, ALL_COMPLETED
-            wait(futures, return_when=ALL_COMPLETED)
+            from concurrent.futures import wait, FIRST_COMPLETED
+            # wait(futures, return_when=ALL_COMPLETED) #jika semua worker selesai, updated diganti bwh:
+            while True:
+                # Cek apakah ada worker yang meminta pause untuk refresh page utama
+                if not worker_pause_event.is_set():
+                    instance.log_message("Worker mendeteksi API None. Merefresh page utama...", "red_tag")
+                    try:
+                        # === REFRESH PAGE UTAMA DISINI ===
+                        main_page.go_back(timeout=10000)
+                        time.sleep(3)
+                        main_page.goto(instance.getassets('index.html'))
+                        main_page.evaluate("document.body.setAttribute('data-status', 'running')")
+                        time.sleep(2)
+                        # =================================
+                    except Exception as e:
+                        instance.log_message(f"Gagal refresh page utama: {e}", "red_tag")
+                    finally:
+                        instance.log_message("Refresh selesai. Melanjutkan worker...")
+                        worker_pause_event.set() # Bangunkan semua worker
+                
+                # Cek status futures dengan timeout pendek agar loop tetap berjalan
+                done, not_done = wait(futures, timeout=1, return_when=FIRST_COMPLETED)
+                if len(not_done) == 0:
+                    break # Semua pekerjaan selesai
             
         # 4. Selesai Semua
         instance.log_message(f"# DONEEE file {filename} updated ---------------------------------")
@@ -1128,8 +1173,8 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
         except: 
             instance.log_message("Ups, File emang gada")
         instance.isdone = 1
-        page.goto(instance.getassets('index.html'))
-        page.evaluate("document.body.setAttribute('data-status', 'done')")
+        main_page.goto(instance.getassets('index.html'))
+        main_page.evaluate("document.body.setAttribute('data-status', 'done')")
         try:
             p_instance.stop()
             instance.log_message("Koneksi Playwright di thread ditutup.")
