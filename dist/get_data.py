@@ -1,8 +1,8 @@
 # konfig var
-APP_VERSION = 'v2.3.5' #updated headers and make thread workers, bug fixes jeda
+APP_VERSION = 'v2.3.6' #updated headers and make thread workers, added getdataReview
 TIMEOUT_REQUEST = 60000 #ms
-ROW_REQUEST = 50 #jml row yg diambil dari request
-MAX_WORKERS = 3 #jml tab dibuka
+ROW_REQUEST = 50 #jml row yg diambil dari request getlistdata
+MAX_WORKERS = 3 #jml tab/worker
 MAX_RETRY = 30 #jml error trus retrying
 CHROME_PORT = "http://localhost:9222"
 
@@ -1044,11 +1044,11 @@ def row_mainfunc(i, instance, lendf, dflist, idlog, filename, func, api_headers,
 
             # 4. JIKA GADA APA APA
             if not cekapprov and not func: # artine ga approv ga get data juga
-                # log_local('NGAPAIN BRUH?', 'red_tag')
-                # return
-                log_local(f"[tab:{idwork}] {i}/{lendf-1} | {str(dflist[i][idlog])[:20]} | bisa approv si") # buat coba2 tadi
-                check_hitapi_rate_and_pause()
-                time.sleep(2)
+                log_local('NGAPAIN BRUH?', 'red_tag')
+                return
+                # log_local(f"[tab:{idwork}] {i}/{lendf-1} | {str(dflist[i][idlog])[:20]} | bisa approv si") # buat coba2 tadi
+                # check_hitapi_rate_and_pause()
+                # time.sleep(2)
             else: # artine ada hit api req
                 # PANGGIL fungsi hitung & jeda sebelum request API
                 check_hitapi_rate_and_pause()
