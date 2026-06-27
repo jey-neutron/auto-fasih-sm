@@ -94,6 +94,29 @@ def getrandom(instance, var):
             instance.log_message(f"Hasil angka random-{i} {random.random()}")
     instance.isdone = 1
 
+def getrandomcat(instance, var=1):
+    listres=["      /\\___/\\\n     ( - . - )  Zzz\n    /  \\___/  \\\n   (___________)",
+            "     /\\_/\\\n   =( -.- )=  Zzz\n    (  \"  )__",
+            "   /\\/\\  \n  ( u.u) Zzz\n  (_)(_)__",
+            "   /\\_/\\\n  (=-.-=)  zzZ\n  (\")(\")__",
+            "  |\\_/,|   \n  | u.u|  zzZ\n  (  w  )  ",
+            "   /\\_/\\\n =( u.u )=  Zzz\n __(__)",
+            "   /\\___/\\\n  ( - . - ) zZz\n  [=======]"]
+    if var !=1:
+        try:
+            var = int(var)
+            if var>=len(listres):
+                instance.log_message(f'Melebihi max list ({len(listres)})', 'red_tag')
+                var=random.randint(0,len(listres)-1)
+        except Exception as e:
+            instance.log_message(f'Err: {e}', 'red_tag')
+            var=random.randint(0,len(listres)-1)
+        instance.log_message(f'Selected: {var}')
+        res = listres[var]
+    else : res= random.choice(listres)
+    instance.log_area.insert("end", f"\n{res}\n")
+    instance.log_area.see("end")
+
 def render(instance,var):
     """Memanggil index.html dengan pilihan variable terlampir var='done', 'running', 'ready' """
     p_instance, ctx, page = get_playwright_page() #konek ke playwr
@@ -922,7 +945,7 @@ def row_mainfunc(i, instance, lendf, dflist, idlog, filename, func, api_headers,
             worker_resume_on_jeda.clear()
             instance.log_message(f'Udah hit: {current_count}, rehat dulu 30s-60s...','green_tag')
             instance.log_message(f'Bisa clear log biar ga berat...', 'green_tag')
-            instance.log_area.insert("end", "\n      /\\___/\\\n     ( - . - )  Zzz\n    /  \\___/  \\\n   (___________)\n")
+            getrandomcat(instance)
             time.sleep(60)
             worker_resume_on_jeda.set() #resume, end jeda
 
@@ -930,7 +953,7 @@ def row_mainfunc(i, instance, lendf, dflist, idlog, filename, func, api_headers,
             worker_resume_on_jeda.clear()
             instance.log_message(f'Udah hit: {current_count}, rehat dulu 30s-60s...','green_tag')
             instance.log_message(f'Bisa clear log biar ga berat...', 'green_tag')
-            instance.log_area.insert("end", "\n     /\\_/\\\n   =( -.- )=  Zzz\n    (  \"  )__\n")
+            getrandomcat(instance)
             time.sleep(30)
             worker_resume_on_jeda.set() #resume, end jeda
 
@@ -1227,16 +1250,18 @@ def get_playwright_page(cdp_url=CHROME_PORT):
     Fungsi helper untuk connect ke browser Chrome yang sudah terbuka.
     Bisa dipanggil di thread mana saja.
     """
-    p_instance = sync_playwright().start()
     try:
-        browser = p_instance.chromium.connect_over_cdp(cdp_url)
+        p_instance = sync_playwright().start()
+        browser = p_instance.chromium.connect_over_cdp(cdp_url, timeout=10000)
         context = browser.contexts[0]
         # Ambil page pertama yang aktif
         page = browser.contexts[0].pages[0]
         return p_instance, context, page
-    except Exception as e:
+    except PlaywrightTimeoutError as e:
         # Jika gagal, pastikan instance playwright ditutup agar tidak memory leak
-        p_instance.stop()
+        if p_instance: p_instance.stop()
+        if browser and not browser.contexts:
+            raise RuntimeError("Browser terhubung tapi tidak ada context/halaman aktif")
         raise RuntimeError(f"Gagal connect ke browser: {e}")
 
 def check_stop(instance):
