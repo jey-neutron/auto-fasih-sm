@@ -1093,7 +1093,9 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
             df = df.astype(str)
             if 'status_work' not in df.columns:
                 df['status_work'] = ""
-            if idlog not in df.columns or 'id' not in df.columns:
+            kolwjb = {idlog, 'id}
+            #if idlog not in df.columns or 'id' not in df.columns:
+            if not kolwjb.issubset(df.columns) :
                 raise ValueError (f"Kolom '{idlog}' tidak ditemukan di csv, silakan update dulu")
             lendf = len(df)
             # make df as df list py
