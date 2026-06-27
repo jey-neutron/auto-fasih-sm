@@ -3,6 +3,7 @@ APP_VERSION = 'v2.3.5' #updated headers and make thread workers, bug fixes jeda
 TIMEOUT_REQUEST = 60000 #ms
 ROW_REQUEST = 50 #jml row yg diambil dari request
 MAX_WORKERS = 3 #jml tab dibuka
+MAX_RETRY = 30 #jml error trus retrying
 CHROME_PORT = "http://localhost:9222"
 
 # konfig
@@ -501,6 +502,30 @@ def getdataAll(namafile = 'data_survey.json'):
             json.dump(dffT, f, indent=4, ensure_ascii=False)
         return {'Err': str(e)}
 
+# getlistdata buat ambil semua list di survey itu, kalo ini search by id
+def getdataReview(namafile='data_survey.json'):
+    '''Function untuk mengambil data permukaan aja, tanpa get isian dalemnya, sama kayak get_list_data tpi search by id'''
+    # Open the file and load its content
+    with open(namafile, 'r') as file:
+        df = json.load(file)
+        # df = json.dumps(file)
+    try:
+        dff = json.loads(df['data'])
+    except TypeError:
+        dff = df['data']
+    # remove unwanted key
+    # rmkey = ['region','region_metadata','pre_defined_data','data']
+    # for key in rmkey:
+    #     dff.pop(key, None)
+    try:
+        listcol = ['_id','id', 'survey_period_id', 'mode','code_identity', 'assignment_status_id', 'assignment_status_alias', 
+            'data1', 'data2', 'data3', 'data4', 'data5', 'data6', 'data7', 'data8', 'data9', 'data10', 
+            'date_created','date_modified', 'is_active', 'current_user_username','current_user_survey_role_name','locked_by_user', 'locked_by_another',
+            'email','latitude','longitude','pending_upload_assignment_id']
+        dff = {k: dff[k] for k in listcol if k in dff}
+    except:
+        dff = None
+    return dff
 
 def getdataPES(namafile='data_survey.json'):
     '''FUNCTION FOR GETTING DATA PES'''
@@ -860,11 +885,12 @@ def get_headers(page, target_url):
 csv_lock = threading.Lock()    
 tab_lock = threading.Lock()
 hitapi_counter_lock = threading.Lock()
-global_hitapi_counter = 0
 worker_resume_on_none = threading.Event()
 worker_resume_on_none.set() # True berarti jalan, False berarti pause, butuh refresh
 worker_resume_on_jeda = threading.Event()
 worker_resume_on_jeda.set() # True berarti jalan, False berarti pause, jeda berkala
+global_hitapi_counter = 0
+global_hitretry = 0
 
 # Function penunjang process per row
 def row_mainfunc(i, instance, lendf, dflist, idlog, filename, func, api_headers, cekapprov, idwork, cdp_url):
@@ -892,14 +918,20 @@ def row_mainfunc(i, instance, lendf, dflist, idlog, filename, func, api_headers,
             global_hitapi_counter += 1
             current_count = global_hitapi_counter
             
-        if current_count % (10*MAX_WORKERS) == 0 and current_count != 0:
+        if current_count % 100 == 0 and current_count != 0:
             worker_resume_on_jeda.clear()
-            
-            instance.log_message(f'[tab:{idwork}] Udah hit: {current_count}, rehat dulu 30s-60s...')
-            time.sleep(30)
-            if current_count % 100 == 0 and current_count != 0:
-                time.sleep(30)
+            instance.log_message(f'Udah hit: {current_count}, rehat dulu 30s-60s...','green_tag')
+            instance.log_message(f'Bisa clear log biar ga berat...', 'green_tag')
+            instance.log_area.insert("end", "\n      /\\___/\\\n     ( - . - )  Zzz\n    /  \\___/  \\\n   (___________)\n")
+            time.sleep(60)
+            worker_resume_on_jeda.set() #resume, end jeda
 
+        elif current_count % (10*MAX_WORKERS) == 0 and current_count != 0:
+            worker_resume_on_jeda.clear()
+            instance.log_message(f'Udah hit: {current_count}, rehat dulu 30s-60s...','green_tag')
+            instance.log_message(f'Bisa clear log biar ga berat...', 'green_tag')
+            instance.log_area.insert("end", "\n     /\\_/\\\n   =( -.- )=  Zzz\n    (  \"  )__\n")
+            time.sleep(30)
             worker_resume_on_jeda.set() #resume, end jeda
 
     with sync_playwright() as p_instance:
@@ -949,9 +981,10 @@ def row_mainfunc(i, instance, lendf, dflist, idlog, filename, func, api_headers,
                     dflist[i].update(resultDict)
                     time.sleep(random.uniform(1, 2)) #kasih jeda
                     
-                except ValueError as e:
+                except ValueError as e: #err on resultDict 
+                    exc_type, exc_obj, exc_tb = sys.exc_info()
                     err_msg = str(e).split("Stacktrace:")[0]
-                    log_local(f"# Terjadi error on GetData: ")
+                    log_local(f"# Terjadi error on GetData [tab:{idwork}] on id: {target_id}")
                     log_local(err_msg, "red_tag")
                     
                     return
@@ -1011,11 +1044,11 @@ def row_mainfunc(i, instance, lendf, dflist, idlog, filename, func, api_headers,
 
             # 4. JIKA GADA APA APA
             if not cekapprov and not func: # artine ga approv ga get data juga
-                log_local('NGAPAIN BRUH?', 'red_tag')
-                return
-                # log_local(f"[tab:{idwork}] {i}/{lendf-1} | {str(dflist[i][idlog])[:20]} | bisa approv si") # buat coba2 tadi
-                # check_hitapi_rate_and_pause()
-                # time.sleep(2)
+                # log_local('NGAPAIN BRUH?', 'red_tag')
+                # return
+                log_local(f"[tab:{idwork}] {i}/{lendf-1} | {str(dflist[i][idlog])[:20]} | bisa approv si") # buat coba2 tadi
+                check_hitapi_rate_and_pause()
+                time.sleep(2)
             else: # artine ada hit api req
                 # PANGGIL fungsi hitung & jeda sebelum request API
                 check_hitapi_rate_and_pause()
@@ -1060,6 +1093,8 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
             df = df.astype(str)
             if 'status_work' not in df.columns:
                 df['status_work'] = ""
+            if idlog not in df.columns or 'id' not in df.columns:
+                raise ValueError (f"Kolom '{idlog}' tidak ditemukan di csv, silakan update dulu")
             lendf = len(df)
             # make df as df list py
             dflist = df.to_dict(orient='records')
@@ -1122,14 +1157,17 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
                 except Exception as e_submit:
                     instance.log_message(f"Gagal memasukkan index-{i} ke Thread Pool: {e_submit}", "red_tag")
 
-            instance.log_message(f"# Work mengantre ({MAX_WORKERS} tab)...")
+            instance.log_message(f"# {len(futures)} work mengantre ({MAX_WORKERS} tab)...")
 
             # Worker bekerja, sampai semua futures/antrean beres
             from concurrent.futures import wait, FIRST_COMPLETED
             # wait(futures, return_when=ALL_COMPLETED) #jika semua worker selesai, updated diganti bwh:
+            curr_retry = 0
             while True:
                 # Cek jika ada stop dari user mk batalkan antrean
-                if instance.stop_event.is_set():
+                if instance.stop_event.is_set() or curr_retry>=MAX_RETRY:
+                    if curr_retry >= MAX_RETRY:
+                        instance.log_message(f'Sudah melebihi maksimal retry error ({MAX_RETRY})')
                     instance.log_message("Menghentikan seluruh antrean worker...", "red_tag")
                     for f in futures:
                         f.cancel() # Membatalkan antrean yang belum sempat berjalan oleh worker
@@ -1147,6 +1185,7 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
                         page.goto(instance.getassets('index.html'))
                         page.evaluate("document.body.setAttribute('data-status', 'running')")
                         time.sleep(2)
+                        curr_retry += 1
                         # =================================
                     except Exception as e:
                         instance.log_message(f"Gagal refresh page utama: {e}", "red_tag")
