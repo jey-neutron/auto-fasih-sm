@@ -1162,12 +1162,18 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
         # 3. Jalankan Multi-tab Pekerja via ThreadPoolExecutor
         # Sesuaikan `max_workers` dengan kekuatan CPU/RAM (misal: 3 s.d 5 tab sekaligus)
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            # cek inputan tombol
+            if not cekapprov and not func:
+                raise ValueError ('Robot bingung mau ngapain, gada approv, gada getdata juga')
             futures = []
             # Set antrian ke worker
             for idx, i in enumerate(row_indices):
-                # CEK approv lom ke 1
+                # CEK approv lom ke 1, cek id jg
                 if dflist[i]['status_work'] in [True, "True"]:
                     instance.log_message(f"[tab:0] {i}/{lendf-1} | {str(dflist[i][idlog])[:20]} | Approv'd, skip")
+                    continue
+                elif dflist[i]["id"] in [None, "", "skip", "SKIP",'-']:
+                    instance.log_message(f"[tab:0] {i}/{lendf-1} | {str(dflist[i][idlog])[:20]} | No ID, skip")
                     continue
                 # ngantri worker
                 worker_id = (idx % MAX_WORKERS) + 1
