@@ -875,9 +875,22 @@ def run_api_request(instance, context, method, target_url, target_id, msg="", pa
 # Function penunjang get header utk diinject
 def get_headers(page, target_url):
     # get header from reloading page
-    with page.expect_request(target_url) as req_info:
-        page.reload()
-    captured_req = req_info.value
+    # with page.expect_request(target_url) as req_info:
+        # page.reload()
+    # captured_req = req_info.value
+    ## modded captured_req
+    captured_req = []
+    def request_handler (request):
+        if target_url in request.url:
+            captured_req.append(request)
+    page.on('request',request_handler)
+    page.reload()
+    page.wait_for_load_state('networkidle') #get semua req dlu
+    page.remove_listener('request',request_handler) #remove listener save memori
+    if not captured_req:
+        raise ValueError('No Match Request sent')
+    captured_req = captured_req[-1]
+    ##
     api_url = captured_req.url
     #### moded headers
     # moded payload
