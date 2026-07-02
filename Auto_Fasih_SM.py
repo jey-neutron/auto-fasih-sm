@@ -165,9 +165,11 @@ class AutoApp:
         global mainfunc
         global get_list_data
         global exclude_fun_list
+        global chromeport
         mainfunc = external_funcs.get('mainfunc')
         get_list_data = external_funcs.get('get_list_data')
         appver = external_funcs.get('ver')
+        chromeport = external_funcs.get('chromeport')(self)
         exclude_fun_list = external_funcs.get('help')(self)
         
         # konfigurasi variabel
@@ -179,6 +181,7 @@ class AutoApp:
         self.var_input = None
         self.stop_event = threading.Event() # Event untuk menghentikan thread
         self.thread = None
+        self.is_detached = False
 
         # Konfigurasi jendela utama
         # self.master = master
@@ -196,6 +199,7 @@ class AutoApp:
         # Menambahkan frame utama untuk padding
         self.main_frame = tk.Frame(master, padx=15, pady=15, bg=self.BG_MAIN)
         self.main_frame.pack(fill=tk.BOTH, expand=True)
+        self.main_frame.pack_propagate(True) # Biarkan frame mengecil mengikuti konten yang tersisa
 
         # --- Variabel STATUS ---
         self.status_var = tk.StringVar(value="STATUS: Belum dikenapa-napain")
@@ -258,13 +262,16 @@ class AutoApp:
 
         self.btn_close_app = tk.Button(
             self.btn_frame_1, 
-            text="Close Browser", 
-            command=self.close_browser, 
-            bg="#2a2a38", 
+            text="Stop Running", 
+            # command=self.close_browser, 
+            command=self.stop_thread, 
+            # bg="#2a2a38", 
+            bg= self.ACCENT_RED, 
             fg=self.FG_MAIN, 
             font=('Segoe UI', 9, 'bold'),
             relief=tk.FLAT,
-            activebackground="#3d3d52",
+            # activebackground="#3d3d52",
+            activebackground="#C2002B",
             activeforeground=self.FG_MAIN,
             padx=10,
             pady=3,
@@ -546,21 +553,21 @@ class AutoApp:
         )
         self.btn_func_2.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 4))
 
-        self.btn_stop_app = tk.Button(
-            self.btn_frame_3, 
-            text="Stop Running", 
-            command=self.stop_thread, 
-            bg=self.ACCENT_RED, 
-            fg=self.FG_MAIN,
-            font=('Segoe UI', 9, 'bold'), 
-            relief=tk.FLAT,
-            activebackground="#C2002B",
-            activeforeground=self.FG_MAIN,
-            padx=10,
-            pady=3,
-            cursor="hand2"
-        )
-        self.btn_stop_app.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(4, 0))
+        # self.btn_stop_app = tk.Button(
+        #     self.btn_frame_3, 
+        #     text="Stop Running", 
+        #     command=self.stop_thread, 
+        #     bg=self.ACCENT_RED, 
+        #     fg=self.FG_MAIN,
+        #     font=('Segoe UI', 9, 'bold'), 
+        #     relief=tk.FLAT,
+        #     activebackground="#C2002B",
+        #     activeforeground=self.FG_MAIN,
+        #     padx=10,
+        #     pady=3,
+        #     cursor="hand2"
+        # )
+        # self.btn_stop_app.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(4, 0))
 
         # --- Log Area ---
         # 1. Buat frame horizontal untuk menampung Label dan Tombol Clear
@@ -582,28 +589,21 @@ class AutoApp:
             command=self.clear_log   # Fungsi yang dijalankan saat diklik
         )
         clear_btn.pack(side=tk.LEFT)
-        self.log_area = scrolledtext.ScrolledText(
-            self.main_frame, 
-            wrap=tk.WORD, 
-            height=20, 
-            font=('Consolas', 8),
-            bg=self.BG_CARD,
-            fg=self.FG_MAIN,
-            insertbackground=self.FG_MAIN, # cursor color
-            bd=1,
+        self.detach_btn = tk.Button(
+            log_header_frame,
+            text="Pisah",
+            font=('Segoe UI', 8, 'bold'),
+            bg="#2A2A38", 
+            fg=self.FG_MAIN,         # Menyesuaikan tema warna Anda
             relief=tk.SOLID,
-            highlightthickness=0
+            bd=1,
+            cursor="hand2",          # Mengubah cursor saat hover
+            command=self.toggle_log_window   # Fungsi yang dijalankan saat diklik
         )
-        self.log_area.pack(fill=tk.BOTH, expand=True)
-        self.log_area.tag_config("red_tag", foreground=self.ACCENT_RED)
-        self.log_area.tag_config("green_tag", foreground=self.ACCENT_TEAL)
-        self.log_area.vbar.config(
-            troughcolor="#2d2d2d",       # Warna jalur/rel scrollbar
-            bg=self.BG_CARD,             # Warna kotak geser (slider)
-            activebackground=self.FG_MAIN, # Warna kotak geser saat disorot mouse
-            bd=0,                        # Menghilangkan border agar minimalis
-            elementborder=0              # Menghilangkan border elemen internal
-        )
+        self.detach_btn.pack(side=tk.LEFT, padx=5)
+        # 
+        self.log_area = self.create_log_area(self.main_frame)
+        self.log_area.pack(fill=tk.BOTH, expand=True) 
 
         # Log pesan awal
         self.log_message("Aplikasi dimulai. Selamat datang!")
@@ -615,6 +615,80 @@ class AutoApp:
             self.rb4.select()
         else: self.rb1.select()
         self.update_label()
+
+    ## --- Utility Function log area ---
+    def create_log_area(self, parent):
+        # Buat widget
+        log_area = scrolledtext.ScrolledText(
+            parent, 
+            wrap=tk.WORD, 
+            height=20, 
+            font=('Consolas', 8),
+            bg=self.BG_CARD,
+            fg=self.FG_MAIN,
+            insertbackground=self.FG_MAIN, # cursor color
+            bd=1,
+            relief=tk.SOLID,
+            highlightthickness=0
+        )
+        
+        # Konfigurasi Tag
+        log_area.tag_config("red_tag", foreground=self.ACCENT_RED)
+        log_area.tag_config("green_tag", foreground=self.ACCENT_TEAL)
+        
+        # Konfigurasi Scrollbar
+        log_area.vbar.config(
+            troughcolor="#2d2d2d", bg=self.BG_CARD,
+            activebackground=self.FG_MAIN, bd=0, elementborder=0
+        )
+        
+        return log_area
+
+    ## --- Utility Function modded detach log area ---
+    def toggle_log_window(self):
+        # Mencegah double klik
+        self.detach_btn.config(state=tk.DISABLED)
+        
+        # 1. Ambil teks dan HAPUS DARI LAYOUT
+        current_text = self.log_area.get("1.0", tk.END)
+        self.log_area.pack_forget() # PENTING: ini yang mengembalikan ruang
+        self.log_area.destroy()
+        
+        if not self.is_detached:
+            # --- DETACH ---
+            self.log_window = tk.Toplevel(self.master)
+            self.log_window.title("Log Aktivitas")
+            self.log_window.iconbitmap(icon)
+            self.log_window.attributes("-topmost", True)
+            self.log_window.protocol("WM_DELETE_WINDOW", self.toggle_log_window)
+            
+            self.log_area = self.create_log_area(self.log_window)
+            self.is_detached = True
+            self.detach_btn.config(text="Balik")
+            self.log_area.config(font=('Consolas', 9))
+            self.master.geometry("480x400")
+        else:
+            # --- ATTACH ---
+            self.log_area = self.create_log_area(self.main_frame)
+            
+            if hasattr(self, 'log_window') and self.log_window:
+                self.log_window.destroy()
+                self.log_window = None
+            
+            self.is_detached = False
+            self.detach_btn.config(text="Pisah")
+            self.log_area.config(font=('Consolas', 8))
+            self.master.geometry("480x800")
+        
+        # 3. Pack ulang
+        self.log_area.pack(fill=tk.BOTH, expand=True)
+        self.log_area.insert(tk.END, current_text)
+        self.log_area.see(tk.END)
+        
+        # 4. RESET LAYOUT (PENTING)
+        self.main_frame.update() 
+        self.detach_btn.config(state=tk.NORMAL)
+    ##
 
     # --- Utility Function untuk membuat field input berulang ---
     def create_input_field(self, label_text, placeholder, attr_name, parent, show='', value=False):
@@ -854,7 +928,7 @@ class AutoApp:
             try:
                 # 1. Coba hubungkan ke browser yang sudah ada
                 self.log_message("Mengecek browser yang terbuka...")
-                self.browser = self.playwright_instance.chromium.connect_over_cdp("http://localhost:9222")                    
+                self.browser = self.playwright_instance.chromium.connect_over_cdp(chromeport)                    
                 self.page = self.browser.contexts[0].pages[0]
 
                 # self.page.goto('https://www.google.com')
@@ -875,7 +949,7 @@ class AutoApp:
                 
             except PlaywrightError as e:
                 # 2. Jika gagal (browser belum dibuka), luncurkan browser baru dari nol
-                self.log_message(f"ERROR: ({str(e).split('Call:')[0]})")    
+                # self.log_message(f"ERROR: ({str(e).split('Call:')[0]})")    
                 self.log_message("Browser not found. Open new...")
                 # self.browser = p.chromium.launch(headless=False)
                 # Opsional: Jika ingin otomatis membuka Chrome asli Anda lewat script,
@@ -891,7 +965,7 @@ class AutoApp:
                     except (ConnectionRefusedError, socket.timeout):
                         time.sleep(0.5) # Cek ulang setiap 0.5 detik
                 try:
-                    self.browser = self.playwright_instance.chromium.connect_over_cdp("http://localhost:9222")
+                    self.browser = self.playwright_instance.chromium.connect_over_cdp(chromeport)
                     context = self.browser.contexts[0] if self.browser.contexts else self.browser.new_context()
                     self.page = context.pages[0] if context.pages else context.new_page()
                     self.page.goto(self.getassets('index.html'))
@@ -983,7 +1057,7 @@ class AutoApp:
         try:
             # 1. Coba hubungkan ke browser yang sudah ada
             p = sync_playwright().start()
-            browser = p.chromium.connect_over_cdp("http://localhost:9222")                    
+            browser = p.chromium.connect_over_cdp(chromeport)                    
             page = browser.contexts[0].pages[0]
             # try: #waiting login sso button
             #     WebDriverWait(self.driver, 10).until( #using explicit wait for x seconds
@@ -1106,8 +1180,9 @@ class AutoApp:
                 self.log_message(f"ERROR: Fungsi 2 dibatalkan. Input tambahan invalid.", "red_tag")
                 return
             else:
-                self.page.goto(self.getassets('index.html'))
-                self.page.evaluate("document.body.setAttribute('data-status', 'running')")
+                if page:
+                    self.page.goto(self.getassets('index.html'))
+                    self.page.evaluate("document.body.setAttribute('data-status', 'running')")
                 if self.val_approv.get() == 1:
                     cekapprove = True
                 elif self.val_approv.get() == 0:

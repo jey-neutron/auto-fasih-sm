@@ -1,5 +1,6 @@
 # konfig var
 APP_VERSION = 'v2.3.6' #updated headers and make thread workers, added getdataReview
+# v2.4.0 #app update detach log, update log message
 TIMEOUT_REQUEST = 60000 #ms
 ROW_REQUEST = 50 #jml row yg diambil dari request getlistdata
 MAX_WORKERS = 3 #jml tab/worker
@@ -56,7 +57,7 @@ def help(instance,var=''):
     '''Get list of functions'''
     exclude_fun_list = ["mainfunc", "get_list_data", "datetime", "sync_playwright","check_stop", "handle_response", 
                         'mergejson','run_api_request','get_playwright_page','expect','unquote', 'PlaywrightTimeoutError',
-                        'LZString','get_headers','row_mainfunc','ThreadPoolExecutor','wait','isdone']
+                        'LZString','get_headers','row_mainfunc','ThreadPoolExecutor','wait','isdone','chromeport']
     if var == 1:
         instance.isdone = 0
         instance.log_message(f"List of available functions:")
@@ -85,13 +86,16 @@ def help(instance,var=''):
 def getrandom(instance, var): 
     '''Get a random number'''
     instance.isdone = 0
-    check_stop(instance)
-    for i in range(0,4):
-        time.sleep(1)
-        try:
-            instance.log_message(f"Hasil angka random-{i} {int(var)*random.random()}")
-        except:
-            instance.log_message(f"Hasil angka random-{i} {random.random()}")
+    try:
+        for i in range(0,4):
+            check_stop(instance)
+            time.sleep(1)
+            try:
+                instance.log_message(f"Hasil angka random-{i} {int(var)*random.random()}")
+            except:
+                instance.log_message(f"Hasil angka random-{i} {random.random()}")
+    except Exception as e:
+        instance.log_message(e,'red_tag')
     instance.isdone = 1
 
 def getrandomcat(instance, var=1):
@@ -689,6 +693,14 @@ def ver(instance, var=''):
         instance.isdone = 1
     return APP_VERSION
 
+def chromeport(instance, var=''): 
+    '''Get a port of a chrome'''
+    if var==1:
+        instance.isdone = 0
+        instance.log_message(f"Chrome Port: {CHROME_PORT}")
+        instance.isdone = 1
+    return CHROME_PORT
+
 # =====================================================================
 # FUNC SECTION MAIN FUNC, DONT DISTURB
 # =====================================================================
@@ -869,7 +881,7 @@ def run_api_request(instance, context, method, target_url, target_id, msg="", pa
             return None
 
     except Exception as e:
-        log_message(f'{prefix_log}- Error pada {method} request: {str(e).split('Call log:')[0]}')
+        log_message(f"{prefix_log}- Error pada {method} request: {str(e).split('Call log:')[0]}")
         return None
 
 # Function penunjang get header utk diinject
