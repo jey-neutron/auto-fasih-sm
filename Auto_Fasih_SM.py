@@ -260,7 +260,7 @@ class AutoApp:
         )
         self.btn_open_link.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 5))
 
-        self.btn_close_app = tk.Button(
+        self.btn_stop_app = tk.Button(
             self.btn_frame_1, 
             text="Stop Running", 
             # command=self.close_browser, 
@@ -277,7 +277,8 @@ class AutoApp:
             pady=3,
             cursor="hand2"
         )
-        self.btn_close_app.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
+        self.btn_stop_app.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
+        self.btn_stop_app.config(state=tk.DISABLED)
 
         # --- Tombol Baris 2: Fungsi 1 & Fungsi 2 ---
         # --- SECTION 1
@@ -570,40 +571,10 @@ class AutoApp:
         # self.btn_stop_app.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(4, 0))
 
         # --- Log Area ---
-        # 1. Buat frame horizontal untuk menampung Label dan Tombol Clear
-        log_header_frame = tk.Frame(self.main_frame, bg=self.BG_MAIN)
-        log_header_frame.pack(fill=tk.X, pady=(5, 5))
-
-        # 2. Label ditaruh di dalam log_header_frame (pack ke KIRI)
-        tk.Label(log_header_frame, text="Log Aktivitas:", anchor='w', bg=self.BG_MAIN, fg=self.FG_MUTED, font=('Segoe UI', 9, 'bold')).pack(side=tk.LEFT, fill=tk.X)
-        # 3. Tombol Clear ditaruh di dalam log_header_frame (pack ke KANAN)
-        clear_btn = tk.Button(
-            log_header_frame,
-            text="Clear",
-            font=('Segoe UI', 8, 'bold'),
-            bg="#2A2A38", 
-            fg=self.FG_MAIN,         # Menyesuaikan tema warna Anda
-            relief=tk.SOLID,
-            bd=1,
-            cursor="hand2",          # Mengubah cursor saat hover
-            command=self.clear_log   # Fungsi yang dijalankan saat diklik
-        )
-        clear_btn.pack(side=tk.LEFT)
-        self.detach_btn = tk.Button(
-            log_header_frame,
-            text="Pisah",
-            font=('Segoe UI', 8, 'bold'),
-            bg="#2A2A38", 
-            fg=self.FG_MAIN,         # Menyesuaikan tema warna Anda
-            relief=tk.SOLID,
-            bd=1,
-            cursor="hand2",          # Mengubah cursor saat hover
-            command=self.toggle_log_window   # Fungsi yang dijalankan saat diklik
-        )
-        self.detach_btn.pack(side=tk.LEFT, padx=5)
-        # 
-        self.log_area = self.create_log_area(self.main_frame)
-        self.log_area.pack(fill=tk.BOTH, expand=True) 
+        # 0. Container utk header log dan isi log
+        self.log_container = tk.Frame(self.main_frame, bg=self.BG_MAIN)
+        self.log_container.pack(fill=tk.BOTH, expand=True)
+        self.recreate_log_ui(self.log_container)
 
         # Log pesan awal
         self.log_message("Aplikasi dimulai. Selamat datang!")
@@ -644,6 +615,43 @@ class AutoApp:
         
         return log_area
 
+    def recreate_log_ui(self, parent):
+        # 1. Buat frame horizontal untuk menampung Label dan Tombol Clear
+        log_header_frame = tk.Frame(parent, bg=self.BG_MAIN)
+        log_header_frame.pack(fill=tk.X, pady=(5, 5))
+
+        # 2. Label ditaruh di dalam log_header_frame (pack ke KIRI)
+        tk.Label(log_header_frame, text="Log Aktivitas:", anchor='w', bg=self.BG_MAIN, fg=self.FG_MUTED, font=('Segoe UI', 9, 'bold')).pack(side=tk.LEFT, fill=tk.X)
+        # 3. Tombol Clear ditaruh di dalam log_header_frame (pack ke KANAN)
+        clear_btn = tk.Button(
+            log_header_frame,
+            text="Clear",
+            font=('Segoe UI', 8, 'bold'),
+            bg="#2A2A38", 
+            fg=self.FG_MAIN,         # Menyesuaikan tema warna Anda
+            relief=tk.SOLID,
+            bd=1,
+            cursor="hand2",          # Mengubah cursor saat hover
+            command=self.clear_log   # Fungsi yang dijalankan saat diklik
+        )
+        clear_btn.pack(side=tk.LEFT)
+        self.detach_btn = tk.Button(
+            log_header_frame,
+            text="🔓",
+            font=('Segoe UI', 8, 'bold'),
+            bg="#2A2A38", 
+            fg=self.FG_MAIN,         # Menyesuaikan tema warna Anda
+            relief=tk.SOLID,
+            bd=1,
+            cursor="hand2",          # Mengubah cursor saat hover
+            command=self.toggle_log_window   # Fungsi yang dijalankan saat diklik
+        )
+        self.detach_btn.pack(side=tk.LEFT, padx=5)
+        
+        # Buat area log
+        self.log_area = self.create_log_area(parent)
+        self.log_area.pack(fill=tk.BOTH, expand=True)
+
     ## --- Utility Function modded detach log area ---
     def toggle_log_window(self):
         # Mencegah double klik
@@ -651,8 +659,8 @@ class AutoApp:
         
         # 1. Ambil teks dan HAPUS DARI LAYOUT
         current_text = self.log_area.get("1.0", tk.END)
-        self.log_area.pack_forget() # PENTING: ini yang mengembalikan ruang
-        self.log_area.destroy()
+        self.log_container.pack_forget() # PENTING: ini yang mengembalikan ruang
+        self.log_container.destroy()
         
         if not self.is_detached:
             # --- DETACH ---
@@ -662,28 +670,35 @@ class AutoApp:
             self.log_window.attributes("-topmost", True)
             self.log_window.protocol("WM_DELETE_WINDOW", self.toggle_log_window)
             
-            self.log_area = self.create_log_area(self.log_window)
-            self.is_detached = True
-            self.detach_btn.config(text="Balik")
-            self.log_area.config(font=('Consolas', 9))
-            self.master.geometry("480x400")
+            # self.log_area = self.create_log_area(self.log_window)
+            # self.detach_btn.config(text="Balik")
+            target = self.log_window
+            self.is_detached, text = True, "🔒"
+            # self.log_area.config(font=('Consolas', 9))
+            self.master.geometry("480x550")
         else:
             # --- ATTACH ---
-            self.log_area = self.create_log_area(self.main_frame)
+            # self.log_area = self.create_log_area(self.main_frame)
+            # self.detach_btn.config(text="Pisah")
+            target = self.main_frame
             
             if hasattr(self, 'log_window') and self.log_window:
                 self.log_window.destroy()
                 self.log_window = None
             
-            self.is_detached = False
-            self.detach_btn.config(text="Pisah")
-            self.log_area.config(font=('Consolas', 8))
+            self.is_detached, text = False, "🔓"
+            # self.log_area.config(font=('Consolas', 8))
             self.master.geometry("480x800")
         
         # 3. Pack ulang
-        self.log_area.pack(fill=tk.BOTH, expand=True)
+        self.log_container = tk.Frame(target, bg=self.BG_MAIN)
+        self.log_container.pack(fill=tk.BOTH, expand=True)
+        self.recreate_log_ui(self.log_container)
+        # self.log_area.pack(fill=tk.BOTH, expand=True)
+        self.detach_btn.config(text=text, state=tk.NORMAL)
         self.log_area.insert(tk.END, current_text)
         self.log_area.see(tk.END)
+        if not self.is_detached: self.log_area.config(font=('Consolas', 9))
         
         # 4. RESET LAYOUT (PENTING)
         self.main_frame.update() 
@@ -891,7 +906,7 @@ class AutoApp:
     # --- Clear log message ---
     def clear_log(self):
         # Hapus dari index '1.0' (awal) sampai 'end' (akhir)
-        self.isdone = 1
+        # self.isdone = 1
         self.log_area.delete('1.0', "end")
         self.log_message("Cleared! Aplikasi dimulai. Selamat datang!")
 
@@ -1072,7 +1087,10 @@ class AutoApp:
             # self.driver.find_element(By.XPATH, '//*[@id="kc-login"]').send_keys(Keys.RETURN)
             if self.stop_event.is_set():
                 raise InterruptedError("Process stopped by user.")
-            page.get_by_role("link", name="Login SSO BPS").click()
+            try:
+                page.get_by_role("link", name="Login SSO BPS").click(timeout=20000)
+            except TimeoutError:
+                pass
             page.get_by_role("textbox", name="Username or email").click()
             page.get_by_role("textbox", name="Username or email").fill(self.username_entry.get())
             page.get_by_role("textbox", name="Password").click()
@@ -1099,6 +1117,7 @@ class AutoApp:
 
     # --- Function 1 ---
     def run_function_1(self):
+        self.btn_stop_app.config(state=tk.NORMAL)
         # check thread
         if self.thread and self.thread.is_alive():
             self.log_message("ERROR: Running Get_List_Data dibatalkan. Masih ada proses yang berjalan.", "red_tag")
@@ -1124,6 +1143,7 @@ class AutoApp:
 
     # --- Function 2 ---
     def run_function_2(self):
+        self.btn_stop_app.config(state=tk.NORMAL)
         # check thread
         if self.thread and self.thread.is_alive():
             self.log_message("ERROR: Running Function dibatalkan. Masih ada proses yang berjalan.", "red_tag")
@@ -1180,9 +1200,6 @@ class AutoApp:
                 self.log_message(f"ERROR: Fungsi 2 dibatalkan. Input tambahan invalid.", "red_tag")
                 return
             else:
-                if page:
-                    self.page.goto(self.getassets('index.html'))
-                    self.page.evaluate("document.body.setAttribute('data-status', 'running')")
                 if self.val_approv.get() == 1:
                     cekapprove = True
                 elif self.val_approv.get() == 0:

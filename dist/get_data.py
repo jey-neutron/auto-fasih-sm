@@ -1,6 +1,5 @@
 # konfig var
-APP_VERSION = 'v2.3.6' #updated headers and make thread workers, added getdataReview
-# v2.4.0 #app update detach log, update log message
+APP_VERSION = 'v2.4.0' #app update detach log, update log message
 TIMEOUT_REQUEST = 60000 #ms
 ROW_REQUEST = 50 #jml row yg diambil dari request getlistdata
 MAX_WORKERS = 3 #jml tab/worker
@@ -1135,6 +1134,9 @@ def mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdent
 
     try:
         p_instance, ctx, page = get_playwright_page() #konek ke playwr
+        if page:
+            page.goto(instance.getassets('index.html'))
+            page.evaluate("document.body.setAttribute('data-status', 'running')")
         # read data csv result from get list data
         try:
             df = pd.read_csv(filename, sep=sep)
