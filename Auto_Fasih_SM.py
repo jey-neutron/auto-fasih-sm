@@ -2,6 +2,7 @@ import subprocess
 import socket
 import time
 import tkinter as tk
+import tkinter.font as tkfont
 from tkinter import ttk
 import threading
 import sys
@@ -162,12 +163,12 @@ class AutoApp:
         usersso, passso, approv, msgsso, helper = self.load_credentials()     
 
         # 2. Ambil fungsi yang dibutuhkan
-        global mainfunc
-        global get_list_data
+        global __mainfunc
+        global __get_list_data
         global exclude_fun_list
         global chromeport
-        mainfunc = external_funcs.get('mainfunc')
-        get_list_data = external_funcs.get('get_list_data')
+        __mainfunc = external_funcs.get('__mainfunc')
+        __get_list_data = external_funcs.get('__get_list_data')
         appver = external_funcs.get('ver')
         chromeport = external_funcs.get('chromeport')(self)
         exclude_fun_list = external_funcs.get('help')(self)
@@ -186,7 +187,7 @@ class AutoApp:
         # Konfigurasi jendela utama
         # self.master = master
         #master.iconbitmap("ikonku.ico")
-        master.title(f"Aplikasi Auto-Fasih-SM {appver(self)}")
+        master.title(f"Auto-Fasih-SM {appver(self)}")
         master.iconbitmap(icon)
         master.geometry("480x800") # Ukuran awal yang sedikit lebih proporsional
         master.attributes("-topmost", True) # Selalu di atas
@@ -202,12 +203,12 @@ class AutoApp:
         self.main_frame.pack_propagate(True) # Biarkan frame mengecil mengikuti konten yang tersisa
 
         # --- Variabel STATUS ---
-        self.status_var = tk.StringVar(value="STATUS: Belum dikenapa-napain")
+        self.status_var = tk.StringVar(value="Welcome to the app!") if not usersso else tk.StringVar(value=f"Welcome to the app, {usersso}!")
         self.status_label = tk.Label(
             self.main_frame, 
             textvariable=self.status_var, 
             fg="#FFFFFF", 
-            bg=self.ACCENT_BLUE_DARK, 
+            bg=self.ACCENT_BLUE, 
             font=('Segoe UI', 10, 'bold'), 
             anchor='w',
             padx=10,
@@ -228,69 +229,22 @@ class AutoApp:
         self.btn_frame_1 = tk.Frame(self.main_frame, bg=self.BG_MAIN)
         self.btn_frame_1.pack(fill=tk.X, pady=(7, 5))
 
-        self.btn_open_app = tk.Button(
-            self.btn_frame_1, 
-            text="Start Browser", 
-            command=self.open_browser, 
-            bg=self.ACCENT_BLUE, 
-            fg=self.FG_MAIN, 
-            font=('Segoe UI', 9, 'bold'),
-            relief=tk.FLAT,
-            activebackground="#266EF1",
-            activeforeground=self.FG_MAIN,
-            padx=10,
-            pady=3,
-            cursor="hand2"
-        )
+        self.btn_open_app = self.make_button(self.btn_frame_1, "Start Browser", self.open_browser, self.ACCENT_BLUE_DARK,self.FG_MUTED)
         self.btn_open_app.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
 
-        self.btn_open_link = tk.Button(
-            self.btn_frame_1, 
-            text="Goto Link", 
-            command=self.open_link_in_browser, 
-            bg=self.ACCENT_BLUE, 
-            fg=self.FG_MAIN, 
-            font=('Segoe UI', 9, 'bold'),
-            relief=tk.FLAT,
-            activebackground="#266EF1",
-            activeforeground=self.FG_MAIN,
-            padx=10,
-            pady=3,
-            cursor="hand2"
-        )
+        self.btn_open_link = self.make_button(self.btn_frame_1, "Goto Link", self.open_link_in_browser, self.ACCENT_BLUE_DARK, self.FG_MUTED)
         self.btn_open_link.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 5))
 
-        self.btn_stop_app = tk.Button(
-            self.btn_frame_1, 
-            text="Stop Running", 
-            # command=self.close_browser, 
-            command=self.stop_thread, 
-            # bg="#2a2a38", 
-            bg= self.ACCENT_RED, 
-            fg=self.FG_MAIN, 
-            font=('Segoe UI', 9, 'bold'),
-            relief=tk.FLAT,
-            # activebackground="#3d3d52",
-            activebackground="#C2002B",
-            activeforeground=self.FG_MAIN,
-            padx=10,
-            pady=3,
-            cursor="hand2"
-        )
+        self.btn_stop_app = self.make_button(self.btn_frame_1,'Stop Running', self.stop_thread, self.ACCENT_RED_DARK,self.FG_MUTED)
         self.btn_stop_app.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
-        self.btn_stop_app.config(state=tk.DISABLED)
+        # self.btn_stop_app.config(state=tk.DISABLED)
+        self.set_button_disabled(self.btn_stop_app,disabled=True, active_bg=self.BG_INPUT)
 
         # --- Tombol Baris 2: Fungsi 1 & Fungsi 2 ---
         # --- SECTION 1
-        self.toggle_btn_getlist = tk.Button(
-            self.main_frame,
-            text="▶ Get List Data", # Default icon tertutup
-            font=('Segoe UI', 9, 'bold'),
-            bg=self.BG_CARD,
-            fg=self.FG_MAIN,
-            bd=0,
-            anchor="w", # Teks rata kiri
-            command= lambda: self.toggle_section(self.func1_frame, self.toggle_btn_getlist, self.func2_frame, self.toggle_btn) # Hubungkan ke fungsi toggle
+        self.toggle_btn_getlist = self.make_button(self.main_frame, "▶ Get List Data", 
+                                                    command= lambda: self.toggle_section(self.func1_frame, self.toggle_btn_getlist, self.func2_frame, self.toggle_btn), 
+                                                    bg=self.BG_CARD, active_bg=self.FG_MUTED, anchor='w'
         )
         self.toggle_btn_getlist.pack(fill=tk.X, pady=(10, 0))
 
@@ -314,74 +268,21 @@ class AutoApp:
         self.label_hasil = tk.Label(self.btn_frame_2, text="Write data.csv?", bg=self.BG_CARD, fg=self.FG_MAIN, font=('Segoe UI', 9, 'bold'))
         self.label_hasil.pack(pady=5, side=tk.LEFT)
         # radio
-        self.rw1= tk.Radiobutton(
-            self.btn_frame_2, 
-            text='Rewrite', 
-            variable=self.vwrite, 
-            value=1, 
-            indicatoron=0, 
-            command=self.update_label_vwrite,
-            bg=self.BG_CARD,
-            #fg=self.FG_MUTED,
-            fg='#c7c7c7',
-            selectcolor=self.ACCENT_ORANGE,
-            activebackground=self.ACCENT_ORANGE,
-            activeforeground=self.BG_CARD,
-            relief=tk.FLAT,
-            font=('Segoe UI', 8, 'bold'),
-            padx=6,
-            pady=3,
-            cursor="hand2"
-        )
+        self.rw1= self.make_radio(self.btn_frame_2,'Rewrite',self.vwrite,1,
+                                    self.update_label_vwrite,self.ACCENT_TEAL_DARK,self.ACCENT_TEAL_DARK)
         self.rw1.pack(side=tk.LEFT, padx=(5, 2))
-        self.rw2= tk.Radiobutton(
-            self.btn_frame_2, 
-            text='Append', 
-            variable=self.vwrite, 
-            value=0, 
-            indicatoron=0, 
-            command=self.update_label_vwrite,
-            bg=self.BG_INPUT,
-            #fg=self.FG_MUTED,
-            fg='#c7c7c7',
-            selectcolor=self.ACCENT_ORANGE,
-            activebackground=self.ACCENT_ORANGE,
-            activeforeground=self.BG_CARD,
-            relief=tk.FLAT,
-            font=('Segoe UI', 8, 'bold'),
-            padx=6,
-            pady=3,
-            cursor="hand2"
-        )
+        self.rw2= self.make_radio(self.btn_frame_2,'Append',self.vwrite,0,
+                                    self.update_label_vwrite,self.ACCENT_TEAL_DARK,self.ACCENT_TEAL_DARK)
         self.rw2.pack(side=tk.LEFT, padx=2)
 
         # main btn func 1
-        self.btn_func_1 = tk.Button(
-            self.btn_frame_2, 
-            text="Get List Data", 
-            command=self.run_function_1, 
-            bg=self.ACCENT_ORANGE, 
-            fg=self.FG_MAIN,
-            font=('Segoe UI', 9, 'bold'), 
-            relief=tk.FLAT,
-            activebackground="#E08512",
-            activeforeground=self.FG_MAIN,
-            padx=10,
-            pady=3,
-            cursor="hand2"
-        )
+        self.btn_func_1 = self.make_button(self.btn_frame_2,'Get List Data',self.run_function_1,self.ACCENT_TEAL_DARK,self.FG_MUTED, pady=3)
         self.btn_func_1.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(10, 0))
 
         # --- SECTION : Input Fields Khusus Fungsi 2 (LabelFrame) ---
-        self.toggle_btn = tk.Button(
-            self.main_frame,
-            text="▶ Run Main Function", # Default icon tertutup
-            font=('Segoe UI', 9, 'bold'),
-            bg=self.BG_CARD,
-            fg=self.FG_MAIN,
-            bd=0,
-            anchor="w", # Teks rata kiri
-            command= lambda: self.toggle_section(self.func2_frame, self.toggle_btn, self.func1_frame, self.toggle_btn_getlist) # Hubungkan ke fungsi toggle
+        self.toggle_btn = self.make_button(self.main_frame,"▶ Run Main Function",
+                                            command= lambda: self.toggle_section(self.func2_frame, self.toggle_btn, self.func1_frame, self.toggle_btn_getlist),
+                                            bg=self.BG_CARD, active_bg=self.FG_MUTED, anchor='w'
         )
         self.toggle_btn.pack(fill=tk.X, pady=(10, 0))
 
@@ -402,14 +303,14 @@ class AutoApp:
         self.create_input_field("Baris Mulai:", "Cth: 0 (untuk mulai dari awal)", "start_row_entry", self.func2_frame)
         self.create_input_field("Nama File:", "Nama_File.csv", "filename_entry", self.func2_frame, value='data.csv')
         # self.create_input_field("Input Tambahan:", "Input opsional... (cth: help)", "extra_input_entry", self.func2_frame, value=helper)
-        # rev combobox ======
+        # rev combobox start ======
         self.extra_frame = tk.Frame(self.func2_frame, bg=self.func2_frame.cget('bg'))
         self.extra_frame.pack(fill=tk.X, pady=4)
 
         # 1. Label Input Tambahan
         tk.Label(
             self.extra_frame, 
-            text="Input Tambahan:", 
+            text="Fungsi Tambahan:", 
             width=14, 
             anchor='w', 
             bg=self.func2_frame.cget('bg'), 
@@ -418,6 +319,23 @@ class AutoApp:
         ).pack(side=tk.LEFT)
 
         # 2. Widget Combobox (Dropdown)
+        style = ttk.Style()
+        style.theme_use('clam')  # perlu 'clam'/'alt', default 'vista'/'winnative' susah di-restyle
+        style.configure("TCombobox",
+            fieldbackground=self.BG_INPUT,
+            background=self.BG_INPUT,
+            foreground=self.FG_MAIN,
+            arrowcolor=self.FG_MAIN,
+            bordercolor=self.BORDER_COLOR,
+            lightcolor=self.BG_INPUT,
+            darkcolor=self.BG_INPUT,
+            padding=4
+        )
+        style.map("TCombobox",
+            fieldbackground=[('readonly', self.BG_INPUT)],
+            foreground=[('readonly', self.FG_MAIN)],
+            background=[('readonly', self.BG_INPUT)]
+        )
         self.extra_input_entry = ttk.Combobox(
             self.extra_frame,
             font=('Segoe UI', 9),
@@ -428,15 +346,8 @@ class AutoApp:
         self.extra_input_entry.bind("<<ComboboxSelected>>", self.on_select)
 
         # 3. Tombol Refresh Kecil
-        self.refresh_btn = tk.Button(
-            self.extra_frame,
-            text="🔄", 
-            font=('Segoe UI', 8),
-            bg=self.BG_INPUT,
-            fg="#ffffff",
-            relief=tk.FLAT,
-            command=self.refresh_dropdown_functions  # Memanggil fungsi refresh bawah
-        )
+        self.refresh_btn = self.make_button(self.extra_frame,'🔄',self.refresh_dropdown_functions,
+                                            self.BG_INPUT,self.FG_MUTED, padx=5, pady=0)
         self.refresh_btn.pack(side=tk.RIGHT)
         self.refresh_dropdown_functions() # run first time
         # end combobox ======
@@ -450,108 +361,27 @@ class AutoApp:
         self.radio_container.pack(fill=tk.X, pady=(8, 0))
 
         # Label untuk menampilkan hasil pilihan
-        self.label_hasil = tk.Label(self.radio_container, text="Sekalian approve Fasih?", bg=self.BG_CARD, fg=self.FG_MAIN, font=('Segoe UI', 8, 'bold'))
-        self.label_hasil.pack(pady=5, side=tk.LEFT)
+        self.label_hasil2 = tk.Label(self.radio_container, text="Sekalian approve Fasih?", bg=self.BG_CARD, fg=self.FG_MAIN, font=('Segoe UI', 8, 'bold'))
+        self.label_hasil2.pack(pady=5, side=tk.LEFT)
         # radio
-        self.rb1= tk.Radiobutton(
-            self.radio_container, 
-            text='True', 
-            variable=self.val_approv, 
-            value=1, 
-            indicatoron=0, 
-            command=self.update_label,
-            bg=self.BG_INPUT,
-            #fg=self.FG_MUTED,
-            fg='#c7c7c7',
-            selectcolor=self.ACCENT_TEAL,
-            activebackground=self.ACCENT_TEAL,
-            activeforeground=self.FG_MAIN,
-            relief=tk.FLAT,
-            font=('Segoe UI', 8, 'bold'),
-            padx=8,
-            pady=3,
-            cursor="hand2"
-        )
+        self.rb1= self.make_radio(self.radio_container,'True',self.val_approv,1,
+                                    self.update_label,self.ACCENT_TEAL_DARK,self.ACCENT_TEAL_DARK)
         self.rb1.pack(side=tk.LEFT, padx=(5, 2))
-        self.rb2= tk.Radiobutton(
-            self.radio_container, 
-            text='False', 
-            variable=self.val_approv, 
-            value=0, 
-            indicatoron=0, 
-            command=self.update_label,
-            bg=self.BG_INPUT,
-            #fg=self.FG_MUTED,
-            fg='#c7c7c7',
-            selectcolor=self.ACCENT_TEAL,
-            activebackground=self.ACCENT_TEAL,
-            activeforeground=self.FG_MAIN,
-            relief=tk.FLAT,
-            font=('Segoe UI', 8, 'bold'),
-            padx=8,
-            pady=3,
-            cursor="hand2"
-        )
+        self.rb2= self.make_radio(self.radio_container,'False',self.val_approv,0,
+                                    self.update_label,self.ACCENT_TEAL_DARK,self.ACCENT_TEAL_DARK)
         self.rb2.pack(side=tk.LEFT, padx=2)
-        self.rb3= tk.Radiobutton(
-            self.radio_container, 
-            text='Reject', 
-            variable=self.val_approv, 
-            value=2, 
-            indicatoron=0, 
-            command=self.update_label,
-            bg=self.BG_INPUT,
-            #fg=self.FG_MUTED,
-            fg='#c7c7c7',
-            selectcolor=self.ACCENT_TEAL,
-            activebackground=self.ACCENT_TEAL,
-            activeforeground=self.FG_MAIN,
-            relief=tk.FLAT,
-            font=('Segoe UI', 8, 'bold'),
-            padx=8,
-            pady=3,
-            cursor="hand2"
-        )
+        self.rb3= self.make_radio(self.radio_container,'Reject',self.val_approv,2,
+                                    self.update_label,self.ACCENT_TEAL_DARK,self.ACCENT_TEAL_DARK)
         self.rb3.pack(side=tk.LEFT, padx=2)
-        self.rb4= tk.Radiobutton(
-            self.radio_container, 
-            text='NonApprov', 
-            variable=self.val_approv, 
-            value=99, 
-            indicatoron=0, 
-            command=self.update_label,
-            bg=self.BG_INPUT,
-            #fg=self.FG_MUTED,
-            fg='#c7c7c7',
-            selectcolor=self.ACCENT_TEAL,
-            activebackground=self.ACCENT_TEAL,
-            activeforeground=self.FG_MAIN,
-            relief=tk.FLAT,
-            font=('Segoe UI', 8, 'bold'),
-            padx=8,
-            pady=3,
-            cursor="hand2"
-        )
+        self.rb4= self.make_radio(self.radio_container,'NonApprov',self.val_approv,99,
+                                    self.update_label,self.ACCENT_TEAL_DARK,self.ACCENT_TEAL_DARK)
         self.rb4.pack(side=tk.LEFT, padx=2)
 
         # --- Tombol Baris 3: Close App & Exit App ---
         self.btn_frame_3 = tk.Frame(self.func2_frame, bg=self.BG_CARD)
         self.btn_frame_3.pack(fill=tk.X, pady=5)
 
-        self.btn_func_2 = tk.Button(
-            self.btn_frame_3, 
-            text="Run Function", 
-            command=self.run_function_2, 
-            bg=self.ACCENT_TEAL, 
-            fg=self.FG_MAIN,
-            font=('Segoe UI', 9, 'bold'), 
-            relief=tk.FLAT,
-            activebackground="#05A87E",
-            activeforeground=self.FG_MAIN,
-            padx=10,
-            pady=3,
-            cursor="hand2"
-        )
+        self.btn_func_2 = self.make_button(self.btn_frame_3,'Run Function',self.run_function_2, self.ACCENT_TEAL_DARK,self.FG_MUTED)
         self.btn_func_2.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 4))
 
         # self.btn_stop_app = tk.Button(
@@ -571,6 +401,15 @@ class AutoApp:
         # self.btn_stop_app.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(4, 0))
 
         # --- Log Area ---
+        # style
+        style.configure("Vertical.TScrollbar",
+            background=self.BG_CARD,
+            troughcolor=self.BG_MAIN,
+            bordercolor=self.BORDER_COLOR,
+            arrowcolor=self.FG_MUTED,
+            relief=tk.FLAT
+        )
+        style.map("Vertical.TScrollbar", background=[('active', self.ACCENT_BLUE)])
         # 0. Container utk header log dan isi log
         self.log_container = tk.Frame(self.main_frame, bg=self.BG_MAIN)
         self.log_container.pack(fill=tk.BOTH, expand=True)
@@ -587,32 +426,27 @@ class AutoApp:
         else: self.rb1.select()
         self.update_label()
 
+        self.master.bind_all("<Button-1>", self.on_global_click)
+
     ## --- Utility Function log area ---
     def create_log_area(self, parent):
-        # Buat widget
-        log_area = scrolledtext.ScrolledText(
-            parent, 
-            wrap=tk.WORD, 
-            height=20, 
-            font=('Consolas', 8),
-            bg=self.BG_CARD,
-            fg=self.FG_MAIN,
-            insertbackground=self.FG_MAIN, # cursor color
-            bd=1,
-            relief=tk.SOLID,
-            highlightthickness=0
+        container = tk.Frame(parent, bg=self.BG_CARD)
+        log_area = tk.Text(
+            container, wrap=tk.WORD, height=20, font=('Consolas', 8),
+            bg=self.BG_CARD, fg=self.FG_MAIN, insertbackground=self.FG_MAIN,
+            bd=1, relief=tk.SOLID, highlightthickness=0
         )
-        
-        # Konfigurasi Tag
+        vbar = ttk.Scrollbar(container, orient="vertical", command=log_area.yview, style="Vertical.TScrollbar")
+        log_area.config(yscrollcommand=vbar.set)
+        vbar.pack(side=tk.RIGHT, fill=tk.Y)
+        log_area.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
         log_area.tag_config("red_tag", foreground=self.ACCENT_RED)
         log_area.tag_config("green_tag", foreground=self.ACCENT_TEAL)
-        
-        # Konfigurasi Scrollbar
-        log_area.vbar.config(
-            troughcolor="#2d2d2d", bg=self.BG_CARD,
-            activebackground=self.FG_MAIN, bd=0, elementborder=0
-        )
-        
+        log_area.tag_config("orange_tag", foreground=self.ACCENT_ORANGE)
+        log_area.tag_config("muted_tag", foreground=self.FG_MUTED)
+        log_area.container = container
+        # self.setup_text_style_bindings(log_area)  # untuk poin 3
         return log_area
 
     def recreate_log_ui(self, parent):
@@ -623,34 +457,19 @@ class AutoApp:
         # 2. Label ditaruh di dalam log_header_frame (pack ke KIRI)
         tk.Label(log_header_frame, text="Log Aktivitas:", anchor='w', bg=self.BG_MAIN, fg=self.FG_MUTED, font=('Segoe UI', 9, 'bold')).pack(side=tk.LEFT, fill=tk.X)
         # 3. Tombol Clear ditaruh di dalam log_header_frame (pack ke KANAN)
-        clear_btn = tk.Button(
-            log_header_frame,
-            text="Clear",
-            font=('Segoe UI', 8, 'bold'),
-            bg="#2A2A38", 
-            fg=self.FG_MAIN,         # Menyesuaikan tema warna Anda
-            relief=tk.SOLID,
-            bd=1,
-            cursor="hand2",          # Mengubah cursor saat hover
-            command=self.clear_log   # Fungsi yang dijalankan saat diklik
-        )
-        clear_btn.pack(side=tk.LEFT)
-        self.detach_btn = tk.Button(
-            log_header_frame,
-            text="🔓",
-            font=('Segoe UI', 8, 'bold'),
-            bg="#2A2A38", 
-            fg=self.FG_MAIN,         # Menyesuaikan tema warna Anda
-            relief=tk.SOLID,
-            bd=1,
-            cursor="hand2",          # Mengubah cursor saat hover
-            command=self.toggle_log_window   # Fungsi yang dijalankan saat diklik
-        )
-        self.detach_btn.pack(side=tk.LEFT, padx=5)
+        self.detach_btn = self.make_button(log_header_frame,'🔓',self.toggle_log_window,'#2a2a38',self.FG_MUTED, padx=5, pady=0)
+        self.detach_btn.pack(side=tk.RIGHT, padx=5)
+        
+        clear_btn = self.make_button(log_header_frame,'🧹',self.clear_log,'#2a2a38',self.FG_MUTED, padx=5, pady=0)
+        clear_btn.pack(side=tk.RIGHT)
         
         # Buat area log
         self.log_area = self.create_log_area(parent)
-        self.log_area.pack(fill=tk.BOTH, expand=True)
+        self.log_area.container.pack(fill=tk.BOTH, expand=True) #added container
+        self.setup_text_style_bindings(self.log_area)
+        if self.is_detached: 
+            self.log_area.config(font=('Consolas', 9))
+            self._refresh_style_fonts(self.log_area)
 
     ## --- Utility Function modded detach log area ---
     def toggle_log_window(self):
@@ -675,7 +494,7 @@ class AutoApp:
             target = self.log_window
             self.is_detached, text = True, "🔒"
             # self.log_area.config(font=('Consolas', 9))
-            self.master.geometry("480x550")
+            self.master.geometry("480x600")
         else:
             # --- ATTACH ---
             # self.log_area = self.create_log_area(self.main_frame)
@@ -698,13 +517,127 @@ class AutoApp:
         self.detach_btn.config(text=text, state=tk.NORMAL)
         self.log_area.insert(tk.END, current_text)
         self.log_area.see(tk.END)
-        if not self.is_detached: self.log_area.config(font=('Consolas', 9))
         
         # 4. RESET LAYOUT (PENTING)
         self.main_frame.update() 
         self.detach_btn.config(state=tk.NORMAL)
     ##
 
+    ## --update log control font
+    def setup_text_style_bindings(self, text_widget):
+        base = tkfont.Font(font=text_widget.cget("font"))
+
+        def make_font(bold=False, italic=False):
+            f = base.copy()
+            f.configure(
+                weight="bold" if bold else "normal",
+                slant="italic" if italic else "roman"
+            )
+            return f
+
+        # semua kombinasi bold x italic
+        combos = {
+            (False, False): None,
+            (True,  False): make_font(True, False),
+            (False, True):  make_font(False, True),
+            (True,  True):  make_font(True, True),
+        }
+        for (b, i), f in combos.items():
+            if f:
+                text_widget.tag_configure(f"b{int(b)}i{int(i)}", font=f)
+
+        # underline & strikethrough independen (bukan font, jadi aman ditumpuk)
+        text_widget.tag_configure("underline", underline=True)
+        text_widget.tag_configure("strike", overstrike=True)
+        self._refresh_style_fonts(text_widget)  # bikin/refresh font tag sesuai font saat ini
+        # self._bind_style_keys(text_widget)
+
+        def current_flags(index):
+            tags = text_widget.tag_names(index)
+            return "b1" in "".join(tags) or False  # placeholder, dihitung ulang di bawah
+
+        def has_tag(prefix, index):
+            return any(t.startswith(prefix) for t in text_widget.tag_names(index))
+
+        def get_bold_italic(index):
+            # cek tag kombinasi yang sedang aktif di posisi awal seleksi
+            for t in text_widget.tag_names(index):
+                if t.startswith("b") and "i" in t:
+                    bold = t[1] == "1"
+                    italic = t[3] == "1"
+                    return bold, italic
+            return False, False
+
+        def remove_all_bi_tags(start, end):
+            for t in ["b0i0", "b1i0", "b0i1", "b1i1"]:
+                text_widget.tag_remove(t, start, end)
+
+        def apply_bi(bold, italic, start, end):
+            for t in ["b1i0", "b0i1", "b1i1"]:
+                text_widget.tag_remove(t, start, end)
+            if bold or italic:
+                text_widget.tag_add(f"b{int(bold)}i{int(italic)}", start, end)
+
+        def toggle_bold(event=None):
+            try:
+                start, end = "sel.first", "sel.last"
+                bold, italic = get_bold_italic(start)
+                apply_bi(not bold, italic, start, end)
+            except tk.TclError:
+                pass
+            return "break"
+
+        def toggle_italic(event=None):
+            try:
+                start, end = "sel.first", "sel.last"
+                bold, italic = get_bold_italic(start)
+                apply_bi(bold, not italic, start, end)
+            except tk.TclError:
+                pass
+            return "break"
+
+        def toggle_simple(tag_name):
+            def _toggle(event=None):
+                try:
+                    start, end = "sel.first", "sel.last"
+                    if tag_name in text_widget.tag_names(start):
+                        text_widget.tag_remove(tag_name, start, end)
+                    else:
+                        text_widget.tag_add(tag_name, start, end)
+                except tk.TclError:
+                    pass
+                return "break"
+            return _toggle
+        
+        text_widget.bind("<Control-b>", toggle_bold)
+        text_widget.bind("<Control-i>", toggle_italic)
+        text_widget.bind("<Control-u>", toggle_simple("underline"))
+        text_widget.bind("<Control-Key-minus>", toggle_simple("strike"))  # Ctrl+- utk strikethrough
+    
+    def _refresh_style_fonts(self, text_widget):
+        base = tkfont.Font(font=text_widget.cget("font"))
+        def make_font(bold=False, italic=False):
+            f = base.copy()
+            f.configure(
+                weight="bold" if bold else "normal",
+                slant="italic" if italic else "roman"
+            )
+            return f
+        for (b, i) in [(1,0), (0,1), (1,1)]:
+            tag = f"b{b}i{i}"
+            text_widget.tag_configure(tag, font=make_font(bool(b), bool(i)))
+
+    def make_button(self, parent, text, command, bg, active_bg, anchor='center', padx=10, pady=1):
+        return tk.Button(parent, text=text, command=command, bg=bg, fg=self.FG_MAIN,
+            font=('Segoe UI', 8, 'bold'), relief=tk.FLAT, activebackground=active_bg,
+            activeforeground=self.FG_MAIN, padx=padx, pady=pady, cursor="hand2", anchor=anchor)
+
+    def make_radio(self, parent, text, var, value, cmd, select_color, active_bg):
+        return tk.Radiobutton(parent, text=text, variable=var, value=value, indicatoron=0,
+            command=cmd, bg=self.BG_INPUT, fg='#c7c7c7', selectcolor=select_color,
+            activebackground=active_bg, activeforeground=self.FG_MAIN, relief=tk.FLAT,
+            font=('Segoe UI', 8, 'bold'), padx=8, pady=3, cursor="hand2")
+    
     # --- Utility Function untuk membuat field input berulang ---
     def create_input_field(self, label_text, placeholder, attr_name, parent, show='', value=False):
         frame = tk.Frame(parent, bg=parent.cget('bg'))
@@ -768,6 +701,12 @@ class AutoApp:
             target_frame.pack(fill=tk.X, pady=(5, 3), after=target_button)
             target_button.config(text=target_button.cget("text").replace("▶", "▼"))
 
+    def set_button_disabled(self, btn, disabled: bool, active_bg):
+        if disabled:
+            btn.config(state=tk.DISABLED, bg="#3A3A45", fg="#777777", cursor="arrow")
+        else:
+            btn.config(state=tk.NORMAL, bg=active_bg, fg=self.FG_MAIN, cursor="hand2")
+
     # --refresh get_data.py
     def refresh_dropdown_functions(self):        
         try:
@@ -810,6 +749,29 @@ class AutoApp:
             self.log_message(message=f"Deskripsi fungsi: \n'{docstring}'\n" if docstring else "Tidak ada deskripsi pada fungsi terpilih.", tag="green_tag")
         else:
             self.log_message(message="Fungsi tidak ditemukan.", tag= "red_tag")
+
+    # --click biar focus out
+    def on_global_click(self, event):
+        widget = event.widget
+        
+        # Skip kalau klik terjadi di luar main window (misal: popdown combobox, 
+        # yang berupa Toplevel/Listbox terpisah)
+        try:
+            top = widget.winfo_toplevel()
+        except AttributeError:
+            return
+        except tk.TclError:
+            return
+        if top != self.master:
+            return
+        
+        # Skip untuk widget yang emang butuh pegang fokus sendiri
+        cls = widget.winfo_class()
+        if cls in ("Entry", "TEntry", "TCombobox", "Text", "Listbox"):
+            return
+        
+        self.main_frame.focus_set()
+
 
     # --update untuk radiobtn
     def update_label(self):
@@ -864,9 +826,9 @@ class AutoApp:
         self.status_var.set(new_status)
         # Menyesuaikan penamaan warna ke palette baru
         color_map = {
-            "blue": self.ACCENT_BLUE_DARK,
-            "green": self.ACCENT_TEAL_DARK,
-            "red": self.ACCENT_RED_DARK
+            "blue": self.ACCENT_BLUE,
+            "green": self.ACCENT_TEAL,
+            "red": self.ACCENT_RED
         }
         actual_color = color_map.get(color, color)
         self.status_label.config(fg="white", bg=actual_color)
@@ -896,7 +858,8 @@ class AutoApp:
     # --- Log Message Function ---
     def log_message(self, message, tag=None):
         timestamp = datetime.now().strftime("%H:%M:%S")
-        self.log_area.insert(tk.END, f"[{timestamp}] {message}\n", tag)
+        self.log_area.insert(tk.END, f"[{timestamp}]", tag)#'muted_tag')
+        self.log_area.insert(tk.END, f" {message}\n", tag)
         self.log_area.see(tk.END) # Scroll otomatis ke bawah
 
     # --- Stop Thread Function ---
@@ -1086,6 +1049,7 @@ class AutoApp:
             # self.driver.find_element(By.XPATH, '//*[@id="password"]').send_keys(self.password_entry.get())
             # self.driver.find_element(By.XPATH, '//*[@id="kc-login"]').send_keys(Keys.RETURN)
             if self.stop_event.is_set():
+                self.set_button_disabled(self.btn_stop_app,disabled=True, active_bg=self.BG_INPUT)
                 raise InterruptedError("Process stopped by user.")
             try:
                 page.get_by_role("link", name="Login SSO BPS").click(timeout=20000)
@@ -1117,10 +1081,11 @@ class AutoApp:
 
     # --- Function 1 ---
     def run_function_1(self):
-        self.btn_stop_app.config(state=tk.NORMAL)
+        #self.btn_stop_app.config(state=tk.NORMAL)
+        self.set_button_disabled(self.btn_stop_app,disabled=False, active_bg=self.ACCENT_RED)
         # check thread
         if self.thread and self.thread.is_alive():
-            self.log_message("ERROR: Running Get_List_Data dibatalkan. Masih ada proses yang berjalan.", "red_tag")
+            self.log_message("ERROR: Running __get_list_data dibatalkan. Masih ada proses yang berjalan.", "red_tag")
             return
         self.stop_event.clear() #reset signal
         #
@@ -1133,7 +1098,7 @@ class AutoApp:
                 mode = 'w'
             elif self.vwrite.get() == 0:
                 mode = 'a'
-            self.thread = threading.Thread(target=get_list_data, args=(self, "data.csv",mode))
+            self.thread = threading.Thread(target=__get_list_data, args=(self, "data.csv",mode))
             self.thread.start()
         except Exception as e:
             self.isdone = 1
@@ -1143,7 +1108,8 @@ class AutoApp:
 
     # --- Function 2 ---
     def run_function_2(self):
-        self.btn_stop_app.config(state=tk.NORMAL)
+        # self.btn_stop_app.config(state=tk.NORMAL)
+        self.set_button_disabled(self.btn_stop_app,disabled=False, active_bg=self.ACCENT_RED)
         # check thread
         if self.thread and self.thread.is_alive():
             self.log_message("ERROR: Running Function dibatalkan. Masih ada proses yang berjalan.", "red_tag")
@@ -1196,7 +1162,7 @@ class AutoApp:
             if self.val_approv.get() == 99:
                 if var_input == "Variabel opsional tambahan..." or var_input == "" or var_input == None: var_input =1
                 self.thread = threading.Thread(target=extra_input_fun, args=(self,var_input))
-            elif extra_input == "get_list_data" or extra_input == "mainfunc":
+            elif extra_input == "__get_list_data" or extra_input == "__mainfunc":
                 self.log_message(f"ERROR: Fungsi 2 dibatalkan. Input tambahan invalid.", "red_tag")
                 return
             else:
@@ -1206,7 +1172,7 @@ class AutoApp:
                     cekapprove = False
                 elif self.val_approv.get() == 2:
                     cekapprove = "Reject"
-                self.thread = threading.Thread(target=mainfunc, args=(self, filename, cekapprove, row_num, extra_input_fun))
+                self.thread = threading.Thread(target=__mainfunc, args=(self, filename, cekapprove, row_num, extra_input_fun))
             self.thread.start()
 
         except Exception as e:
@@ -1235,6 +1201,7 @@ class AutoApp:
                 else: pass
             self.log_message(f"Running program berhasil diproses. Cek file output", tag="green_tag")
             self.change_status("STATUS: DONE! Running selesai", color="green")
+            self.set_button_disabled(self.btn_stop_app,disabled=True, active_bg=self.BG_INPUT)
 
 def jalankan_aplikasi():
     splash = tk.Tk()
