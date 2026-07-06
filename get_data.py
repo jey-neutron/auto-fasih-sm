@@ -1113,7 +1113,9 @@ def __row_mainfunc(i, instance, lendf, dflist, idlog, filename, func, api_header
             instance.log_message(f'Udah hit: {current_count}, rehat dulu 30s-60s...','green_tag')
             instance.log_message(f'Bisa clear log biar ga berat...', 'green_tag')
             getrandomcat(instance)
-            time.sleep(60)
+            # time.sleep(60)
+            for _ in range(60):
+                time.sleep(1)
             worker_resume_on_jeda.set() #resume, end jeda
 
         elif current_count % (10*MAX_WORKERS) == 0 and current_count != 0:
@@ -1121,7 +1123,9 @@ def __row_mainfunc(i, instance, lendf, dflist, idlog, filename, func, api_header
             instance.log_message(f'Udah hit: {current_count}, rehat dulu 30s-60s...','green_tag')
             instance.log_message(f'Bisa clear log biar ga berat...', 'green_tag')
             getrandomcat(instance)
-            time.sleep(30)
+            # time.sleep(30)
+            for _ in range(30):
+                time.sleep(1)
             worker_resume_on_jeda.set() #resume, end jeda
 
     with sync_playwright() as p_instance:
