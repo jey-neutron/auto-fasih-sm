@@ -1,5 +1,5 @@
 # konfig var
-APP_VERSION = 'v2.4.2' #add func kiap, app update detach log, update log message, update UI
+APP_VERSION = 'v2.4.3' #re-def kiap n mainfunc
 TIMEOUT_REQUEST = 60000 #ms
 ROW_REQUEST = 50 #jml row yg diambil dari request getlistdata
 MAX_WORKERS = 3 #jml tab/worker
@@ -188,7 +188,7 @@ def mitra_kartu(instance,var):
             }
             output_name = str(df.loc[i,'nama']) + "_"+ str(df.loc[i,'sobat_id'])[:35]+ '.png'
             res= gen_mergemail(instance, var=None, nama=df.loc[i, 'nama'], data_qr=df.loc[i, 'url'], 
-                          cfg=config, output_name=output_name)
+                            cfg=config, output_name=output_name)
             if not res : 
                 df.loc[i, 'status'] = 'Gagal'
                 raise ValueError('Program dihentikan')
@@ -380,138 +380,67 @@ def mitra_addpenawaran(instance, var):
 # =====================================================================
 def kiap_addkeg(instance, var):
     '''Add pelaksanaan kinerja di Kipapp dari csv yg diberikan. Masukkan niplama di Input Variabel. Sementara isian id2 yg perlu diperoleh manual, blm ada func tambahan. Kolom harus ada: id,skpid, rkid, kegiatan, tanggal, tanggalselesai, progres, jammulai, jamselesai, capaian, datadukung, iscapaianskp'''
-    # read data csv result from get list data
-    try:
-        filename = instance.filename_entry.get()
-        df = pd.read_csv(filename, sep=',')
-        df = df.astype(str)
-        if 'status_work' not in df.columns:
-            df['status_work'] = ""
-        kolwjb = {'id','skpid', 'rkid', 'kegiatan', 'tanggal', 'tanggalselesai', 'progres', 'jammulai', 'jamselesai', 'capaian', 'datadukung', 'iscapaianskp'}
-        if not kolwjb.issubset(df.columns) :
-            raise ValueError (f"Ada kolom yg tidak ditemukan di csv, silakan update dulu dan liat deskripsi. Nama kolom harus sama")
-        lendf = len(df)
-        # make df as df list py
-        dflist = df.to_dict(orient='records')
-    except Exception as e:
-        instance.log_message(f'ERROR: {e}', tag="red_tag")
-        df = None
-        dflist = None
-        instance.isdone = 1
+    filename = instance.filename_entry.get()
+
+    # 1. Baca csv dulu
+    kolwjb = {'id', 'skpid', 'rkid', 'kegiatan', 'tanggal', 'tanggalselesai',
+            'progres', 'jammulai', 'jamselesai', 'capaian', 'datadukung', 'iscapaianskp'}
+    df, dflist, lendf = __read_csv_dflist(
+        instance, filename, ',', kolwjb,
+        "Ada kolom yg tidak ditemukan di csv, silakan update dulu dan liat deskripsi. Nama kolom harus sama"
+    )
+    if dflist is None:
         return
-    
-    # execute
-    idlog='kegiatan'
-    # get header from reloading page opened rn
+
+    idlog = 'kegiatan'
     try:
-        # 1. var
         row_indices = range(0, lendf)
         target_url = 'https://kipapp.bps.go.id/api/v1/kegiatan'
         if '340' not in str(var):
             raise ValueError('NIP lama bener atau belum diinput?')
-        
-        p_instance, ctx, page = __get_playwright_page() #konek ke playwr
-        captured_req, api_url, api_payload, api_headers = __get_headers(page, f'https://kipapp.bps.go.id/api/v1/dashboard/rkpegawai?niplama={var}')
+
+        # 2. Baru connect playwright
+        p_instance, ctx, page = __get_playwright_page()
+        captured_req, api_url, api_payload, api_headers = __get_headers(
+            page, f'https://kipapp.bps.go.id/api/v1/dashboard/rkpegawai?niplama={var}')
         time.sleep(1)
-        
-        # 1. Kembaliin ke page UI user (di tab yg page utama)
+
         page.goto(instance.getassets('index.html'))
         page.evaluate("document.body.setAttribute('data-status', 'running')")
 
-        # 3. Jalankan Multi-tab Pekerja via ThreadPoolExecutor
-        # Sesuaikan `max_workers` dengan kekuatan CPU/RAM (misal: 3 s.d 5 tab sekaligus)
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
             futures = []
-            # Set antrian ke worker
             for idx, i in enumerate(row_indices):
-                # CEK approv lom ke 1, cek id jg
                 if dflist[i]['status_work'] in [True, "True"]:
                     instance.log_message(f"[tab:0] {i}/{lendf-1} | {str(dflist[i][idlog])[:20]} | Done, skip")
                     continue
-                elif dflist[i]["rkid"] in [None, "", "skip", "SKIP",'-']:
+                elif dflist[i]["rkid"] in [None, "", "skip", "SKIP", '-']:
                     instance.log_message(f"[tab:0] {i}/{lendf-1} | {str(dflist[i][idlog])[:20]} | No ID, skip")
                     continue
-                # var
-                # Masukkan semua key yang Anda butuhkan ke dalam list
-                keys = ["skpid", "rkid", "kegiatan", "tanggal", "tanggalselesai", 
+                keys = ["skpid", "rkid", "kegiatan", "tanggal", "tanggalselesai",
                         "progres", "jammulai", "jamselesai", "capaian", "datadukung", "iscapaianskp"]
-                # Kode ini otomatis menyusun payload dan mengubah NaN menjadi None
-                payload = {key: (None if pd.isna(dflist[i][key]) or dflist[i][key]=='nan' else dflist[i][key]) for key in keys}
-
-                # ngantri worker
+                payload = {key: (None if pd.isna(dflist[i][key]) or dflist[i][key] == 'nan' else dflist[i][key]) for key in keys}
                 worker_id = (idx % MAX_WORKERS) + 1
                 try:
                     f = executor.submit(
-                        __row_mainfunc, i, instance, lendf, dflist, idlog, filename, None, 
-                        api_headers, False, worker_id, CHROME_PORT, 
-                        True,'post', target_url=target_url, payload=payload
-                    ) 
+                        __row_mainfunc, i, instance, lendf, dflist, idlog, filename, None,
+                        api_headers, False, worker_id, CHROME_PORT,
+                        True, 'post', target_url=target_url, payload=payload
+                    )
                     futures.append(f)
-                    # instance.log_message(f"Baris index-{i} berhasil didaftarkan ke Worker {worker_id}")
-                    # time.sleep(0.2) # Jeda mikro pendaftaran
                 except Exception as e_submit:
                     instance.log_message(f"Gagal memasukkan index-{i} ke Thread Pool: {e_submit}", "red_tag")
-
             instance.log_message(f"# {len(futures)} work mengantre ({MAX_WORKERS} tab)...")
 
-            # Worker bekerja, sampai semua futures/antrean beres
-            from concurrent.futures import wait, FIRST_COMPLETED
-            # wait(futures, return_when=ALL_COMPLETED) #jika semua worker selesai, updated diganti bwh:
-            curr_retry = 0
-            while True:
-                # Cek jika ada stop dari user mk batalkan antrean
-                if instance.stop_event.is_set() or curr_retry>=MAX_RETRY:
-                    if curr_retry >= MAX_RETRY:
-                        instance.log_message(f'Sudah melebihi maksimal retry error ({MAX_RETRY})')
-                    instance.log_message("Menghentikan seluruh antrean worker...", "red_tag")
-                    for f in futures:
-                        f.cancel() # Membatalkan antrean yang belum sempat berjalan oleh worker
-                    break # Keluar dari loop pemantauan main thread
-                
-                # Cek apakah ada worker yang meminta pause untuk refresh page utama
-                if not worker_resume_on_none.is_set():
-                    instance.log_message("Worker mendeteksi API None. Merefresh page utama...", "red_tag")
-                    try:
-                        # === REFRESH PAGE UTAMA DISINI ===
-                        page.go_back(timeout=10000)
-                        time.sleep(5)
-                        page.reload()
-                        time.sleep(5)
-                        page.goto(instance.getassets('index.html'))
-                        page.evaluate("document.body.setAttribute('data-status', 'running')")
-                        time.sleep(2)
-                        curr_retry += 1
-                        # =================================
-                    except Exception as e:
-                        instance.log_message(f"Gagal refresh page utama: {e}", "red_tag")
-                    finally:
-                        instance.log_message("Refresh selesai. Melanjutkan worker...")
-                        worker_resume_on_none.set() # Bangunkan semua worker
-                
-                time.sleep(random.uniform(0.5, 0.9)) 
-                # Cek status futures dengan timeout pendek agar loop tetap berjalan
-                done, not_done = wait(futures, timeout=1.5, return_when=FIRST_COMPLETED)
-                if len(not_done) == 0:
-                    global_hitapi_counter = 0
-                    break # Semua pekerjaan selesai
-            
-        # 4. Selesai Semua
-        instance.log_message(f"# DONEEE file {filename} updated ---------------------------------")
-        ##
+            __row_parent_worker(instance, futures, page)
 
+        instance.log_message(f"# DONEEE file {filename} updated ---------------------------------")
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
         instance.log_message(f"# Terjadi error: {str(exc_tb.tb_lineno)} ")
         instance.log_message(f"Error di thread data kiap: {e}", tag="red_tag")
     finally:
-        # Selalu tutup p_instance di blok 'finally' agar tidak hang
-        isdone(instance, page=page, output=True)
-        try:
-            p_instance.stop()
-            instance.log_message("Koneksi Playwright di thread ditutup.")
-        except NameError:
-            # Terjadi jika get playwright page() gagal total di awal
-            pass
+        __cleanup_worker(instance, page, p_instance, remove_tmpfile=False)
 
 # =====================================================================
 # FUNC ADDED
@@ -1069,6 +998,40 @@ def __get_headers(page, target_url):
     ### end moded headers
     return captured_req, api_url, api_payload, api_headers
 
+# read csv penunjang mainfunc
+def __read_csv_dflist(instance, filename, sep, kolwjb, err_msg):
+    '''Baca csv jadi dflist + cek kolom wajib. Return (df, dflist, lendf), atau (None,None,None) kalau gagal'''
+    try:
+        df = pd.read_csv(filename, sep=sep)
+        df = df.astype(str)
+        if 'status_work' not in df.columns:
+            df['status_work'] = ""
+        if not kolwjb.issubset(df.columns):
+            raise ValueError(err_msg)
+        lendf = len(df)
+        dflist = df.to_dict(orient='records')
+        return df, dflist, lendf
+    except Exception as e:
+        instance.log_message(f'ERROR: {e}', tag="red_tag")
+        instance.isdone = 1
+        return None, None, None
+
+# finally cleanup penunjang mainfunc
+def __cleanup_worker(instance, page, p_instance, remove_tmpfile=False):
+    '''Cleanup akhir: hapus temp file (opsional), isdone, tutup playwright'''
+    if remove_tmpfile:
+        try:
+            instance.log_message('Removing temporary file')
+            os.remove('data_survey.json')
+        except Exception:
+            instance.log_message("Ups, File emang gada")
+    isdone(instance, page=page, output=True)
+    try:
+        p_instance.stop()
+        instance.log_message("Koneksi Playwright di thread ditutup.")
+    except NameError:
+        pass
+
 # Lock untuk mengamankan penulisan dari beberapa thread sekaligus
 csv_lock = threading.Lock()    
 tab_lock = threading.Lock()
@@ -1296,160 +1259,120 @@ def __row_mainfunc(i, instance, lendf, dflist, idlog, filename, func, api_header
             time.sleep(0.2)
             # context.close()
 
+# row parent dari row_mainfunc
+def __row_parent_worker(instance, futures, page):
+    '''Loop monitoring worker: submit sudah jalan, tunggu selesai/refresh/stop'''
+    from concurrent.futures import wait, FIRST_COMPLETED
+    global global_hitapi_counter
+    curr_retry = 0
+    while True:
+        if instance.stop_event.is_set() or curr_retry >= MAX_RETRY:
+            if curr_retry >= MAX_RETRY:
+                instance.log_message(f'Sudah melebihi maksimal retry error ({MAX_RETRY})')
+            instance.log_message("Menghentikan seluruh antrean worker...", "red_tag")
+            for f in futures:
+                f.cancel()
+            break
+
+        if not worker_resume_on_none.is_set():
+            instance.log_message("Worker mendeteksi API None. Merefresh page utama...", "red_tag")
+            try:
+                page.go_back(timeout=10000)
+                time.sleep(5)
+                page.reload()
+                time.sleep(5)
+                page.goto(instance.getassets('index.html'))
+                page.evaluate("document.body.setAttribute('data-status', 'running')")
+                time.sleep(2)
+                curr_retry += 1
+            except Exception as e:
+                instance.log_message(f"Gagal refresh page utama: {e}", "red_tag")
+            finally:
+                instance.log_message("Refresh selesai. Melanjutkan worker...")
+                worker_resume_on_none.set()
+
+        time.sleep(random.uniform(0.5, 0.9))
+        done, not_done = wait(futures, timeout=1.5, return_when=FIRST_COMPLETED)
+        if len(not_done) == 0:
+            global_hitapi_counter = 0
+            break
+
 # Function approv (and get data)
 def __mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIdentity', sep=','):
     '''Get data dari Fasih dengan membuka linknya dari dataframe df, kemudian export ke csv. Kemudian akan approv juga jika tercentang sekalian approv'''
-    # konfig
     instance.isdone = 0
 
+    # 1. Baca csv dulu
+    kolwjb = {idlog, 'id'}
+    df, dflist, lendf = __read_csv_dflist(
+        instance, filename, sep, kolwjb,
+        f"Kolom '{idlog}' tidak ditemukan di csv, silakan update dulu"
+    )
+    if dflist is None:
+        return
+
     try:
-        p_instance, ctx, page = __get_playwright_page() #konek ke playwr
+        # 2. Baru connect playwright
+        p_instance, ctx, page = __get_playwright_page()
         if page:
             page.goto(instance.getassets('index.html'))
             page.evaluate("document.body.setAttribute('data-status', 'running')")
-        # read data csv result from get list data
-        try:
-            df = pd.read_csv(filename, sep=sep)
-            df = df.astype(str)
-            if 'status_work' not in df.columns:
-                df['status_work'] = ""
-            kolwjb = {idlog, 'id'}
-            #if idlog not in df.columns or 'id' not in df.columns:
-            if not kolwjb.issubset(df.columns) :
-                raise ValueError (f"Kolom '{idlog}' tidak ditemukan di csv, silakan update dulu")
-            lendf = len(df)
-            # make df as df list py
-            dflist = df.to_dict(orient='records')
-        except Exception as e:
-            instance.log_message(f'ERROR: {e}', tag="red_tag")
-            df = None
-            dflist = None
-            instance.isdone = 1
-            return
-        
-        # cek approv or not
+
         if cekapprov == True: msgapprov = ' and approving'
         elif cekapprov == "Reject": msgapprov = ' and rejecting'
-        else: msgapprov=""
+        else: msgapprov = ""
         instance.log_message(f"# Loading for {lendf-int(mulai)} data, length dataframe: {lendf}-mulai data{msgapprov}...")
 
-        # back first to fsh-sm
         history_length = page.evaluate("window.history.length")
         if history_length > 1:
             try:
                 page.go_back(timeout=5000)
             except Exception:
                 pass
-        else: pass
-        # get header from reloading page opened rn
+
         captured_req, api_url, api_payload, api_headers = __get_headers(page, page.url)
         time.sleep(1)
-        # 1. Kembaliin ke page UI user (di tab yg page utama)
+
         page.goto(instance.getassets('index.html'))
         page.evaluate("document.body.setAttribute('data-status', 'running')")
 
-        # start loop per df, ## UPDATED
-        # 2. Tentukan Index Awal Loop
-        if mulai < 0: 
+        if mulai < 0:
             start_idx = -1
-        else: 
+        else:
             start_idx = mulai - 1
         row_indices = range(start_idx + 1, lendf)
 
-        # 3. Jalankan Multi-tab Pekerja via ThreadPoolExecutor
-        # Sesuaikan `max_workers` dengan kekuatan CPU/RAM (misal: 3 s.d 5 tab sekaligus)
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-            # cek inputan tombol
             if not cekapprov and not func:
-                raise ValueError ('Robot bingung mau ngapain, gada approv, gada getdata juga')
+                raise ValueError('Robot bingung mau ngapain, gada approv, gada getdata juga')
             futures = []
-            # Set antrian ke worker
             for idx, i in enumerate(row_indices):
-                # CEK approv lom ke 1, cek id jg
                 if dflist[i]['status_work'] in [True, "True"]:
                     instance.log_message(f"[tab:0] {i}/{lendf-1} | {str(dflist[i][idlog])[:20]} | Approv'd, skip")
                     continue
-                elif dflist[i]["id"] in [None, "", "skip", "SKIP",'-']:
+                elif dflist[i]["id"] in [None, "", "skip", "SKIP", '-']:
                     instance.log_message(f"[tab:0] {i}/{lendf-1} | {str(dflist[i][idlog])[:20]} | No ID, skip")
                     continue
-                # ngantri worker
                 worker_id = (idx % MAX_WORKERS) + 1
                 try:
                     f = executor.submit(
-                        __row_mainfunc, i, instance, lendf, dflist, idlog, filename, func, 
+                        __row_mainfunc, i, instance, lendf, dflist, idlog, filename, func,
                         api_headers, cekapprov, worker_id, CHROME_PORT
-                    ) 
+                    )
                     futures.append(f)
-                    # instance.log_message(f"Baris index-{i} berhasil didaftarkan ke Worker {worker_id}")
-                    # time.sleep(0.2) # Jeda mikro pendaftaran
                 except Exception as e_submit:
                     instance.log_message(f"Gagal memasukkan index-{i} ke Thread Pool: {e_submit}", "red_tag")
-
             instance.log_message(f"# {len(futures)} work mengantre ({MAX_WORKERS} tab)...")
 
-            # Worker bekerja, sampai semua futures/antrean beres
-            from concurrent.futures import wait, FIRST_COMPLETED
-            # wait(futures, return_when=ALL_COMPLETED) #jika semua worker selesai, updated diganti bwh:
-            curr_retry = 0
-            while True:
-                # Cek jika ada stop dari user mk batalkan antrean
-                if instance.stop_event.is_set() or curr_retry>=MAX_RETRY:
-                    if curr_retry >= MAX_RETRY:
-                        instance.log_message(f'Sudah melebihi maksimal retry error ({MAX_RETRY})')
-                    instance.log_message("Menghentikan seluruh antrean worker...", "red_tag")
-                    for f in futures:
-                        f.cancel() # Membatalkan antrean yang belum sempat berjalan oleh worker
-                    break # Keluar dari loop pemantauan main thread
-                
-                # Cek apakah ada worker yang meminta pause untuk refresh page utama
-                if not worker_resume_on_none.is_set():
-                    instance.log_message("Worker mendeteksi API None. Merefresh page utama...", "red_tag")
-                    try:
-                        # === REFRESH PAGE UTAMA DISINI ===
-                        page.go_back(timeout=10000)
-                        time.sleep(5)
-                        page.reload()
-                        time.sleep(5)
-                        page.goto(instance.getassets('index.html'))
-                        page.evaluate("document.body.setAttribute('data-status', 'running')")
-                        time.sleep(2)
-                        curr_retry += 1
-                        # =================================
-                    except Exception as e:
-                        instance.log_message(f"Gagal refresh page utama: {e}", "red_tag")
-                    finally:
-                        instance.log_message("Refresh selesai. Melanjutkan worker...")
-                        worker_resume_on_none.set() # Bangunkan semua worker
-                
-                time.sleep(random.uniform(0.5, 0.9)) 
-                # Cek status futures dengan timeout pendek agar loop tetap berjalan
-                done, not_done = wait(futures, timeout=1.5, return_when=FIRST_COMPLETED)
-                if len(not_done) == 0:
-                    global_hitapi_counter = 0
-                    break # Semua pekerjaan selesai
-            
-        # 4. Selesai Semua
-        instance.log_message(f"# DONEEE file {filename} updated ---------------------------------")
-        ##
+            __row_parent_worker(instance, futures, page)
 
+        instance.log_message(f"# DONEEE file {filename} updated ---------------------------------")
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
         instance.log_message(f"# Terjadi error: {str(exc_tb.tb_lineno)} ")
         instance.log_message(f"Error di thread data __mainfunc: {e}", tag="red_tag")
     finally:
-        # Selalu tutup p_instance di blok 'finally' agar tidak hang
-        try: 
-            instance.log_message('Removing temporary file')
-            os.remove('data_survey.json')
-        except: 
-            instance.log_message("Ups, File emang gada")
-        isdone(instance, page=page, output=True)
-        try:
-            p_instance.stop()
-            instance.log_message("Koneksi Playwright di thread ditutup.")
-        except NameError:
-            # Terjadi jika get playwright page() gagal total di awal
-            pass
+        __cleanup_worker(instance, page, p_instance, remove_tmpfile=True)
 
 def __get_playwright_page(cdp_url=CHROME_PORT):
     """
