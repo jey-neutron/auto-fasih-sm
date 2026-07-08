@@ -419,7 +419,8 @@ def kiap_getrkid(instance,var):
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
         instance.log_message(f"# Terjadi error getrkid on: {str(exc_tb.tb_lineno)} ")
-    instance.isdone=1
+    finally:
+        __cleanup_worker(instance, page, p_instance, remove_tmpfile=True)
 
 def kiap_addkeg(instance, var):
     '''Add pelaksanaan kinerja di Kipapp dari csv yg diberikan. Masukkan niplama di Input Variabel. Sementara isian id2 yg perlu diperoleh manual, blm ada func tambahan. Kolom harus ada: id,skpid, rkid, kegiatan, tanggal, tanggalselesai, progres, jammulai, jamselesai, capaian, datadukung, iscapaianskp'''
@@ -1465,4 +1466,4 @@ def isdone(instance, page=None,output=None):
     if output:
         instance.log_message(f"Running program berhasil diproses. Cek file output", tag="green_tag")        
     else:
-        instance.log_message(f"Running program berhasil diproses. Cek file output", tag="green_tag")        
+        instance.log_message(f"Running program berhasil diproses.", tag="green_tag")        
