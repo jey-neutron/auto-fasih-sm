@@ -1,5 +1,5 @@
 # konfig var
-APP_VERSION = 'v2.4.3' #re-def kiap n mainfunc
+APP_VERSION = 'v2.4.4' #re-def kiap n mainfunc
 TIMEOUT_REQUEST = 60000 #ms
 ROW_REQUEST = 50 #jml row yg diambil dari request getlistdata
 MAX_WORKERS = 3 #jml tab/worker
@@ -378,6 +378,49 @@ def mitra_addpenawaran(instance, var):
 # =====================================================================
 # FUNC SECTION KIAP
 # =====================================================================
+def kiap_getrkid(instance,var):
+    '''Get rkid dari Kipapp. Buka dulu page Rencana Kinerja yg ingin diambil rkid nya, abistu run ini'''
+    instance.isdone=0
+    try:
+        # get var
+        if var == 1 or 'kipapp.bps.go.id' not in str(var):
+            raise ValueError('Invalid input. Input url page Rencana Kinerja yg ingin diambil rkid-nya!')
+        # on this page, get matched url (mengandung rk) from reloading page
+        p_instance, ctx, page = __get_playwright_page()
+        target_url = "rk?skpid="
+        # goto page rk
+        # page.goto(var)
+        page.goto('https://kipapp.bps.go.id/#/perencanaan-rencana-kinerja')
+        instance.log_message('- Waiting, select Periode SKP yg ingin diambil rkid-nya','red_tag')
+        captured_req, api_url, api_payload, api_headers = __get_headers(page, target_url=target_url, reload=False)
+        # get response 
+        instance.log_message(f'- Noted, gettin rkid dari url dan skpid: {api_url}')
+        resp = __run_api_request(instance, ctx, "get", api_url, target_id=None, payload=api_payload, headers=api_headers)
+        if resp is None:
+            raise ValueError("API tidak mengembalikan data (Response is None)")
+        if 'success' in resp and resp['success'] in [False, "false"]:
+            raise ValueError(resp['message'])
+        
+        # resp = json.loads(response_json)
+        # total_hit = resp.get('totalHit', 0)
+        # instance.log_message(f"# Total data terdeteksi: {total_hit}")
+        result = []
+        for rk in resp:
+            result.append({
+                'rkid' : rk['rkid'],
+                'rencanakinerja' : rk['rencanakinerja'],
+                'namatim' : rk['namatim'],
+                'namaatasan' : rk['namaatasan']
+            })
+        # data[0] #rkid, rencanakinerja, namatim, namaatasan
+        pd.DataFrame(result).to_csv('temp.csv', index=False)
+        instance.log_message('File saved to "temp.csv"', 'green_tag')
+
+    except Exception as e:
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+        instance.log_message(f"# Terjadi error getrkid on: {str(exc_tb.tb_lineno)} ")
+    instance.isdone=1
+
 def kiap_addkeg(instance, var):
     '''Add pelaksanaan kinerja di Kipapp dari csv yg diberikan. Masukkan niplama di Input Variabel. Sementara isian id2 yg perlu diperoleh manual, blm ada func tambahan. Kolom harus ada: id,skpid, rkid, kegiatan, tanggal, tanggalselesai, progres, jammulai, jamselesai, capaian, datadukung, iscapaianskp'''
     filename = instance.filename_entry.get()
@@ -401,6 +444,8 @@ def kiap_addkeg(instance, var):
 
         # 2. Baru connect playwright
         p_instance, ctx, page = __get_playwright_page()
+        page.goto('https://kipapp.bps.go.id/#/home')
+        page.wait_for_load_state('networkidle') #get semua req dlu
         captured_req, api_url, api_payload, api_headers = __get_headers(
             page, f'https://kipapp.bps.go.id/api/v1/dashboard/rkpegawai?niplama={var}')
         time.sleep(1)
@@ -437,7 +482,7 @@ def kiap_addkeg(instance, var):
         instance.log_message(f"# DONEEE file {filename} updated ---------------------------------")
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
-        instance.log_message(f"# Terjadi error: {str(exc_tb.tb_lineno)} ")
+        instance.log_message(f"# Terjadi error on line: {str(exc_tb.tb_lineno)} ")
         instance.log_message(f"Error di thread data kiap: {e}", tag="red_tag")
     finally:
         __cleanup_worker(instance, page, p_instance, remove_tmpfile=False)
@@ -923,7 +968,9 @@ def __run_api_request(instance, context, method, target_url, target_id, msg="", 
             
         elif method == "GET":
             # Jika target_id dimasukkan sebagai Query Parameter (?assignmentId=123)
-            response = context.request.get(target_url, headers=headers, params={"assignmentId": target_id},timeout=TIMEOUT_REQUEST) # ====== gaperlukah payload di GET? next
+            if not payload:
+                payload = {"assignmentId": target_id}
+            response = context.request.get(target_url, headers=headers, params=payload,timeout=TIMEOUT_REQUEST) # ====== gaperlukah payload di GET? next
         elif method == "GET2":
             # Jika ID dimasukkan langsung di dalam URL path (misal: /api/data/123)
             url_with_id = f"{target_url}/{target_id}"
@@ -954,20 +1001,30 @@ def __run_api_request(instance, context, method, target_url, target_id, msg="", 
         return None
 
 # Function penunjang get header utk diinject
-def __get_headers(page, target_url):
+def __get_headers(page, target_url, reload=True):
+    '''Get Header with reload, target_url adalah url expected after page reload. Jika ga reload, target_url adalah url yg diexpect ketika user trigger sesuatu dalam rentang 1 menit/TIMEOUT_REQ'''
     # get header from reloading page
     # with page.expect_request(target_url) as req_info:
         # page.reload()
     # captured_req = req_info.value
     ## modded captured_req
     captured_req = []
-    def request_handler (request):
-        if target_url in request.url:
-            captured_req.append(request)
-    page.on('request',request_handler)
-    page.reload()
-    page.wait_for_load_state('networkidle') #get semua req dlu
-    page.remove_listener('request',request_handler) #remove listener save memori
+    if reload:
+        def request_handler (request):
+            if target_url in request.url:
+                captured_req.append(request)
+        page.on('request',request_handler)
+        page.reload()
+        page.wait_for_load_state('networkidle') #get semua req dlu
+        page.remove_listener('request',request_handler) #remove listener save memori
+    else:
+        with page.expect_request(
+                lambda request: target_url in request.url, timeout=TIMEOUT_REQUEST
+            ) as req_info:
+                # Blok ini sengaja dikosongkan karena kita menunggu aksi manual dari user di browser
+                pass
+        captured_req.append(req_info.value)
+
     if not captured_req:
         raise ValueError('No Match Request sent')
     captured_req = captured_req[-1]
@@ -1369,7 +1426,7 @@ def __mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIde
         instance.log_message(f"# DONEEE file {filename} updated ---------------------------------")
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
-        instance.log_message(f"# Terjadi error: {str(exc_tb.tb_lineno)} ")
+        instance.log_message(f"# Terjadi error on line: {str(exc_tb.tb_lineno)} ")
         instance.log_message(f"Error di thread data __mainfunc: {e}", tag="red_tag")
     finally:
         __cleanup_worker(instance, page, p_instance, remove_tmpfile=True)
