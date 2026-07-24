@@ -826,7 +826,8 @@ def __get_list_data (instance, namadf,  mode="w", maxrow=0, sep=","):
         p_instance, ctx, page = __get_playwright_page() #konek ke playwr
         target_url = "https://fasih-sm.bps.go.id/app/api/analytic/api/v2/assignment/datatable-all-user-survey-periode"
         # get req payload from reloading page
-        captured_req, api_url, api_payload, api_headers = __get_headers(page, target_url=target_url)
+        captured_req, api_url, api_payload, api_headers = __get_headers(page, target_url=target_url, reload=False)
+        instance.log_message('# Silakan klik tombol refresh table di atas table kanan (bukan refresh page)')
         
         # mod req
         api_payload['length'] = ROW_REQUEST 
