@@ -1,5 +1,5 @@
 # konfig var
-APP_VERSION = 'v2.4.4' #re-def kiap n mainfunc
+APP_VERSION = 'v2.4.5' #retry if none 
 TIMEOUT_REQUEST = 60000 #ms
 ROW_REQUEST = 50 #jml row yg diambil dari request getlistdata
 MAX_WORKERS = 3 #jml tab/worker
@@ -1339,6 +1339,8 @@ def __row_parent_worker(instance, futures, page):
                 page.go_back(timeout=10000)
                 time.sleep(5)
                 page.reload()
+                time.sleep(1)
+                page.get_by_role("link", name="Lanjutkan dengan SSO", exact=True).click()
                 time.sleep(5)
                 page.goto(instance.getassets('index.html'))
                 page.evaluate("document.body.setAttribute('data-status', 'running')")
