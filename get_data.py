@@ -800,6 +800,106 @@ def getdataPES(namafile='data_survey.json'):
     # FINISH
     return d
 
+# Function to get assignment by responsibility
+def get_jml_assignment (instance, var):
+    '''Get report progress jumlah assignment berdasarkan user (ppl/pml) berdasarkan responsibility (misal region), kemudian export ke csv. '''
+    instance.isdone=0
+    try:
+        p_instance, ctx, page = __get_playwright_page() #konek ke playwr
+        target_url = "https://fasih-sm.bps.go.id/app/api/analytic/api/v2/assignment/report-progress-by-responsibility"
+        # get req payload from reloading page
+        instance.log_message('# Silakan klik REKAP PETUGAS trus PPL/PML trus tombol refresh di sebelah pencarian (bukan refresh page)', 'green_tag')
+        captured_req, api_url, api_payload, api_headers = __get_headers(page, target_url=target_url, reload=False)
+        
+        all_rows = []
+        current_page = 0
+        while True:
+            __check_stop(instance)
+            page.goto(instance.getassets('index.html'))
+            page.evaluate("document.body.setAttribute('data-status', 'running')")
+
+            # mod req
+            api_payload['page'] = current_page # 1 2 3 dst sampe ada response terakhir 'last' is true
+
+            # get response first load
+            instance.log_message(f'# Getting data on page {current_page}')
+            resp = __run_api_request(instance, ctx, "post", api_url, target_id=None, payload=api_payload, headers=api_headers)
+            # resp = json.loads(response_json)
+            if resp is None:
+                raise ValueError("API tidak mengembalikan data (Response is None)")
+
+            # 1. lanjut if ada data
+            if 'success' in resp and resp['success'] in [True,'true']:
+                data_block = resp.get("data", {})
+                content = data_block.get("content", [])
+                # Jika content kosong, hentikan loop
+                if not content:
+                    break
+                # 2. Loop per email pencacah
+                for item in content:
+                    if item.get("isPencacah") in [True,'true']:
+                        email = item.get("email")
+                        
+                        # 3. Loop regionSummary untuk mengambil region code & breakdown
+                        for region in item.get("regionSummary", []):
+                            region_code = region.get("regionCode")
+                            region_total = region.get("total")
+                            
+                            for status_item in region.get("statusBreakdown", []):
+                                all_rows.append({
+                                    "email": email,
+                                    "regionCode": region_code,
+                                    "regionTotal": region_total,
+                                    "status": status_item.get("status"),
+                                    "count": status_item.get("count")
+                                })
+                                
+                # Cek kondisi berhenti pagination
+                if data_block.get("last", False) is True:
+                    instance.log_message("# Sudah mencapai halaman terakhir.")
+                    break
+                # Jika belum halaman terakhir, lanjut ke page berikutnya
+                current_page += 1
+            
+            else:
+                instance.log_message(f"API mengembalikan success: false pada halaman {current_page}", 'red_tag')
+                raise ValueError(resp['message'])
+                
+            # Jeda tipis-tipis (politeness policy) agar server tidak mendeteksi serangan
+            time.sleep(random.uniform(1.5, 5.0))
+
+            # except requests.exceptions.RequestException as e:
+            #     print(f"Terjadi kesalahan koneksi: {e}")
+            #     break
+                
+        # Convert ke Pandas DataFrame dan Export ke CSV
+        if all_rows:
+            df = pd.DataFrame(all_rows)
+            df.to_csv("pencacah_summary_paginated.csv", index=False)
+            instance.log_message("# Berhasil! Data dari semua halaman telah diexport ke 'pencacah_summary_paginated.csv'", 'green_tag')
+        else:
+            instance.log_message("# Tidak ada data yang berhasil dikumpulkan.")
+
+        # with open("resp.json", "w", encoding="utf-8") as f:
+        #     json.dump(response_json, f, indent=4, ensure_ascii=False)
+        # instance.log_message('exportedddddddddddddddddd')
+
+    except Exception as e:
+        import sys
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+        instance.log_message(f"# Terjadi error di thread get_jml_assignment on line: {str(exc_tb.tb_lineno)} {e} ", "red_tag")
+    finally:
+        time.sleep(1)
+        isdone(instance, page=page, output=True)
+        # Selalu tutup p_instance di blok 'finally' agar tidak hang
+        try:
+            p_instance.stop()
+            instance.log_message("Koneksi Playwright di thread ditutup.")
+        except NameError:
+            # Terjadi jika get playwright page() gagal total di awal
+            pass
+
+
 def ver(instance, var=''): 
     '''Get a version app'''
     if var==1:
