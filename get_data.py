@@ -1,5 +1,5 @@
 # konfig var
-APP_VERSION = 'v2.4.6' #save header
+APP_VERSION = 'v2.4.7' #gajadi save header
 TIMEOUT_REQUEST = 60000 #ms
 ROW_REQUEST = 50 #jml row yg diambil dari request getlistdata
 MAX_WORKERS = 3 #jml tab/worker
@@ -929,7 +929,7 @@ def __get_list_data (instance, namadf,  mode="w", maxrow=0, sep=","):
         # get req payload from reloading page
         instance.log_message('# Silakan klik tombol refresh table di atas table kanan (bukan refresh page)')
         captured_req, api_url, api_payload, api_headers = __get_headers(page, target_url=target_url, reload=False)
-        instance.vars = api_headers #sementara hasil get header dipakein di vars
+        # instance.vars = api_headers #sementara hasil get header dipakein di vars
         
         # mod req
         api_payload['length'] = ROW_REQUEST 
@@ -1476,6 +1476,12 @@ def __mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIde
     try:
         # 2. Baru connect playwright
         p_instance, ctx, page = __get_playwright_page()
+        # get req payload from reloading page
+        target_url = "https://fasih-sm.bps.go.id/app/"#api/analytic/api/v2/assignment/datatable-all-user-survey-periode"
+        instance.log_message('# Silakan klik tombol refresh table di atas table kanan (bukan refresh page)')
+        captured_req, api_url, api_payload, api_headers = __get_headers(page, target_url=target_url, reload=False)
+        time.sleep(1)
+                
         if page:
             page.goto(instance.getassets('index.html'))
             page.evaluate("document.body.setAttribute('data-status', 'running')")
@@ -1492,12 +1498,12 @@ def __mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIde
             except Exception:
                 pass
 
-        if instance.vars == None: # sementara header disimpan di vars
-            # buat ambil header kan klo gada header yg kesimpen
-            captured_req, api_url, api_payload, api_headers = __get_headers(page, page.url)
-        else :
-            api_headers = instance.vars
-        time.sleep(1)
+        # if instance.vars == None: # sementara header disimpan di vars; gajadi, dipindah ke atas 
+        #     # buat ambil header kan klo gada header yg kesimpen
+        #     captured_req, api_url, api_payload, api_headers = __get_headers(page, page.url)
+        # else :
+        #     api_headers = instance.vars
+        # time.sleep(1)
 
         page.goto(instance.getassets('index.html'))
         page.evaluate("document.body.setAttribute('data-status', 'running')")
