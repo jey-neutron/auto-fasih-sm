@@ -1,5 +1,5 @@
 # konfig var
-APP_VERSION = 'v2.4.5' #retry if none 
+APP_VERSION = 'v2.4.6' #save header
 TIMEOUT_REQUEST = 60000 #ms
 ROW_REQUEST = 50 #jml row yg diambil dari request getlistdata
 MAX_WORKERS = 3 #jml tab/worker
@@ -929,6 +929,7 @@ def __get_list_data (instance, namadf,  mode="w", maxrow=0, sep=","):
         # get req payload from reloading page
         instance.log_message('# Silakan klik tombol refresh table di atas table kanan (bukan refresh page)')
         captured_req, api_url, api_payload, api_headers = __get_headers(page, target_url=target_url, reload=False)
+        instance.vars = api_headers #sementara hasil get header dipakein di vars
         
         # mod req
         api_payload['length'] = ROW_REQUEST 
@@ -1491,7 +1492,11 @@ def __mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIde
             except Exception:
                 pass
 
-        captured_req, api_url, api_payload, api_headers = __get_headers(page, page.url)
+        if instance.vars == None: # sementara header disimpan di vars
+            # buat ambil header kan klo gada header yg kesimpen
+            captured_req, api_url, api_payload, api_headers = __get_headers(page, page.url)
+        else :
+            api_headers = instance.vars
         time.sleep(1)
 
         page.goto(instance.getassets('index.html'))
