@@ -1,5 +1,5 @@
 # konfig var
-APP_VERSION = 'v2.4.7' #gajadi save header
+APP_VERSION = 'v2.4.8' #add tandai wil selesai
 TIMEOUT_REQUEST = 60000 #ms
 ROW_REQUEST = 50 #jml row yg diambil dari request getlistdata
 MAX_WORKERS = 3 #jml tab/worker
@@ -898,6 +898,72 @@ def get_jml_assignment (instance, var):
         except NameError:
             # Terjadi jika get playwright page() gagal total di awal
             pass
+
+def tandaiwil(instance, var=''): 
+    '''Tandai wilayah sebagai tutup maupun buka. Need csv with column 'idsubsls'. Pilih 'NonApprov'. Variabel extra bisa diisi dengan 'tutup' atau 'buka'. Login sebagai admin dan buka halaman assignment.'''
+    instance.isdone = 0
+    import re
+    # read csv
+    namafile = instance.filename_entry.get()
+    df = pd.read_csv(namafile)
+    if 'idsubsls' not in df.columns:
+        instance.log_message(f"Error: Column 'idsubsls' not found in csv file. Please check your csv file.", 'red_tag')
+        instance.isdone = 1
+        return
+    if 'status' not in df.columns:
+        df['status'] = ''
+    if var != 'tutup' and var != 'buka':
+        instance.log_message(f"Error: Invalid input. Please input 'tutup' or 'buka'.", 'red_tag')
+        instance.isdone = 1
+        return
+    elif var == 'buka':
+        btncek = 'Buka Wilayah'; 
+    elif var == 'tutup':
+        btncek = 'Tandai Selesai' #Listing
+
+    # main
+    instance.log_message(f"Start tandai wilayah sebagai {var}")
+    p_instance, ctx, page = __get_playwright_page() #konek ke playwr
+    page.get_by_role("button", name="Progress Penyelesaian Wilayah").click()
+    for i in range(len(df)):
+        try:
+            subsls = str(df.loc[i,'idsubsls'])
+            time.sleep(0.5)
+            # page.get_by_role("textbox", name="Cari wilayah...").click()
+            page.get_by_role("textbox", name="Cari wilayah...").fill(subsls)
+            time.sleep(0.5)
+            # cek ada ga btn nya       
+            bukawil = page.get_by_role("button").filter(has_text=re.compile(btncek, re.IGNORECASE))
+            try:
+                bukawil.first.wait_for(state="visible", timeout=5000)
+                page.get_by_role("button", name=btncek).click()
+                page.get_by_role("button", name=f"Ya, {btncek}").click()
+            except PlaywrightTimeoutError:
+                res = "done" #udah ditandain
+                continue
+
+            # cek status bukawil
+            list_item = page.get_by_role("listitem").filter(has_text=re.compile("berhasil", re.IGNORECASE))
+            try:
+                list_item.first.wait_for(state="visible", timeout=10000)
+                res = "done"
+            except PlaywrightTimeoutError:
+                res = "err, gagal"
+
+            # loggin
+            df.loc[i,'status'] = res#'done'
+            instance.log_message(f"{i}, {btncek} {subsls}: {res}")#'done')
+        
+        except Exception as e:
+            er = str(e).split("\nCall log")[0]
+            df.loc[i,'status'] = er#[:70]
+            instance.log_message(f"{i}, {btncek} {subsls}: {er}")#'done')
+            continue
+
+        finally:
+            df.to_csv(namafile, index=False)
+
+    instance.isdone = 1
 
 
 def ver(instance, var=''): 
