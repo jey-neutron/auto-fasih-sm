@@ -779,20 +779,20 @@ class AutoApp:
 
         match self.val_approv.get():
             case 1:
-                self.log_message(f"Pilihan approve: Ya, sekalian diapprove")
+                self.log_message(f"Approval terpilih: Ya, sekalian diapprove")
             case 0:
-                self.log_message(f"Pilihan approve: Gausa diapprove")
+                self.log_message(f"Approval terpilih: Gausa diapprove")
             case 2: 
-                self.log_message(f"Pilihan approve: Reject")
+                self.log_message(f"Approval terpilih: Reject")
             case 99:  
-                self.log_message(f"Pilihan approve: Bukan approval")
+                self.log_message(f"Approval terpilih: Bukan approval")
         pass
 
     # --update untuk radiobtn vwrite
     def update_label_vwrite(self):
         """Fungsi yang dipanggil saat radiobutton diklik."""
         if self.vwrite.get() == 1:
-            self.log_message(f"Pilihan Write data.csv: Rewrite")
+            self.log_message(f"Write data.csv terpilih: Rewrite")
             self.rw1.config(fg=self.FG_MAIN)
             self.rw2.config(fg=self.FG_MUTED)
         else :
@@ -800,7 +800,7 @@ class AutoApp:
             self.rw1.config(fg=self.FG_MUTED)
             cekcsv = load_setting_file(self,filename="data.csv",load=False)
             if cekcsv:
-                self.log_message(f"Pilihan Write data.csv: Append to data.csv")
+                self.log_message(f"Write data.csv terpilih: Append to data.csv")
             else:
                 self.log_message(f"data.csv tidak ditemukan, harap pilih 'Rewrite'", tag="red_tag")
         pass
@@ -874,14 +874,14 @@ class AutoApp:
         self.log_message("Cleared! Aplikasi dimulai. Selamat datang!")
 
         if self.vwrite.get() == 1:
-            self.log_message(f"Pilihan Write data.csv: Rewrite")
+            self.log_message(f"Write data.csv terpilih: Rewrite")
         else:
-            self.log_message(f"Pilihan Write data.csv: Append")
+            self.log_message(f"Write data.csv terpilih: Append")
 
         if self.val_approv.get() == 1:
-            self.log_message(f"Pilihan approve: Ya, sekalian diapprove")
+            self.log_message(f"Approval terpilih: Ya, sekalian diapprove")
         else :
-            self.log_message(f"Pilihan approve: Gausa diapprove")
+            self.log_message(f"Approval terpilih: Gausa diapprove")
 
     # --- Get path os or url path on folder assets ---
     @staticmethod

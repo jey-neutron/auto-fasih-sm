@@ -1,5 +1,5 @@
 # konfig var
-APP_VERSION = 'v2.4.8' #add tandai wil selesai
+APP_VERSION = 'v2.4.9' #moded tandai wil selesai
 TIMEOUT_REQUEST = 60000 #ms
 ROW_REQUEST = 50 #jml row yg diambil dari request getlistdata
 MAX_WORKERS = 3 #jml tab/worker
@@ -900,7 +900,7 @@ def get_jml_assignment (instance, var):
             pass
 
 def tandaiwil(instance, var=''): 
-    '''Tandai wilayah sebagai tutup maupun buka. Need csv with column 'idsubsls'. Pilih 'NonApprov'. Variabel extra bisa diisi dengan 'tutup' atau 'buka'. Login sebagai admin dan buka halaman assignment.'''
+    '''Tandai wilayah sebagai tutup maupun buka. Need csv with column 'idsubsls' dg list idsubsls yg mo ditandai. Pilih 'NonApprov'. Variabel extra bisa diisi dengan 'tutup' atau 'buka'. Login sebagai admin dan buka halaman assignment.'''
     instance.isdone = 0
     import re
     # read csv
@@ -923,9 +923,11 @@ def tandaiwil(instance, var=''):
 
     # main
     instance.log_message(f"Start tandai wilayah sebagai {var}")
+    instance.log_message(f"Pastikan ")
     p_instance, ctx, page = __get_playwright_page() #konek ke playwr
     page.get_by_role("button", name="Progress Penyelesaian Wilayah").click()
     for i in range(len(df)):
+        res = ''
         try:
             subsls = str(df.loc[i,'idsubsls'])
             time.sleep(0.5)
@@ -949,18 +951,15 @@ def tandaiwil(instance, var=''):
                 res = "done"
             except PlaywrightTimeoutError:
                 res = "err, gagal"
-
-            # loggin
-            df.loc[i,'status'] = res#'done'
-            instance.log_message(f"{i}, {btncek} {subsls}: {res}")#'done')
         
         except Exception as e:
-            er = str(e).split("\nCall log")[0]
-            df.loc[i,'status'] = er#[:70]
-            instance.log_message(f"{i}, {btncek} {subsls}: {er}")#'done')
+            res = str(e).split("\nCall log")[0]
             continue
 
         finally:
+            # logging
+            df.loc[i,'status'] = res#'done'
+            instance.log_message(f"{i}, {btncek} {subsls}: {res}")#'done')
             df.to_csv(namafile, index=False)
 
     instance.isdone = 1
@@ -993,7 +992,7 @@ def __get_list_data (instance, namadf,  mode="w", maxrow=0, sep=","):
         p_instance, ctx, page = __get_playwright_page() #konek ke playwr
         target_url = "https://fasih-sm.bps.go.id/app/api/analytic/api/v2/assignment/datatable-all-user-survey-periode"
         # get req payload from reloading page
-        instance.log_message('# Silakan klik tombol refresh table di atas table kanan (bukan refresh page)')
+        instance.log_message('# Silakan klik tombol refresh table di atas table kanan (bukan refresh page)', 'green_tag')
         captured_req, api_url, api_payload, api_headers = __get_headers(page, target_url=target_url, reload=False)
         # instance.vars = api_headers #sementara hasil get header dipakein di vars
         
@@ -1544,7 +1543,7 @@ def __mainfunc(instance, filename, cekapprov, mulai=0, func=None, idlog='codeIde
         p_instance, ctx, page = __get_playwright_page()
         # get req payload from reloading page
         target_url = "https://fasih-sm.bps.go.id/app/"#api/analytic/api/v2/assignment/datatable-all-user-survey-periode"
-        instance.log_message('# Silakan klik tombol refresh table di atas table kanan (bukan refresh page)')
+        instance.log_message('# Silakan klik tombol refresh table di atas table kanan (bukan refresh page)', 'green_tag')
         captured_req, api_url, api_payload, api_headers = __get_headers(page, target_url=target_url, reload=False)
         time.sleep(1)
                 
