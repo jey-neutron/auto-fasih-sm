@@ -60,11 +60,13 @@ def load_setting_file(instance, filename="get_data.py", load=True):
     name, ext = os.path.splitext(filename)
     # Buat nama file alternatif dengan emblem _dev (misal: "get_data_dev.py")
     dev_filename = f"{name}_dev{ext}"
-    # Cek apakah file _dev ada di sistem direktori
-    if os.path.exists(dev_filename):
+    admin_marker = "tempuserJN.txt"
+    
+    # File dev HANYA digunakan jika file dev ADA dan file marker admin JUGA ADA
+    if os.path.exists(dev_filename) and os.path.exists(admin_marker):
         filename = dev_filename
-        print(f"Menemukan file dev and use it: {filename}")  # Opsional, bisa dihapus
-
+        print(f"Mode Admin Aktif: Menemukan file dev dan menggunakannya: {filename}")
+    
     # Pastikan file ada di direktori yang sama dengan .exe
     # 1. Tentukan path file
     if getattr(sys, 'frozen', False):
