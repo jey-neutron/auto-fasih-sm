@@ -55,8 +55,17 @@ def initlib(callback):
 # --- Bagian A: Membaca dan Menjalankan Skrip Relatif ---
 def load_setting_file(instance, filename="get_data.py", load=True):
     """Membaca dan menjalankan kode dari file relatif."""
-    # Pastikan file ada di direktori yang sama dengan .exe
     
+    # Cek jika ada dev nya maka pake file dev
+    name, ext = os.path.splitext(filename)
+    # Buat nama file alternatif dengan emblem _dev (misal: "get_data_dev.py")
+    dev_filename = f"{name}_dev{ext}"
+    # Cek apakah file _dev ada di sistem direktori
+    if os.path.exists(dev_filename):
+        filename = dev_filename
+        print(f"Menemukan file dev and use it: {filename}")  # Opsional, bisa dihapus
+
+    # Pastikan file ada di direktori yang sama dengan .exe
     # 1. Tentukan path file
     if getattr(sys, 'frozen', False):
         # Jika berjalan sebagai .exe (PyInstaller)
@@ -300,7 +309,8 @@ class AutoApp:
         # self.func2_frame.pack(fill=tk.X, pady=(10, 3))
 
         # Menggunakan func2_frame sebagai parent untuk input ini
-        self.create_input_field("Baris Mulai:", "Cth: 0 (untuk mulai dari awal)", "start_row_entry", self.func2_frame)
+        self.placeholder_brs_mulai = "'0' (mulai dari awal), or '1-4', '0,3,4'"
+        self.create_input_field("Baris Mulai:", self.placeholder_brs_mulai, "start_row_entry", self.func2_frame)
         self.create_input_field("Nama File:", "Nama_File.csv", "filename_entry", self.func2_frame, value='data.csv')
         # self.create_input_field("Input Tambahan:", "Input opsional... (cth: help)", "extra_input_entry", self.func2_frame, value=helper)
         # rev combobox start ======
@@ -710,7 +720,7 @@ class AutoApp:
     # --refresh get_data.py
     def refresh_dropdown_functions(self):        
         try:
-            res = load_setting_file(self, filename='get_data.py')
+            res = load_setting_file(self)
             all_functions = [' (Input opsional...)']
 
             # Kita filter: hanya mengambil yang berupa fungsi/callable DAN bukan fungsi bawaan sistem (tidak diawali '_')
@@ -811,7 +821,7 @@ class AutoApp:
             entry.config(fg=self.FG_MAIN)
             # Jika ini field password, kembalikan 'show'
             if entry.cget('show') == '*':
-                 pass # Tetap tampilkan '*'
+                pass # Tetap tampilkan '*'
 
     def restore_placeholder(self, entry, placeholder):
         if not entry.get():
@@ -819,7 +829,7 @@ class AutoApp:
             entry.config(fg='#8E8E9F')
             # Jika ini field password, hilangkan 'show'
             if entry.cget('show') == '*':
-                 pass # Tetap tampilkan '*'
+                pass # Tetap tampilkan '*'
 
     # --- change status var function ---
     def change_status(self, new_status, color="blue"):
@@ -1106,6 +1116,40 @@ class AutoApp:
         # Mulai pengecekan berkala apakah sudah selesai
         self.check_isdone()
 
+    # --- Penunjang function 2 ---
+    def parse_input(input_str):
+        """Mengubah string input seperti "5-10, 2, 12" menjadi list integer: [2, 5, 6, 7, 8, 9, 10, 12]. Return list idx, dan True jika hanya 1 nilai"""
+        if not input_str.strip():
+            return [], False  # Kembalikan list kosong jika input kosong
+
+        # Cek apakah ada koma atau tanda minus
+        has_comma = "," in input_str
+        has_dash = "-" in input_str
+        is_single_value = not (has_comma or has_dash)
+
+        target_rows = set()
+        parts = input_str.split(",")
+
+        for part in parts:
+            part = part.strip()
+            if "-" in part:
+                try:
+                    start_str, end_str = part.split("-")
+                    start, end = int(start_str.strip()), int(end_str.strip())
+                    if start >= 0 and end >= 0 and start <= end:
+                        target_rows.update(range(start, end + 1))
+                except ValueError:
+                    continue
+            else:
+                try:
+                    num = int(part)
+                    if num >= 0:
+                        target_rows.add(num)
+                except ValueError:
+                    continue
+
+        return sorted(list(target_rows)), is_single_value
+
     # --- Function 2 ---
     def run_function_2(self):
         # self.btn_stop_app.config(state=tk.NORMAL)
@@ -1120,29 +1164,31 @@ class AutoApp:
         self.log_message("Perintah: Memulai running function...")
         self.change_status("STATUS: Running data...", color="blue")
 
-        # Ambil input spesifik untuk Fungsi 2
+        # Ambil input spesifik untuk Fungsi 2 ###### VAR HERE
         start_row = self.start_row_entry.get()
         filename = self.filename_entry.get()
         extra_input = self.extra_input_entry.get()
         var_input = self.var_input_entry.get()
 
         # Validasi sederhana untuk baris mulai
-        try:
-            if (start_row == 'Cth: 0 (untuk mulai dari awal)') and (self.val_approv.get() == 99):
-               row_num = 0
-            else:            
-                row_num = int(start_row)
-            if row_num < 0:
-                raise ValueError
-        except ValueError:
-            self.isdone = 1
-            self.change_status("STATUS: Running batal", color="blue")
-            self.log_message(f"ERROR: Fungsi 2 dibatalkan. Baris Mulai '{start_row}' harus berupa angka positif.", "red_tag")
-            self.log_message(f"Pilih 'NonApprov' jika bukan fungsi terkait approval Fasih", "red_tag")
-            return
+        if (start_row == self.placeholder_brs_mulai) and (self.val_approv.get() == 99):
+            target_rows = 0
+            is_single_val = False
+        else:            
+            target_rows, is_single_val = self.parse_input(start_row)
+            # target_rows = int(start_row)
+        # try:
+        #     if target_rows < 0:
+        #         raise ValueError
+        # except ValueError:
+        #     self.isdone = 1
+        #     self.change_status("STATUS: Running batal", color="blue")
+        #     self.log_message(f"ERROR: Fungsi 2 dibatalkan. Baris Mulai '{start_row}' harus berupa angka positif.", "red_tag")
+        #     self.log_message(f"Pilih 'NonApprov' jika bukan fungsi terkait approval Fasih", "red_tag")
+        #     return
 
         self.log_message(f"--- Detail Fungsi 2 ---")
-        self.log_message(f"Baris Mulai: {row_num}")
+        self.log_message(f"Eksekusi Baris: {start_row}")
         self.log_message(f"Nama File: {filename}")
         self.log_message(f"Input Tambahan: {extra_input}")
 
@@ -1172,7 +1218,7 @@ class AutoApp:
                     cekapprove = False
                 elif self.val_approv.get() == 2:
                     cekapprove = "Reject"
-                self.thread = threading.Thread(target=__mainfunc, args=(self, filename, cekapprove, row_num, extra_input_fun))
+                self.thread = threading.Thread(target=__mainfunc, args=(self, filename, cekapprove, target_rows, is_single_val, extra_input_fun))
             self.thread.start()
 
         except Exception as e:
