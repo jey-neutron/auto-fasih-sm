@@ -909,7 +909,8 @@ class AutoApp:
             path2 = os.path.join(current_dir, 'tempuserJN.txt')
             path = path2 if os.path.exists(path2) else (path1 if os.path.exists(path1) else None)
 
-            if not os.path.exists(path1):
+            #if not os.path.exists(path1):
+            if not path:
                 template_data = {
                     "NOTE": "Template tempuser.txt untuk load akun SSO. Hapus baris jika tidak perlu load!",
                     "username": "jey.neutron",
