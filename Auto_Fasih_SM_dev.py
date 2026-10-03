@@ -11,6 +11,8 @@ import re
 from tkinter import messagebox as msg  # Pastikan untuk mengimpor messagebox Tkinter
 import traceback
 from PIL import Image, ImageTk
+import json
+import pyotp
 
 try:
     from ctypes import windll
@@ -65,7 +67,10 @@ def load_setting_file(instance, filename="get_data.py", load=True):
     # File dev HANYA digunakan jika file dev ADA dan file marker admin JUGA ADA
     if os.path.exists(dev_filename) and os.path.exists(admin_marker):
         filename = dev_filename
-        print(f"Mode Admin Aktif: Menemukan file dev dan menggunakannya: {filename}")
+        # Hanya tampilkan pop-up jika belum pernah ditampilkan sebelumnya
+        if not getattr(instance, 'admin_notified', False):
+            msg.showinfo("Info Aplikasi", f"Mode Admin Aktif: Menemukan file dev dan menggunakannya: {filename}")
+            instance.admin_notified = True # Kunci agar tidak muncul lagi
     
     # Pastikan file ada di direktori yang sama dengan .exe
     # 1. Tentukan path file
@@ -171,15 +176,17 @@ class AutoApp:
             return
         # user n sso get
 
-        usersso, passso, approv, msgsso, helper = self.load_credentials()     
+        usersso, passso, approv, msgsso, helper, linksaved = self.load_credentials()     
 
         # 2. Ambil fungsi yang dibutuhkan
         global __mainfunc
         global __get_list_data
+        global __loginsso
         global exclude_fun_list
         global chromeport
         __mainfunc = external_funcs.get('__mainfunc')
         __get_list_data = external_funcs.get('__get_list_data')
+        __loginsso = external_funcs.get('__loginsso')
         appver = external_funcs.get('ver')
         chromeport = external_funcs.get('chromeport')(self)
         exclude_fun_list = external_funcs.get('help')(self)
@@ -189,7 +196,9 @@ class AutoApp:
         self.playwright_instance = None
         self.page = None
         self.isdone = None
-        self.vars = None #var kosong buat next if needed
+        self.pilsep = tk.StringVar(value=",")
+        self.var1 = None #var kosong buat next if needed
+        self.var2 = None #var kosong buat next if needed
         self.var_input = None
         self.stop_event = threading.Event() # Event untuk menghentikan thread
         self.thread = None
@@ -205,8 +214,7 @@ class AutoApp:
         master.resizable(True, True) # Memungkinkan resize
         master.configure(bg=self.BG_MAIN)
 
-        # Menangani tombol close (X) pada jendela Tkinter agar bersih
-        #master.protocol("WM_DELETE_WINDOW", self.close_browser)
+        master.protocol("WM_DELETE_WINDOW", self.on_closing)
 
         # Menambahkan frame utama untuk padding
         self.main_frame = tk.Frame(master, padx=15, pady=15, bg=self.BG_MAIN)
@@ -228,13 +236,17 @@ class AutoApp:
         )
         self.status_label.pack(fill=tk.X, pady=(0, 15))      
 
+        # --- SECTION 0. Row user login intro ---
+        row_frame = tk.Frame(self.main_frame, bg=self.main_frame.cget('bg'))
+        row_frame.pack(fill=tk.X, pady=4)
+
         # --- Input Fields (Field 1: Username) ---
-        self.create_input_field("Username SSO:", 'jey.neutron', "username_entry", self.main_frame, value=usersso)
+        self.create_input_field("Username SSO:", 'unameSSO', "username_entry", row_frame, value=usersso, width=10, label=False, horizon=True)
         # --- Input Fields (Field 2: Password) ---
-        self.create_input_field("Password SSO:", 'password', "password_entry", self.main_frame, show='*', value=passso)
+        self.create_input_field("Password SSO:", 'password', "password_entry", row_frame, show='*', value=passso, width=10, label=False, horizon=True)
         
         # --- Input Fields (Field 3: Link) ---
-        self.create_input_field("Link target:", "https://fasih-sm.bps.go.id/", "link_entry", self.main_frame)
+        self.create_input_field("Link target:", "https://fasih-sm.bps.go.id/", "link_entry", row_frame, value=linksaved, label=False, horizon=True)
         
         # --- Tombol Baris 1: Buka Aplikasi & Buka Link ---
         self.btn_frame_1 = tk.Frame(self.main_frame, bg=self.BG_MAIN)
@@ -250,6 +262,24 @@ class AutoApp:
         self.btn_stop_app.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
         # self.btn_stop_app.config(state=tk.DISABLED)
         self.set_button_disabled(self.btn_stop_app,disabled=True, active_bg=self.BG_INPUT)
+        self.set_button_disabled(self.btn_open_link ,disabled=True, active_bg=self.BG_INPUT)
+
+        # --- btn sep ---
+        self.btn_frame_sep = tk.Frame(self.main_frame, bg=self.BG_MAIN)
+        self.btn_frame_sep.pack(fill=tk.X, pady=7)
+
+        # Variabel kontrol untuk menyimpan nilai radiobutton intro yang dipilih
+        # self.pilsep = tk.StringVar(value=",")
+        # Label untuk menampilkan hasil pilihan
+        self.label_sep = tk.Label(self.btn_frame_sep, text="Separator csv:", bg=self.BG_MAIN, fg=self.FG_MAIN, font=('Segoe UI', 9, 'bold'))
+        self.label_sep.pack(pady=5, side=tk.LEFT)
+        # radio
+        self.rsep1= self.make_radio(self.btn_frame_sep,',',self.pilsep,",",
+                                    self.update_label_sep,self.ACCENT_BLUE_DARK,self.ACCENT_BLUE_DARK)
+        self.rsep1.pack(side=tk.LEFT, padx=(5, 2))
+        self.rsep2= self.make_radio(self.btn_frame_sep,';',self.pilsep,";",
+                                    self.update_label_sep,self.ACCENT_BLUE_DARK,self.ACCENT_BLUE_DARK)
+        self.rsep2.pack(side=tk.LEFT, padx=2)
 
         # --- Tombol Baris 2: Fungsi 1 & Fungsi 2 ---
         # --- SECTION 1
@@ -429,11 +459,12 @@ class AutoApp:
 
         # Log pesan awal
         self.log_message("Aplikasi dimulai. Selamat datang!")
-        self.log_message(f"Using sso {msgsso}")
+        self.log_message(f"Using akun {msgsso}")
         # Set pilihan awal
         self.rw1.select()
+        self.update_label_sep()
         self.update_label_vwrite()
-        if approv == "approv4":
+        if approv == "nonapprov":
             self.rb4.select()
         else: self.rb1.select()
         self.update_label()
@@ -472,8 +503,8 @@ class AutoApp:
         self.detach_btn = self.make_button(log_header_frame,'🔓',self.toggle_log_window,'#2a2a38',self.FG_MUTED, padx=5, pady=0)
         self.detach_btn.pack(side=tk.RIGHT, padx=5)
         
-        clear_btn = self.make_button(log_header_frame,'🧹',self.clear_log,'#2a2a38',self.FG_MUTED, padx=5, pady=0)
-        clear_btn.pack(side=tk.RIGHT)
+        clear_btn = self.make_button(log_header_frame,'🗑️',self.clear_log,'#2a2a38',self.FG_MUTED, padx=5, pady=0)
+        clear_btn.pack(side=tk.RIGHT, padx=5)
         
         # Buat area log
         self.log_area = self.create_log_area(parent)
@@ -639,10 +670,10 @@ class AutoApp:
             tag = f"b{b}i{i}"
             text_widget.tag_configure(tag, font=make_font(bool(b), bool(i)))
 
-    def make_button(self, parent, text, command, bg, active_bg, anchor='center', padx=10, pady=1):
+    def make_button(self, parent, text, command, bg, active_bg, anchor='center', padx=10, pady=1, width=None):
         return tk.Button(parent, text=text, command=command, bg=bg, fg=self.FG_MAIN,
-            font=('Segoe UI', 8, 'bold'), relief=tk.FLAT, activebackground=active_bg,
-            activeforeground=self.FG_MAIN, padx=padx, pady=pady, cursor="hand2", anchor=anchor)
+            font=('Segoe UI', 7, 'bold'), relief=tk.FLAT, activebackground=active_bg,
+            activeforeground=self.FG_MAIN, padx=padx, pady=pady, cursor="hand2", anchor=anchor, width=width)
 
     def make_radio(self, parent, text, var, value, cmd, select_color, active_bg):
         return tk.Radiobutton(parent, text=text, variable=var, value=value, indicatoron=0,
@@ -651,32 +682,41 @@ class AutoApp:
             font=('Segoe UI', 8, 'bold'), padx=8, pady=3, cursor="hand2")
     
     # --- Utility Function untuk membuat field input berulang ---
-    def create_input_field(self, label_text, placeholder, attr_name, parent, show='', value=False):
+    def create_input_field(self, label_text, placeholder, attr_name, parent, show='', value=False, width=None, label=True, horizon=False):
         frame = tk.Frame(parent, bg=parent.cget('bg'))
-        frame.pack(fill=tk.X, pady=4)
+        if horizon:
+            frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=3)
+        else:
+            frame.pack(fill=tk.X, pady=4)
         
         # Menggunakan font dan layout yang lebih modern & bersih
-        tk.Label(
-            frame, 
-            text=label_text, 
-            width=14, 
-            anchor='w', 
-            bg=parent.cget('bg'), 
-            #fg=self.FG_MUTED if parent.cget('bg') == self.BG_MAIN else self.FG_MAIN,
-            fg='#ffffff',
-            font=('Segoe UI', 9, 'bold')
-        ).pack(side=tk.LEFT)
+        if label:
+            tk.Label(
+                frame, 
+                text=label_text, 
+                width=14, 
+                anchor='w', 
+                bg=parent.cget('bg'), 
+                #fg=self.FG_MUTED if parent.cget('bg') == self.BG_MAIN else self.FG_MAIN,
+                fg='#ffffff',
+                font=('Segoe UI', 9, 'bold')
+            ).pack(side=tk.LEFT)
         
-        entry = tk.Entry(
-            frame, 
-            relief=tk.FLAT, 
-            show=show,
-            bg=self.BG_INPUT,
-            fg="#C7C7C7",
-            insertbackground=self.FG_MAIN,
-            font=('Segoe UI', 9),
-            bd=4 # Memberikan visual internal margin/padding yang bersih
-        )
+        entry_kwargs = {
+            'master': frame,
+            'relief': tk.FLAT,
+            'show': show,
+            'bg': self.BG_INPUT,
+            'fg': "#C7C7C7",
+            'insertbackground': self.FG_MAIN,
+            'font': ('Segoe UI', 9),
+            'bd': 4
+        }
+        # Jika width ditentukan, masukkan ke parameter entry
+        if width:
+            entry_kwargs['width'] = width
+
+        entry = tk.Entry(**entry_kwargs)
         entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
         
         # Simpan reference ke entry object
@@ -746,7 +786,7 @@ class AutoApp:
 
         except Exception as e:
             exc_type, exc_obj, exc_tb = sys.exc_info()
-            print(f"# Gagal memuat list fungsi: {str(exc_tb.tb_lineno)} {e} ", "red_tag")
+            self.log_message(f"# Gagal memuat list fungsi: {str(exc_tb.tb_lineno)} {e} ", "red_tag")
     
     # --on select combobox
     def on_select(self, event):
@@ -785,26 +825,37 @@ class AutoApp:
         self.main_frame.focus_set()
 
 
+    # --update untuk radiobtn sep
+    def update_label_sep(self):
+        """Fungsi yang dipanggil saat radiobutton sep diklik."""
+
+        match self.pilsep.get():
+            case ",":
+                self.log_message(f"-Separator csv terpilih: Comma (default)")
+            case ";":
+                self.log_message(f"-Separator csv terpilih: Semicolon (utk yg excel Indonesia)")
+        pass           
+
     # --update untuk radiobtn
     def update_label(self):
-        """Fungsi yang dipanggil saat radiobutton diklik."""
+        """Fungsi yang dipanggil saat radiobutton approval diklik."""
 
         match self.val_approv.get():
             case 1:
-                self.log_message(f"Approval terpilih: Ya, sekalian diapprove")
+                self.log_message(f"-Approval terpilih: Ya, sekalian diapprove")
             case 0:
-                self.log_message(f"Approval terpilih: Gausa diapprove")
+                self.log_message(f"-Approval terpilih: Gausa diapprove")
             case 2: 
-                self.log_message(f"Approval terpilih: Reject")
+                self.log_message(f"-Approval terpilih: Reject")
             case 99:  
-                self.log_message(f"Approval terpilih: Bukan approval")
+                self.log_message(f"-Approval terpilih: Bukan approval")
         pass
 
     # --update untuk radiobtn vwrite
     def update_label_vwrite(self):
-        """Fungsi yang dipanggil saat radiobutton diklik."""
+        """Fungsi yang dipanggil saat radiobutton write csv diklik."""
         if self.vwrite.get() == 1:
-            self.log_message(f"Write data.csv terpilih: Rewrite")
+            self.log_message(f"-Write data.csv terpilih: Rewrite")
             self.rw1.config(fg=self.FG_MAIN)
             self.rw2.config(fg=self.FG_MUTED)
         else :
@@ -812,7 +863,7 @@ class AutoApp:
             self.rw1.config(fg=self.FG_MUTED)
             cekcsv = load_setting_file(self,filename="data.csv",load=False)
             if cekcsv:
-                self.log_message(f"Write data.csv terpilih: Append to data.csv")
+                self.log_message(f"-Write data.csv terpilih: Append to data.csv")
             else:
                 self.log_message(f"data.csv tidak ditemukan, harap pilih 'Rewrite'", tag="red_tag")
         pass
@@ -847,25 +898,58 @@ class AutoApp:
 
     # --- load user ---
     def load_credentials(self):
+        '''return username, password, pil_approval, message_sso, helper_func'''
         try:
             # if getattr(sys, 'frozen', False):
             #     current_dir = os.path.dirname(sys.executable)
             # else:
             #     current_dir = os.path.dirname(os.path.abspath(__file__))
             current_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
-            path = os.path.join(current_dir, 'tempuser.txt')
+            path1 = os.path.join(current_dir, 'tempuser.txt')
+            path2 = os.path.join(current_dir, 'tempuserJN.txt')
+            path = path2 if os.path.exists(path2) else (path1 if os.path.exists(path1) else None)
 
-            if os.path.exists(path):
-                with open(path, 'r') as f:
-                    lines = f.read().splitlines()
-                    while len(lines) < 4:
-                        lines.append(False)
-                    return lines[0], lines[1], lines[2], "Loaded", lines[3]
+            if not os.path.exists(path1):
+                template_data = {
+                    "NOTE": "Template tempuser.txt untuk load akun SSO. Hapus baris jika tidak perlu load!",
+                    "username": "jey.neutron",
+                    "password": "pass",
+                    "pil_approval": "nonapprov",
+                    "helper_func": "",
+                    "link": "https://fasih-sm.bps.go.id"
+                }
+                path_default = path1
+                with open(path_default, 'w', encoding='utf-8') as f:
+                    json.dump(template_data, f, indent=4)
+                    
+                # self.log_message("Template tempuser.txt berhasil dibuat. Silakan isi datanya!")
+                # msg.showinfo("Info Aplikasi", "Template tempuser.txt berhasil dibuat")
+                return False, False, False, "Dummy", False, False
+
+            with open(path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                
+                # Fungsi pembantu untuk memastikan nilai tidak kosong/hanya spasi
+                def clean_val(val):
+                    if isinstance(val, str) and val.strip() == "":
+                        return False
+                    return val if val is not None else False
+
+                # Ambil data dan bersihkan langsung
+                username = clean_val(data.get("username"))
+                password = clean_val(data.get("password"))
+                pil_approval = clean_val(data.get("pil_approval"))
+                helper_func = clean_val(data.get("helper_func"))
+                link = clean_val(data.get("link"))
+                
+                return username, password, pil_approval, "Loaded", helper_func, link
         except Exception as e:  
-            self.log_message(f'Gagal load sso saved ({e})')
+            # self.log_message(f'Gagal load sso saved ({e})')
+            msg.showerror("Error Aplikasi", f"Gagal load sso saved ({e})")
+            print(f'Gagal load sso saved ({e})') ###############
             pass
         # return "jey.neutron", "password", "approv1", "Default", "Input_Tambahan"
-        return False, False, False, "Default", False
+        return False, False, False, "Default", False, False
     
     # --- Log Message Function ---
     def log_message(self, message, tag=None):
@@ -886,14 +970,14 @@ class AutoApp:
         self.log_message("Cleared! Aplikasi dimulai. Selamat datang!")
 
         if self.vwrite.get() == 1:
-            self.log_message(f"Write data.csv terpilih: Rewrite")
+            self.log_message(f"-Write data.csv terpilih: Rewrite")
         else:
-            self.log_message(f"Write data.csv terpilih: Append")
+            self.log_message(f"-Write data.csv terpilih: Append")
 
         if self.val_approv.get() == 1:
-            self.log_message(f"Approval terpilih: Ya, sekalian diapprove")
+            self.log_message(f"-Approval terpilih: Ya, sekalian diapprove")
         else :
-            self.log_message(f"Approval terpilih: Gausa diapprove")
+            self.log_message(f"-Approval terpilih: Gausa diapprove")
 
     # --- Get path os or url path on folder assets ---
     @staticmethod
@@ -910,6 +994,7 @@ class AutoApp:
 
     # --- Browser App Functions ---
     def open_browser(self):
+        self.set_button_disabled(self.btn_open_link ,disabled=False, active_bg=self.ACCENT_BLUE_DARK)
         self.log_message("Perintah: Membuka browser.")
         try:
             # self.driver = webdriver.Chrome() # Selenium akan otomatis mencari & mendownload ChromeDriver yang sesuai
@@ -1011,6 +1096,15 @@ class AutoApp:
         self.close_port_9222()
         self.log_message("Browser telah ditutup.")
 
+    # Menangani tombol close (X) pada jendela Tkinter agar bersih
+    def on_closing(self):
+        # Menutup jendela Tkinter dengan bersih
+        self.master.destroy()
+        if self.playwright_instance:
+            self.playwright_instance.stop()
+        # Memastikan proses Python keluar dengan kode 0 (sukses)
+        sys.exit(0)
+
     def open_link_in_browser(self):
         link = self.link_entry.get()
         if not link.startswith("http"):
@@ -1019,77 +1113,48 @@ class AutoApp:
             self.change_status("STATUS: Menuju link...", color="blue")
             self.log_message(f"Menuju link dengan SSO: {self.username_entry.get()}")
             self.log_message(f"Target link: {link}")
-            try:
-                #self.driver.get(link)
-                self.page.goto(link)
-                self.log_message(f"Sukses: link target terbuka. Title Page: {self.page.title()}")
+            # try:
                 # try login sso disini
                 # Validasi sederhana
                 #if "bps.go.id" in self.driver.current_url:
-                if "bps.go.id" in self.page.url:
-                    if self.username_entry.get() in ["Masukkan Username...", "jey.neutron" ,""]:
-                        self.log_message("ERROR: Fungsi 1 dibatalkan. Username tidak valid.", "red_tag")
-                        return
-                    self.thread = threading.Thread(target=self.login_sso, args=(link,))
-                    self.thread.start()
-                else:
-                    pass
-                # end try login sso
-            except Exception as e:
-                self.change_status("STATUS: Error membuka link", color="red")
-                self.log_message(f"ERROR: Gagal membuka browser. Pastikan format link benar atau cek VPN. ({str(e).split('Stacktrace:')[0]})", tag="red_tag")
+            if "bps.go.id" in link:
+                if self.username_entry.get() in ["Masukkan Username...", "jey.neutron" ,"unameSSO",""]:
+                    self.log_message("ERROR: Fungsi 1 dibatalkan. Username tidak valid.", "red_tag")
+                    return
+                self.thread = threading.Thread(target=__loginsso, args=(self, link))
+                self.thread.start()
+                # self.thread.join() # tunggu selese login sso selesai
+                def cek_thread_selesai():
+                    if self.thread.is_alive():
+                        # Jika masih jalan, cek lagi 100 milidetik kemudian (GUI tidak akan freeze)
+                        self.master.after(100, cek_thread_selesai)
+                    else:
+                        # Jika sudah selesai, baru jalankan goto
+                        lanjutkan_navigasi(link,openlink=False)
+                        
+                cek_thread_selesai()
+            
+            else: #jika ga login sso
+                lanjutkan_navigasi(link, openlink=True)
+                # pass
+            # end try login sso
+            def lanjutkan_navigasi(link, openlink=True):
+                if openlink:
+                    self.page.goto(link)
+                    self.log_message(f"Sukses: link target terbuka. Title Page: {self.page.title()}")
+                if "fasih-sm.bps.go.id" in link: 
+                    self.log_message("Silakan memilih survei sendiri sampai ke halaman list tabel data.")
+                self.log_message("Target link ready, waiting your action...", tag="green_tag")
+                self.change_status("STATUS: Target link ready, waiting your action...", color="green")
+
+            # except Exception as e:
+            #     self.change_status("STATUS: Error membuka link", color="red")
+            #     self.log_message(f"ERROR: Gagal membuka browser. Pastikan format link benar atau cek VPN. ({str(e).split('Stacktrace:')[0]})", tag="red_tag")
         else:
             self.log_message("PERINGATAN: Link belum diisi atau masih placeholder.", tag="red_tag")
 
     # --- Login SSO Function ---
-    def login_sso(self, link):
-        self.log_message("Mencoba login SSO...")
-        try:
-            # 1. Coba hubungkan ke browser yang sudah ada
-            p = sync_playwright().start()
-            browser = p.chromium.connect_over_cdp(chromeport)                    
-            page = browser.contexts[0].pages[0]
-            # try: #waiting login sso button
-            #     WebDriverWait(self.driver, 10).until( #using explicit wait for x seconds
-            #         EC.presence_of_element_located((By.XPATH, "id('login-in')/A[2]")) #finding the element
-            #     ).click()
-            # except:
-            #     pass
-            # WebDriverWait(self.driver, 15).until( #using explicit wait for x seconds
-            #     EC.presence_of_element_located((By.XPATH, 'id("kc-login")')) )
-            # self.driver.find_element(By.XPATH, '//*[@id="username"]').send_keys(self.username_entry.get())
-            # self.driver.find_element(By.XPATH, '//*[@id="password"]').send_keys(self.password_entry.get())
-            # self.driver.find_element(By.XPATH, '//*[@id="kc-login"]').send_keys(Keys.RETURN)
-            if self.stop_event.is_set():
-                self.set_button_disabled(self.btn_stop_app,disabled=True, active_bg=self.BG_INPUT)
-                raise InterruptedError("Process stopped by user.")
-            try:
-                page.get_by_role("link", name="Login SSO BPS").click(timeout=20000)
-            except TimeoutError:
-                pass
-            page.get_by_role("textbox", name="Username or email").click()
-            page.get_by_role("textbox", name="Username or email").fill(self.username_entry.get())
-            page.get_by_role("textbox", name="Password").click()
-            page.get_by_role("textbox", name="Password").fill(self.password_entry.get())
-            page.get_by_role("button", name="Log In").click()
-            time.sleep(5) #wait for redirect
-            self.log_message('Login SSO done')
-            # self.driver.get(link) #reopen the link after login
-            page.goto(link)
-            self.change_status("STATUS: Target link ready, waiting your action...", color="green")
-            self.log_message("Silakan memilih survei sendiri sampai ke halaman list tabel data.")
-        except Exception as e:
-            self.log_message(f"Error di thread data loginsso: {e}", tag="red_tag")
-            self.isdone= 1
-        finally:
-            # Selalu tutup p_instance di blok 'finally' agar tidak hang
-            self.isdone= 1
-            try:
-                p.stop()
-                #self.log_message("Koneksi Playwright di thread ditutup.")
-            except NameError:
-                # Terjadi jika get playwright page() gagal total di awal
-                pass
+    # pindah ke get_data.py
 
     # --- Function 1 ---
     def run_function_1(self):
@@ -1110,7 +1175,7 @@ class AutoApp:
                 mode = 'w'
             elif self.vwrite.get() == 0:
                 mode = 'a'
-            self.thread = threading.Thread(target=__get_list_data, args=(self, "data.csv",mode))
+            self.thread = threading.Thread(target=__get_list_data, args=(self, "data.csv",mode, self.pilsep.get()))
             self.thread.start()
         except Exception as e:
             self.isdone = 1
@@ -1119,7 +1184,7 @@ class AutoApp:
         self.check_isdone()
 
     # --- Penunjang function 2 ---
-    def parse_input(input_str):
+    def parse_input(self, input_str):
         """Mengubah string input seperti "5-10, 2, 12" menjadi list integer: [2, 5, 6, 7, 8, 9, 10, 12]. Return list idx, dan True jika hanya 1 nilai"""
         if not input_str.strip():
             return [], False  # Kembalikan list kosong jika input kosong
@@ -1220,7 +1285,7 @@ class AutoApp:
                     cekapprove = False
                 elif self.val_approv.get() == 2:
                     cekapprove = "Reject"
-                self.thread = threading.Thread(target=__mainfunc, args=(self, filename, cekapprove, target_rows, is_single_val, extra_input_fun))
+                self.thread = threading.Thread(target=__mainfunc, args=(self, filename, cekapprove, target_rows, is_single_val, extra_input_fun, self.pilsep.get()))
             self.thread.start()
 
         except Exception as e:
@@ -1332,8 +1397,9 @@ def jalankan_aplikasi():
             root_utama.mainloop()
             
         except Exception as e:
+            exc_type, exc_obj, exc_tb = sys.exc_info()
             # Menampilkan pesan error ke pengguna lewat pop-up dialog
-            msg.showerror("Error Aplikasi", f"Gagal membuka aplikasi utama:\n{e}")
+            msg.showerror("Error Aplikasi", f"Gagal membuka aplikasi utama:\n{e}, lineno: {exc_tb.tb_lineno}")
             
             # Opsional: Mencetak detail error ke terminal untuk debugging
             # print("Detail Error:")

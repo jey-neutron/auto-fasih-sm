@@ -8,3 +8,4 @@ lzstring==1.0.4
 qrcode==8.2
 pillow==12.2.0
 shapely==2.1.2
+pyotp==2.10.0

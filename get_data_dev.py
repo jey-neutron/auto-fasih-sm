@@ -162,7 +162,7 @@ def mitra_kartu(instance,var):
     '''Generate kartu petugas dari data csv. Df.columns harus ada: nama, sobat_id, id_ms, id_mitra, kd_survei, id_keg, kd_prov'''
     instance.isdone = 0
     namafile = instance.filename_entry.get()
-    df = pd.read_csv(namafile).astype('str')
+    df = pd.read_csv(namafile, sep=instance.pilsep.get()).astype('str')
     # cek col
     instance.log_message(f'Data loaded with columns: {df.columns}')
     target_cols = ['nama', 'sobat_id', 'id_ms', 'id_mitra', 'kd_survei', 'id_keg', 'kd_prov']
@@ -203,7 +203,7 @@ def mitra_kartu(instance,var):
             instance.isdone=1
             return
 
-    df.to_csv(namafile, index=False)
+    df.to_csv(namafile, index=False, sep=instance.pilsep.get())
     instance.isdone = 1
 
 def genQR(instance=None, var='', namafile='', pathfolder = ''):
@@ -298,7 +298,7 @@ def mitra_addpenawaran(instance, var):
     p_instance, ctx, page = __get_playwright_page() #konek ke playwr
     
     namafile = instance.filename_entry.get()
-    df = pd.read_csv(namafile)
+    df = pd.read_csv(namafile, sep=instance.pilsep.get())
     if 'Nama' in df.columns:
         df = df.rename(columns={'Nama': 'nama'})
 
@@ -326,7 +326,7 @@ def mitra_addpenawaran(instance, var):
                 if 'Sudah Terdaftar' in stat:
                     df.loc[i,'status'] = 'skip'
                     log_message('sudah daftar')
-                    df.to_csv(namafile, index=False)
+                    df.to_csv(namafile, index=False, sep=instance.pilsep.get())
                     continue
                 page.locator(".fa.fa-plus.text-success").click()
                 df.loc[i,'status'] = 'done'
@@ -338,7 +338,7 @@ def mitra_addpenawaran(instance, var):
             except PlaywrightTimeoutError:
                 df.loc[i,'status'] = 'kosong'
                 log_message('kosong')
-                df.to_csv(namafile, index=False)
+                df.to_csv(namafile, index=False, sep=instance.pilsep.get())
                 continue
             
         except Exception as e:
@@ -346,7 +346,7 @@ def mitra_addpenawaran(instance, var):
             log_message(e)
             gagal +=1
             if gagal > 3: break
-            df.to_csv(namafile, index=False)
+            df.to_csv(namafile, index=False,sep=instance.pilsep.get())
             continue
             
         # page.locator(".fa.fa-plus.text-success").click()
@@ -366,7 +366,7 @@ def mitra_addpenawaran(instance, var):
             time.sleep(2)
             page.get_by_role("tab", name="Cari").click()
             page.get_by_role("textbox", name="Cari").click()
-            df.to_csv(namafile, index=False)
+            df.to_csv(namafile, index=False, sep=instance.pilsep.get())
             j=0
             # break
             continue
@@ -391,7 +391,7 @@ def kiap_getrkid(instance,var):
         # goto page rk
         # page.goto(var)
         page.goto('https://kipapp.bps.go.id/#/perencanaan-rencana-kinerja')
-        instance.log_message('- Waiting, select Periode SKP yg ingin diambil rkid-nya','green_tag')
+        instance.log_message('- Waiting, select Periode SKP yg ingin diambil rkid-nya','red_tag')
         captured_req, api_url, api_payload, api_headers = __get_headers(page, target_url=target_url, reload=False)
         # get response 
         instance.log_message(f'- Noted, gettin rkid dari url dan skpid: {api_url}', 'green_tag')
@@ -414,7 +414,7 @@ def kiap_getrkid(instance,var):
                 'namaatasan' : rk['namaatasan']
             })
         # data[0] #rkid, rencanakinerja, namatim, namaatasan
-        pd.DataFrame(result).to_csv('temp.csv', index=False)
+        pd.DataFrame(result).to_csv('temp.csv', index=False, sep=instance.pilsep.get())
         instance.log_message('File saved to "temp.csv"', 'green_tag')
 
     except Exception as e:
@@ -431,7 +431,7 @@ def kiap_addkeg(instance, var):
     kolwjb = {'skpid', 'rkid', 'kegiatan', 'tanggal', 'tanggalselesai',
             'progres', 'jammulai', 'jamselesai', 'capaian', 'datadukung', 'iscapaianskp'}
     df, dflist, lendf = __read_csv_dflist(
-        instance, filename, ',', kolwjb,
+        instance, filename, instance.pilsep.get(), kolwjb,
         "Ada kolom yg tidak ditemukan di csv, silakan update dulu dan liat deskripsi. Nama kolom harus sama"
     )
     if dflist is None:
@@ -552,7 +552,7 @@ def seedata(instance, var):
     instance.log_message(f"Getting detail data {filename} on index {idx}...")
     # GETTING DATA FROM FASIH OPEN DETAIL
     try:
-        df = pd.read_csv(filename, sep=",")
+        df = pd.read_csv(filename, sep=instance.pilsep.get())
         instance.log_message(f"\n{df.loc[idx]}")
     except Exception as e:
         instance.log_message(f'ERROR: {e}', tag="red_tag")
@@ -810,7 +810,7 @@ def get_jml_assignment (instance, var):
         p_instance, ctx, page = __get_playwright_page() #konek ke playwr
         target_url = "https://fasih-sm.bps.go.id/app/api/analytic/api/v2/assignment/report-progress-by-responsibility"
         # get req payload from reloading page
-        instance.log_message('# Silakan klik REKAP PETUGAS trus PPL/PML trus tombol refresh di sebelah pencarian (bukan refresh page)', 'green_tag')
+        instance.log_message('# Silakan klik REKAP PETUGAS trus PPL/PML trus tombol refresh di sebelah pencarian (bukan refresh page)', 'red_tag')
         captured_req, api_url, api_payload, api_headers = __get_headers(page, target_url=target_url, reload=False)
         
         all_rows = []
@@ -877,7 +877,7 @@ def get_jml_assignment (instance, var):
         # Convert ke Pandas DataFrame dan Export ke CSV
         if all_rows:
             df = pd.DataFrame(all_rows)
-            df.to_csv("pencacah_summary_paginated.csv", index=False)
+            df.to_csv("pencacah_summary_paginated.csv", index=False, sep=instance.pilsep.get())
             instance.log_message("# Berhasil! Data dari semua halaman telah diexport ke 'pencacah_summary_paginated.csv'", 'green_tag')
         else:
             instance.log_message("# Tidak ada data yang berhasil dikumpulkan.")
@@ -907,7 +907,7 @@ def tandaiwil(instance, var=''):
     import re
     # read csv
     namafile = instance.filename_entry.get()
-    df = pd.read_csv(namafile)
+    df = pd.read_csv(namafile, sep=instance.pilsep.get())
     if 'idsubsls' not in df.columns:
         instance.log_message(f"Error: Column 'idsubsls' not found in csv file. Please check your csv file.", 'red_tag')
         instance.isdone = 1
@@ -963,7 +963,7 @@ def tandaiwil(instance, var=''):
             # logging
             df.loc[i,'status'] = res#'done'
             instance.log_message(f"{i}, {btncek} {subsls}: {res}")#'done')
-            df.to_csv(namafile, index=False)
+            df.to_csv(namafile, index=False, sep=instance.pilsep.get())
 
     instance.isdone = 1
 
@@ -988,16 +988,16 @@ def chromeport(instance, var=''):
 # FUNC SECTION MAIN FUNC, DONT DISTURB
 # =====================================================================
 # Function to get list data
-def __get_list_data (instance, namadf,  mode="w", maxrow=0, sep=","):
+def __get_list_data (instance, namadf,  mode="w", sep=',', maxrow=0):
     '''Get dataframe dari prelist link fasih untuk dijadikan bahan, kemudian export ke csv juga. '''
     instance.isdone=0
     try:
         p_instance, ctx, page = __get_playwright_page() #konek ke playwr
         target_url = "https://fasih-sm.bps.go.id/app/api/analytic/api/v2/assignment/datatable-all-user-survey-periode"
         # get req payload from reloading page
-        instance.log_message('# Silakan klik tombol refresh table di atas table kanan (bukan refresh page)', 'green_tag')
+        instance.log_message('# Silakan klik tombol refresh table di atas table kanan (bukan refresh page)', 'red_tag')
         captured_req, api_url, api_payload, api_headers = __get_headers(page, target_url=target_url, reload=False)
-        # instance.vars = api_headers #sementara hasil get header dipakein di vars
+        # instance.var1 = api_headers #sementara hasil get header dipakein di var1
         
         # mod req
         api_payload['length'] = ROW_REQUEST 
@@ -1071,7 +1071,7 @@ def __get_list_data (instance, namadf,  mode="w", maxrow=0, sep=","):
             with open (namadf,'r') as file:
                 reader = csv.reader(file)
                 jml_brs = len(list(reader)) - 1 #minus header
-            instance.log_message(f"Done. Link data saved to '{namadf}'. Total baris: {jml_brs}","green_tag")
+            instance.log_message(f"Done. List saved to '{namadf}'. Total baris: {jml_brs}","green_tag")
             
             # return df
         else:
@@ -1483,7 +1483,7 @@ def __row_mainfunc(i, instance, lendf, dflist, idlog, filename, func, api_header
             dflist[i]['status_work'] = err_msg if err_msg else True
             with csv_lock:
                 dfbaru = pd.DataFrame(dflist)
-                dfbaru.to_csv(filename, index=False)
+                dfbaru.to_csv(filename, index=False, sep=instance.pilsep.get())
             time.sleep(0.2)
             # context.close()
 
@@ -1528,7 +1528,7 @@ def __row_parent_worker(instance, futures, page):
             break
 
 # Function approv (and get data)
-def __mainfunc(instance, filename, cekapprov, target_rows, is_single, func=None, idlog='codeIdentity', sep=','):
+def __mainfunc(instance, filename, cekapprov, target_rows, is_single, func=None, sep=',', idlog='codeIdentity'):
     '''Get data dari Fasih dengan membuka linknya dari dataframe df, kemudian export ke csv. Kemudian akan approv juga jika tercentang sekalian approv'''
     instance.isdone = 0
 
@@ -1546,7 +1546,7 @@ def __mainfunc(instance, filename, cekapprov, target_rows, is_single, func=None,
         p_instance, ctx, page = __get_playwright_page()
         # get req payload from reloading page
         target_url = "https://fasih-sm.bps.go.id/app/"#api/analytic/api/v2/assignment/datatable-all-user-survey-periode"
-        instance.log_message('# Silakan klik tombol refresh table di atas table kanan (bukan refresh page)', 'green_tag')
+        instance.log_message('# Silakan klik tombol refresh table di atas table kanan (bukan refresh page)', 'red_tag')
         captured_req, api_url, api_payload, api_headers = __get_headers(page, target_url=target_url, reload=False)
         time.sleep(1)
                 
@@ -1565,11 +1565,11 @@ def __mainfunc(instance, filename, cekapprov, target_rows, is_single, func=None,
             except Exception:
                 pass
 
-        # if instance.vars == None: # sementara header disimpan di vars; gajadi, dipindah ke atas 
+        # if instance.var1 == None: # sementara header disimpan di var1; gajadi, dipindah ke atas 
         #     # buat ambil header kan klo gada header yg kesimpen
         #     captured_req, api_url, api_payload, api_headers = __get_headers(page, page.url)
         # else :
-        #     api_headers = instance.vars
+        #     api_headers = instance.var1
         # time.sleep(1)
 
         page.goto(instance.getassets('index.html'))
@@ -1641,6 +1641,47 @@ def __check_stop(instance):
     '''Check if stop button is pressed'''
     if instance.stop_event.is_set():
         raise InterruptedError("Process stopped by user.")
+
+def __loginsso(instance, link):
+    '''Login sso auto on main app'''
+    instance.log_message("Mencoba login SSO, pastikan udah VPN...")
+    try:
+        # 1. Coba hubungkan ke browser yang sudah ada
+        p_instance, ctx, page = __get_playwright_page() #konek ke playwr
+        if instance.stop_event.is_set():
+            instance.set_button_disabled(instance.btn_stop_app,disabled=True, active_bg=instance.BG_INPUT)
+            raise InterruptedError("Process stopped by user.")
+        
+        page.goto("https://sso.bps.go.id")
+        page.wait_for_load_state("domcontentloaded")
+        # page.get_by_role("link", name="Login SSO BPS").click(timeout=20000)
+        
+        # cek apakah sudah login
+        elemen_dashboard = page.locator("text=Sign Out")
+        # username_field.wait_for(state="visible", timeout=10000)
+        username_field = page.get_by_role("textbox", name="Username")
+        if elemen_dashboard.is_visible():
+            current_value = username_field.input_value()
+            # if current_value.strip() != "":
+            instance.log_message(f"Sudah login dengan username: {current_value}...", "green_tag")
+            # JANGAN isi username lagi, langsung eksekusi kode setelah login di sini
+            pass
+        else:
+            # Jika kosong, baru lakukan klik dan ketik username baru
+            # username_field = page.get_by_role("textbox", name="Username or email")
+            username_field.click()
+            username_field.fill(instance.username_entry.get())
+            page.get_by_role("textbox", name="Password").click()
+            page.get_by_role("textbox", name="Password").fill(instance.password_entry.get())
+            page.get_by_role("button", name="Log In").click()
+            time.sleep(5) #wait for redirect
+            instance.log_message('Login SSO done')
+        # instance.driver.get(link) #reopen the link after login
+        page.goto(link)
+        instance.log_message(f"Sukses: link target terbuka. Title Page: {page.title()}")
+    except Exception as e:
+        instance.log_message(f"Error di thread data loginsso: {e}", tag="red_tag")
+        # instance.isdone= 1
 
 def isdone(instance, page=None,output=None):
     '''Alternatif instance.isdone=1 karena bug'''
