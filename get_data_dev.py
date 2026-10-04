@@ -53,7 +53,7 @@ import textwrap
 # =====================================================================
 
 def help(instance,var=''):
-    '''Get list of functions'''
+    '''Get list of functions, jalankan dengan pilihan 'NonApprov' '''
     try:
         exclude_fun_list = ["datetime", "sync_playwright",
                             'expect','unquote', 'PlaywrightTimeoutError',
@@ -77,28 +77,30 @@ def help(instance,var=''):
                     instance.log_area.insert("end", f" ({deskripsi.strip().lower()})\n")
                     instance.log_area.see("end")
 
-            instance.log_area.insert("end", f"\n[-] Kosongin aja jika misal mau approval aja tanpa get data fasih-sm")
-            instance.log_area.insert("end", f"\n[-] Anda bisa mengganti isian default username sso dengan membuat file 'tempuser.txt' dan isinya adalah usernamesso + (enter) + password sso ")
+            instance.log_area.insert("end", f"\n[-] NOTE Tambahan:")
+            instance.log_area.insert("end", f"\n[-] Get List Data khusus buat fasih-sm aja")
+            instance.log_area.insert("end", f"\n[-] Kosongin 'Fungsi Tambahan'/Pilih 'opsional' jika misal mau approval aja tanpa get data fasih-sm")
+            instance.log_area.insert("end", f"\n[-] Anda bisa mengganti isian default username sso dengan mengisi file 'tempuser.txt' ")
             instance.log_area.insert("end", "\n")
             instance.isdone = 1
         return exclude_fun_list
     except Exception as e:
         instance.log_message('Error:',e)
 
-def getrandom(instance, var): 
-    '''Get a random number'''
-    instance.isdone = 0
-    try:
-        for i in range(0,4):
-            __check_stop(instance)
-            time.sleep(1)
-            try:
-                instance.log_message(f"Hasil angka random-{i} {int(var)*random.random()}")
-            except:
-                instance.log_message(f"Hasil angka random-{i} {random.random()}")
-    except Exception as e:
-        instance.log_message(e,'red_tag')
-    instance.isdone = 1
+# def getrandom(instance, var): 
+#     '''Get a random number'''
+#     instance.isdone = 0
+#     try:
+#         for i in range(0,4):
+#             __check_stop(instance)
+#             time.sleep(1)
+#             try:
+#                 instance.log_message(f"Hasil angka random-{i} {int(var)*random.random()}")
+#             except:
+#                 instance.log_message(f"Hasil angka random-{i} {random.random()}")
+#     except Exception as e:
+#         instance.log_message(e,'red_tag')
+#     instance.isdone = 1
 
 def getrandomcat(instance, var=1):
     '''Who knows'''
@@ -123,6 +125,7 @@ def getrandomcat(instance, var=1):
     else : res= random.choice(listres)
     instance.log_area.insert("end", f"\n{res}\n")
     instance.log_area.see("end")
+    __check_stop(instance)
 
 def render(instance,var):
     """Memanggil index.html dengan pilihan variable terlampir, var='done', 'running', 'ready' """
@@ -132,6 +135,7 @@ def render(instance,var):
     if var != 1:
         page.evaluate(f"document.body.setAttribute('data-status', '{var}')")
     instance.log_message('Selesai')
+    __check_stop(instance)
     #instance.isdone=1
     
 
@@ -139,7 +143,7 @@ def render(instance,var):
 # FUNC SECTION MANAJEMEN MITRA
 # =====================================================================
 def mitra_geturl(instance=None,var='[]'):
-    '''Generate url mitra dari var yg diinput. Var=["id_ms", "id_mitra", "kd_survei", 'id_keg', 'kd_prov']'''
+    '''Generate url mitra dari var yg diinput. Var=["id_ms", "id_mitra", "kd_survei", "id_keg", "kd_prov"]'''
 
     allowed_keys = ["id_ms", "id_mitra", "kd_survei", 'id_keg', 'kd_prov']
     listvar = ast.literal_eval(var)
@@ -1583,8 +1587,8 @@ def __mainfunc(instance, filename, cekapprov, target_rows, is_single, func=None,
             # Jika input berupa range/koma, hanya ambil index yang terdaftar dan valid
             row_indices = [i for i in target_rows if i < lendf]
 
-        # instance.log_message(f"# Loading for {lendf-int(mulai)} data, length dataframe: {lendf}-mulai data{msgapprov}...")
-        instance.log_message(f"# Loading for {len(row_indices)} data, length dataframe: {lendf}-mulai data{msgapprov}...")
+        # instance.log_message(f"# Loading for {lendf-int(mulai)} data, length dataframe: {lendf}. Mulai data{msgapprov}...")
+        instance.log_message(f"# Loading for {len(row_indices)} data, length dataframe: {lendf}. Mulai data{msgapprov}...")
 
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
             if not cekapprov and not func:

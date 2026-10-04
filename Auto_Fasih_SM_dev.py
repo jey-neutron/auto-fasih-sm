@@ -149,7 +149,7 @@ class AutoApp:
         self.FG_MAIN = "#FFFFFF"       # Teks Utama
         self.FG_MUTED = "#8E8E9F"      # Teks Redup / Label
         self.ACCENT_BLUE_DARK = "#003380"   # Tombol Primer / Browser
-        self.ACCENT_TEAL_DARK = "#00402E"   # Tombol Run / Sukses
+        self.ACCENT_GREEN_DARK = "#00402E"   # Tombol Run / Sukses
         self.ACCENT_RED_DARK = "#660018"    # Tombol Berhenti / Error
         self.ACCENT_BLUE = "#3A86FF"   # Tombol Primer / Browser
         self.ACCENT_TEAL = "#00A378"   # Tombol Run / Sukses
@@ -264,30 +264,37 @@ class AutoApp:
         self.set_button_disabled(self.btn_stop_app,disabled=True, active_bg=self.BG_INPUT)
         self.set_button_disabled(self.btn_open_link ,disabled=True, active_bg=self.BG_INPUT)
 
-        # --- btn sep ---
-        self.btn_frame_sep = tk.Frame(self.main_frame, bg=self.BG_MAIN)
-        self.btn_frame_sep.pack(fill=tk.X, pady=7)
+        # Separator
+        tk.Frame(self.main_frame, height=3, bg=self.ACCENT_BLUE_DARK).pack(fill=tk.X, padx=15, pady=10)
 
-        # Variabel kontrol untuk menyimpan nilai radiobutton intro yang dipilih
-        # self.pilsep = tk.StringVar(value=",")
-        # Label untuk menampilkan hasil pilihan
-        self.label_sep = tk.Label(self.btn_frame_sep, text="Separator csv:", bg=self.BG_MAIN, fg=self.FG_MAIN, font=('Segoe UI', 9, 'bold'))
-        self.label_sep.pack(pady=5, side=tk.LEFT)
-        # radio
-        self.rsep1= self.make_radio(self.btn_frame_sep,',',self.pilsep,",",
-                                    self.update_label_sep,self.ACCENT_BLUE_DARK,self.ACCENT_BLUE_DARK)
-        self.rsep1.pack(side=tk.LEFT, padx=(5, 2))
-        self.rsep2= self.make_radio(self.btn_frame_sep,';',self.pilsep,";",
-                                    self.update_label_sep,self.ACCENT_BLUE_DARK,self.ACCENT_BLUE_DARK)
-        self.rsep2.pack(side=tk.LEFT, padx=2)
+        # HEADER SECTION 1 + 2
+        # --- Container Baris untuk Tab Toggle ---
+        tab_container = tk.Frame(self.main_frame, bg=self.main_frame.cget('bg'))
+        tab_container.pack(fill=tk.X, pady=(10, 0))
+
+        # --- SECTION 1 (HEADER Tab 1) ---
+        self.toggle_btn_getlist = self.make_button(
+            tab_container, "▶ Get List Data"
+            command=lambda: self.toggle_section(self.func1_frame, self.toggle_btn_getlist, self.func2_frame, self.toggle_btn), 
+            bg=self.BG_CARD, active_bg=self.FG_MUTED, anchor='center' # Center agar teks di tengah ala tab
+        )
+        self.toggle_btn_getlist.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 2))
+
+        # --- SECTION 2 (HEADER Tab 2) ---
+        self.toggle_btn = self.make_button(
+            tab_container, "▶ Run Main Function", 
+            command=lambda: self.toggle_section(self.func2_frame, self.toggle_btn, self.func1_frame, self.toggle_btn_getlist),
+            bg=self.BG_CARD, active_bg=self.FG_MUTED, anchor='center'
+        )
+        self.toggle_btn.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(2, 0))
 
         # --- Tombol Baris 2: Fungsi 1 & Fungsi 2 ---
-        # --- SECTION 1
-        self.toggle_btn_getlist = self.make_button(self.main_frame, "▶ Get List Data", 
-                                                    command= lambda: self.toggle_section(self.func1_frame, self.toggle_btn_getlist, self.func2_frame, self.toggle_btn), 
-                                                    bg=self.BG_CARD, active_bg=self.FG_MUTED, anchor='w'
-        )
-        self.toggle_btn_getlist.pack(fill=tk.X, pady=(10, 0))
+        # --- SECTION 1 pindah ke atas
+        # self.toggle_btn_getlist = self.make_button(self.main_frame, "▶ Get List Data", 
+        #                                             command= lambda: self.toggle_section(self.func1_frame, self.toggle_btn_getlist, self.func2_frame, self.toggle_btn), 
+        #                                             bg=self.BG_CARD, active_bg=self.FG_MUTED, anchor='w'
+        # )
+        # self.toggle_btn_getlist.pack(fill=tk.X, pady=(10, 0))
 
         #self.func1_frame = tk.Frame(self.main_frame, bg=self.BG_CARD)
         self.func1_frame = tk.LabelFrame(
@@ -296,7 +303,8 @@ class AutoApp:
             pady=10, 
             bg=self.BG_CARD,
             fg=self.FG_MAIN,
-            font=('Segoe UI', 9, 'bold')
+            font=('Segoe UI', 9, 'bold'),
+            bd=0, relief=tk.SOLID, highlightthickness=0
         )
         # self.func1_frame.pack(fill=tk.X, pady=(10, 3))
 
@@ -310,22 +318,37 @@ class AutoApp:
         self.label_hasil.pack(pady=5, side=tk.LEFT)
         # radio
         self.rw1= self.make_radio(self.btn_frame_2,'Rewrite',self.vwrite,1,
-                                    self.update_label_vwrite,self.ACCENT_TEAL_DARK,self.ACCENT_TEAL_DARK)
+                                    self.update_label_vwrite,self.ACCENT_GREEN_DARK,self.ACCENT_GREEN_DARK)
         self.rw1.pack(side=tk.LEFT, padx=(5, 2))
         self.rw2= self.make_radio(self.btn_frame_2,'Append',self.vwrite,0,
-                                    self.update_label_vwrite,self.ACCENT_TEAL_DARK,self.ACCENT_TEAL_DARK)
+                                    self.update_label_vwrite,self.ACCENT_GREEN_DARK,self.ACCENT_GREEN_DARK)
         self.rw2.pack(side=tk.LEFT, padx=2)
 
         # main btn func 1
-        self.btn_func_1 = self.make_button(self.btn_frame_2,'Get List Data',self.run_function_1,self.ACCENT_TEAL_DARK,self.FG_MUTED, pady=3)
+        self.btn_func_1 = self.make_button(self.btn_frame_2,'Get List Data',self.run_function_1,self.ACCENT_GREEN_DARK,self.FG_MUTED, pady=3)
         self.btn_func_1.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(10, 0))
 
-        # --- SECTION : Input Fields Khusus Fungsi 2 (LabelFrame) ---
-        self.toggle_btn = self.make_button(self.main_frame,"▶ Run Main Function",
-                                            command= lambda: self.toggle_section(self.func2_frame, self.toggle_btn, self.func1_frame, self.toggle_btn_getlist),
-                                            bg=self.BG_CARD, active_bg=self.FG_MUTED, anchor='w'
-        )
-        self.toggle_btn.pack(fill=tk.X, pady=(10, 0))
+        # --- btn sep ---
+        self.btn_frame_sep = tk.Frame(self.func1_frame, bg=self.BG_CARD)
+        self.btn_frame_sep.pack(fill=tk.X, pady=7)
+
+        # Variabel kontrol untuk menyimpan nilai radiobutton sep csv yang dipilih
+        self.label_sep = tk.Label(self.btn_frame_sep, text="Separator csv:", bg=self.BG_CARD, fg=self.FG_MAIN, font=('Segoe UI', 9, 'bold'))
+        self.label_sep.pack(pady=5, side=tk.LEFT)
+        # radio
+        self.rsep1= self.make_radio(self.btn_frame_sep,',',self.pilsep,",",
+                                    self.update_label_sep,self.ACCENT_GREEN_DARK,self.ACCENT_GREEN_DARK)
+        self.rsep1.pack(side=tk.LEFT, padx=(5, 2))
+        self.rsep2= self.make_radio(self.btn_frame_sep,';',self.pilsep,";",
+                                    self.update_label_sep,self.ACCENT_GREEN_DARK,self.ACCENT_GREEN_DARK)
+        self.rsep2.pack(side=tk.LEFT, padx=2)
+
+        # --- SECTION 2 : Input Fields Khusus Fungsi 2 (LabelFrame) --- pindah keatas header section 2 nya
+        # self.toggle_btn = self.make_button(self.main_frame,"▶ Run Main Function",
+        #                                     command= lambda: self.toggle_section(self.func2_frame, self.toggle_btn, self.func1_frame, self.toggle_btn_getlist),
+        #                                     bg=self.BG_CARD, active_bg=self.FG_MUTED, anchor='w'
+        # )
+        # self.toggle_btn.pack(fill=tk.X, pady=(10, 0))
 
         self.func2_frame = tk.LabelFrame(
             self.main_frame, 
@@ -336,18 +359,41 @@ class AutoApp:
             # relief=tk.SOLID,
             bg=self.BG_CARD,
             fg=self.FG_MAIN,
-            font=('Segoe UI', 9, 'bold')
+            font=('Segoe UI', 9, 'bold'),
+            bd=0, relief=tk.SOLID, highlightthickness=0
         )
         # self.func2_frame.pack(fill=tk.X, pady=(10, 3))
 
         # Menggunakan func2_frame sebagai parent untuk input ini
         self.placeholder_brs_mulai = "'0' (mulai dari awal), or '1-4', '0,3,4'"
         self.create_input_field("Baris Mulai:", self.placeholder_brs_mulai, "start_row_entry", self.func2_frame)
-        self.create_input_field("Nama File:", "Nama_File.csv", "filename_entry", self.func2_frame, value='data.csv')
+
+        # frame horizon nama file csv
+        row_namafile = tk.Frame(self.func2_frame, bg=self.func2_frame.cget('bg'))
+        row_namafile.pack(fill=tk.X, pady=2)
+        # --- Input Fields (Field 3: Filename) ---
+        self.create_input_field("Nama File:", "Nama_File.csv", "filename_entry", row_namafile, value='data.csv', width=15, horizon=True)
+        # --- btn sep ---
+        self.btn_frame_sep = tk.Frame(row_namafile, bg=self.func2_frame.cget('bg'))
+        self.btn_frame_sep.pack(fill=tk.X, pady=0)
+
+        # Variabel kontrol untuk menyimpan nilai radiobutton sep csv yang dipilih
+        # self.pilsep = tk.StringVar(value=",")
+        # Label untuk menampilkan hasil pilihan
+        self.label_sep = tk.Label(self.btn_frame_sep, text="sep:", bg=self.BG_CARD, fg=self.FG_MAIN, font=('Segoe UI', 9, 'bold'))
+        self.label_sep.pack(pady=0, side=tk.LEFT)
+        # radio
+        self.rsep1= self.make_radio(self.btn_frame_sep,',',self.pilsep,",",
+                                    self.update_label_sep,self.ACCENT_GREEN_DARK,self.ACCENT_GREEN_DARK)
+        self.rsep1.pack(side=tk.LEFT, padx=(5, 2))
+        self.rsep2= self.make_radio(self.btn_frame_sep,';',self.pilsep,";",
+                                    self.update_label_sep,self.ACCENT_GREEN_DARK,self.ACCENT_GREEN_DARK)
+        self.rsep2.pack(side=tk.LEFT, padx=2)
+
+        # rev combobox fungsi tambahan start ======
         # self.create_input_field("Input Tambahan:", "Input opsional... (cth: help)", "extra_input_entry", self.func2_frame, value=helper)
-        # rev combobox start ======
         self.extra_frame = tk.Frame(self.func2_frame, bg=self.func2_frame.cget('bg'))
-        self.extra_frame.pack(fill=tk.X, pady=4)
+        self.extra_frame.pack(fill=tk.X, pady=2)
 
         # 1. Label Input Tambahan
         tk.Label(
@@ -407,23 +453,23 @@ class AutoApp:
         self.label_hasil2.pack(pady=5, side=tk.LEFT)
         # radio
         self.rb1= self.make_radio(self.radio_container,'True',self.val_approv,1,
-                                    self.update_label,self.ACCENT_TEAL_DARK,self.ACCENT_TEAL_DARK)
+                                    self.update_label,self.ACCENT_GREEN_DARK,self.ACCENT_GREEN_DARK)
         self.rb1.pack(side=tk.LEFT, padx=(5, 2))
         self.rb2= self.make_radio(self.radio_container,'False',self.val_approv,0,
-                                    self.update_label,self.ACCENT_TEAL_DARK,self.ACCENT_TEAL_DARK)
+                                    self.update_label,self.ACCENT_GREEN_DARK,self.ACCENT_GREEN_DARK)
         self.rb2.pack(side=tk.LEFT, padx=2)
         self.rb3= self.make_radio(self.radio_container,'Reject',self.val_approv,2,
-                                    self.update_label,self.ACCENT_TEAL_DARK,self.ACCENT_TEAL_DARK)
+                                    self.update_label,self.ACCENT_GREEN_DARK,self.ACCENT_GREEN_DARK)
         self.rb3.pack(side=tk.LEFT, padx=2)
         self.rb4= self.make_radio(self.radio_container,'NonApprov',self.val_approv,99,
-                                    self.update_label,self.ACCENT_TEAL_DARK,self.ACCENT_TEAL_DARK)
+                                    self.update_label,self.ACCENT_GREEN_DARK,self.ACCENT_GREEN_DARK)
         self.rb4.pack(side=tk.LEFT, padx=2)
 
         # --- Tombol Baris 3: Close App & Exit App ---
         self.btn_frame_3 = tk.Frame(self.func2_frame, bg=self.BG_CARD)
         self.btn_frame_3.pack(fill=tk.X, pady=5)
 
-        self.btn_func_2 = self.make_button(self.btn_frame_3,'Run Function',self.run_function_2, self.ACCENT_TEAL_DARK,self.FG_MUTED)
+        self.btn_func_2 = self.make_button(self.btn_frame_3,'Run Function',self.run_function_2, self.ACCENT_GREEN_DARK,self.FG_MUTED)
         self.btn_func_2.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 4))
 
         # self.btn_stop_app = tk.Button(
@@ -453,6 +499,8 @@ class AutoApp:
         )
         style.map("Vertical.TScrollbar", background=[('active', self.ACCENT_BLUE)])
         # 0. Container utk header log dan isi log
+        # self.container = tk.Frame(self.main_frame, bg=self.BG_MAIN)
+        # self.container.pack(fill=tk.BOTH, expand=True)
         self.log_container = tk.Frame(self.main_frame, bg=self.BG_MAIN)
         self.log_container.pack(fill=tk.BOTH, expand=True)
         self.recreate_log_ui(self.log_container)
@@ -740,6 +788,7 @@ class AutoApp:
         # 1. Jika frame yang diklik saat ini sedang terbuka, cukup tutup saja
         if target_frame.winfo_manager():
             target_frame.pack_forget()
+            target_button.config(bg=self.BG_CARD, fg=self.FG_MAIN)
             target_button.config(text=target_button.cget("text").replace("▼", "▶"))
 
         # 2. Jika frame yang diklik sedang tertutup
@@ -747,10 +796,22 @@ class AutoApp:
             # Tutup frame pasangan terlebih dahulu jika dia sedang terbuka
             if other_frame.winfo_manager():
                 other_frame.pack_forget()
+                other_button.config(bg=self.BG_CARD, fg=self.FG_MAIN)
                 other_button.config(text=other_button.cget("text").replace("▼", "▶"))
 
             # Tampilkan frame yang diklik tepat di bawah tombol pemicunya
-            target_frame.pack(fill=tk.X, pady=(5, 3), after=target_button)
+            # target_frame.pack(fill=tk.X, pady=(5, 3), before=self.container)
+            is_log_visible_in_same_window = (
+                hasattr(self, 'log_container') and 
+                self.log_container.winfo_manager() and 
+                self.log_container.master == target_frame.master
+            )
+
+            if is_log_visible_in_same_window:
+                target_frame.pack(fill=tk.X, pady=(5, 3), before=self.log_container)
+            else:
+                target_frame.pack(fill=tk.X, pady=(5, 3))
+            target_button.config(bg="#3A3A45", fg="#ffffff")
             target_button.config(text=target_button.cget("text").replace("▶", "▼"))
 
     def set_button_disabled(self, btn, disabled: bool, active_bg):
@@ -831,9 +892,9 @@ class AutoApp:
 
         match self.pilsep.get():
             case ",":
-                self.log_message(f"-Separator csv terpilih: Comma (default)")
+                self.log_message(f"- Separator csv terpilih: Comma (default)")
             case ";":
-                self.log_message(f"-Separator csv terpilih: Semicolon (utk yg excel Indonesia)")
+                self.log_message(f"- Separator csv terpilih: Semicolon (utk yg excel Indonesia)")
         pass           
 
     # --update untuk radiobtn
@@ -842,20 +903,20 @@ class AutoApp:
 
         match self.val_approv.get():
             case 1:
-                self.log_message(f"-Approval terpilih: Ya, sekalian diapprove")
+                self.log_message(f"- Approval terpilih: Ya, sekalian diapprove")
             case 0:
-                self.log_message(f"-Approval terpilih: Gausa diapprove")
+                self.log_message(f"- Approval terpilih: Gausa diapprove")
             case 2: 
-                self.log_message(f"-Approval terpilih: Reject")
+                self.log_message(f"- Approval terpilih: Reject")
             case 99:  
-                self.log_message(f"-Approval terpilih: Bukan approval")
+                self.log_message(f"- Approval terpilih: Bukan approval")
         pass
 
     # --update untuk radiobtn vwrite
     def update_label_vwrite(self):
         """Fungsi yang dipanggil saat radiobutton write csv diklik."""
         if self.vwrite.get() == 1:
-            self.log_message(f"-Write data.csv terpilih: Rewrite")
+            self.log_message(f"- Write data.csv terpilih: Rewrite")
             self.rw1.config(fg=self.FG_MAIN)
             self.rw2.config(fg=self.FG_MUTED)
         else :
@@ -863,7 +924,7 @@ class AutoApp:
             self.rw1.config(fg=self.FG_MUTED)
             cekcsv = load_setting_file(self,filename="data.csv",load=False)
             if cekcsv:
-                self.log_message(f"-Write data.csv terpilih: Append to data.csv")
+                self.log_message(f"- Write data.csv terpilih: Append to data.csv")
             else:
                 self.log_message(f"data.csv tidak ditemukan, harap pilih 'Rewrite'", tag="red_tag")
         pass
@@ -971,14 +1032,14 @@ class AutoApp:
         self.log_message("Cleared! Aplikasi dimulai. Selamat datang!")
 
         if self.vwrite.get() == 1:
-            self.log_message(f"-Write data.csv terpilih: Rewrite")
+            self.log_message(f"- Write data.csv terpilih: Rewrite")
         else:
-            self.log_message(f"-Write data.csv terpilih: Append")
+            self.log_message(f"- Write data.csv terpilih: Append")
 
         if self.val_approv.get() == 1:
-            self.log_message(f"-Approval terpilih: Ya, sekalian diapprove")
+            self.log_message(f"- Approval terpilih: Ya, sekalian diapprove")
         else :
-            self.log_message(f"-Approval terpilih: Gausa diapprove")
+            self.log_message(f"- Approval terpilih: Gausa diapprove")
 
     # --- Get path os or url path on folder assets ---
     @staticmethod
@@ -1241,6 +1302,7 @@ class AutoApp:
         # Validasi sederhana untuk baris mulai
         if (start_row == self.placeholder_brs_mulai) and (self.val_approv.get() == 99):
             target_rows = 0
+            start_row = 0
             is_single_val = False
         else:            
             target_rows, is_single_val = self.parse_input(start_row)
