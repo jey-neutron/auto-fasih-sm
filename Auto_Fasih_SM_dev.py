@@ -274,7 +274,7 @@ class AutoApp:
 
         # --- SECTION 1 (HEADER Tab 1) ---
         self.toggle_btn_getlist = self.make_button(
-            tab_container, "▶ Get List Data"
+            tab_container, "▶ Get List Data",
             command=lambda: self.toggle_section(self.func1_frame, self.toggle_btn_getlist, self.func2_frame, self.toggle_btn), 
             bg=self.BG_CARD, active_bg=self.FG_MUTED, anchor='center' # Center agar teks di tengah ala tab
         )
