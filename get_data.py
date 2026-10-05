@@ -1,5 +1,5 @@
 # konfig var
-APP_VERSION = 'v2.5.0' #new minor feature UI
+APP_VERSION = 'v2.5.1' #new minor feature UI, updated kiap_addkeg
 TIMEOUT_REQUEST = 60000 #ms
 ROW_REQUEST = 50 #jml row yg diambil dari request getlistdata
 MAX_WORKERS = 3 #jml tab/worker
@@ -428,7 +428,7 @@ def kiap_getrkid(instance,var):
         __cleanup_worker(instance, page, p_instance, remove_tmpfile=True)
 
 def kiap_addkeg(instance, var):
-    '''Add pelaksanaan kinerja di Kipapp dari csv yg diberikan. Masukkan niplama di Input Variabel. Sementara isian id2 yg perlu diperoleh manual, blm ada func tambahan. Kolom harus ada: skpid*, rkid*, kegiatan*, tanggal*(yyy-mm-dd), tanggalselesai(yyy-mm-dd), progres*(0-100), jammulai, jamselesai, capaian*, datadukung*(url), iscapaianskp*(0/1). Yg gada * boleh kosongin aja.'''
+    '''Add pelaksanaan kinerja di Kipapp dari csv yg diberikan. Masukkan niplama di Input Variabel. Sementara isian rkid dan skpid diperoleh dari fungsi kiap_getrkid. Kolom harus ada: id*(isi aja no urut), skpid*, rkid*, kegiatan*, tanggal*(yyy-mm-dd), tanggalselesai(yyy-mm-dd), progres*(0-100), jammulai, jamselesai, capaian*, datadukung*(url), iscapaianskp*(0/1). Yg gada * boleh kosongin aja.'''
     filename = instance.filename_entry.get()
 
     # 1. Baca csv dulu
