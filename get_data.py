@@ -1,5 +1,5 @@
 # konfig var
-APP_VERSION = 'v2.5.1' #new minor feature UI, updated kiap_addkeg
+APP_VERSION = 'v2.5.2' #new minor feature UI, updated kiap_addkeg, added get otp from file json tempsso.txt
 TIMEOUT_REQUEST = 60000 #ms
 ROW_REQUEST = 50 #jml row yg diambil dari request getlistdata
 MAX_WORKERS = 3 #jml tab/worker
@@ -565,6 +565,254 @@ def seedata(instance, var):
     instance.log_message("Done. Please enlarge the window")
     instance.isdone = 1
 
+def getotp(instance, var=''):
+    """Generate OTP code or return user details based on 'var' value dari file 'tempsso.txt'. Buat file 'tempsso.txt' jika belum ada."""
+    instance.isdone = 0
+    import pyotp
+    namafile = instance.filename_entry.get()
+
+    try:
+        # 1. Membaca dan memvalidasi file JSON
+        with open(namafile, "r", encoding="utf-8") as f:
+            data_string = f.read().strip()
+            # Membungkus data dengan tanda kurung siku agar menjadi valid JSON Array
+            valid_json = f"[{data_string.rstrip(',')}]"
+            users = json.loads(valid_json)
+
+        # Kondisi 1: Jika var kosong atau berisikan string "1" (sebagai string)
+        # Catatan: Jika ingin mengecek angka 1 (integer), gunakan: str(var) in ["1", ""] atau var in ["1", "", 1]
+        if var == "" or var == 1:
+            # Mengambil daftar id dan username dari semua user
+            list_user = [
+                f"ID: {u.get('id')}, Username: {u.get('username')}"
+                for u in users
+            ]
+            hasil_text = "\n".join(list_user)
+            instance.log_message(f"Daftar User:\n{hasil_text}")
+            instance.log_message("Pilih ID user dan masukkan di Variabel Extra.",'red_tag')
+            return list_user  # Mengembalikan data id dan username
+
+        # Kondisi 2: Jika var diisi dengan ID tertentu (misal "1", "2", "3", dst)
+        target_id = str(var)
+        user_terpilih = None
+
+        # Mencari user yang sesuai dengan ID
+        for user in users:
+            if user.get("id") == target_id:
+                user_terpilih = user
+                break
+
+        # Kondisi 3: Jika ID ditemukan di dalam file JSON
+        if user_terpilih:
+            username = user_terpilih.get("username", "")
+            password = user_terpilih.get("password", "")
+            secret_key = user_terpilih.get("secret_key", "")
+
+            # Cek apakah secret_key tersedia untuk generate OTP
+            if secret_key:
+                totp = pyotp.TOTP(secret_key)
+                otp_code = totp.now()
+            else:
+                otp_code = "[Secret Key Kosong]"
+
+            # Log pesan sesuai permintaan: username, pass, dan otp
+            instance.log_message(
+                f"User Terpilih:\nUsername: {username}\nPass: {password}\nOTP: {otp_code}",'green_tag'
+            )
+            return otp_code
+
+        # Kondisi 4: Jika id diinput tapi tidak terdaftar di JSON
+        else:
+            instance.log_message(
+                "ID tidak ditemukan! Silakan masukkan ID yang sesuai."
+            )
+            return None
+
+    except FileNotFoundError:
+        # template_data = {
+        #     "id": "1",
+        #     "username": "jey.neutron",
+        #     "password": "password",
+        #     "secret_key": ""
+        # }
+        # current_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+        # with open(current_dir, 'w', encoding='utf-8') as f:
+        #             json.dump(template_data, f, indent=4)
+        instance.log_message(f"Error: File {namafile} tidak ditemukan. Silakan buat 'tempsso.txt' atau minta admin.", 'red_tag')
+    except json.JSONDecodeError:
+        instance.log_message("Error: Format file teks/JSON tidak valid.", 'red_tag')
+    except Exception as e:
+        instance.log_message(f"Error: {str(e)}", 'red_tag')
+    finally:
+        instance.isdone = 1
+
+# =====================================================================
+# FUNC ADDED TERKAIT FASIH SM
+# =====================================================================
+# Function to get assignment by responsibility
+def get_jml_assignment (instance, var):
+    '''Get report progress jumlah assignment berdasarkan user (ppl/pml) berdasarkan responsibility (misal region), kemudian export ke csv. '''
+    instance.isdone=0
+    try:
+        p_instance, ctx, page = __get_playwright_page() #konek ke playwr
+        target_url = "https://fasih-sm.bps.go.id/app/api/analytic/api/v2/assignment/report-progress-by-responsibility"
+        # get req payload from reloading page
+        instance.log_message('# Silakan klik REKAP PETUGAS trus PPL/PML trus tombol refresh di sebelah pencarian (bukan refresh page)', 'red_tag')
+        captured_req, api_url, api_payload, api_headers = __get_headers(page, target_url=target_url, reload=False)
+        
+        all_rows = []
+        current_page = 0
+        while True:
+            __check_stop(instance)
+            page.goto(instance.getassets('index.html'))
+            page.evaluate("document.body.setAttribute('data-status', 'running')")
+
+            # mod req
+            api_payload['page'] = current_page # 1 2 3 dst sampe ada response terakhir 'last' is true
+
+            # get response first load
+            instance.log_message(f'# Getting data on page {current_page}')
+            resp = __run_api_request(instance, ctx, "post", api_url, target_id=None, payload=api_payload, headers=api_headers)
+            # resp = json.loads(response_json)
+            if resp is None:
+                raise ValueError("API tidak mengembalikan data (Response is None)")
+
+            # 1. lanjut if ada data
+            if 'success' in resp and resp['success'] in [True,'true']:
+                data_block = resp.get("data", {})
+                content = data_block.get("content", [])
+                # Jika content kosong, hentikan loop
+                if not content:
+                    break
+                # 2. Loop per email pencacah
+                for item in content:
+                    if item.get("isPencacah") in [True,'true']:
+                        email = item.get("email")
+                        
+                        # 3. Loop regionSummary untuk mengambil region code & breakdown
+                        for region in item.get("regionSummary", []):
+                            region_code = region.get("regionCode")
+                            region_total = region.get("total")
+                            
+                            for status_item in region.get("statusBreakdown", []):
+                                all_rows.append({
+                                    "email": email,
+                                    "regionCode": region_code,
+                                    "regionTotal": region_total,
+                                    "status": status_item.get("status"),
+                                    "count": status_item.get("count")
+                                })
+                                
+                # Cek kondisi berhenti pagination
+                if data_block.get("last", False) is True:
+                    instance.log_message("# Sudah mencapai halaman terakhir.")
+                    break
+                # Jika belum halaman terakhir, lanjut ke page berikutnya
+                current_page += 1
+            
+            else:
+                instance.log_message(f"API mengembalikan success: false pada halaman {current_page}", 'red_tag')
+                raise ValueError(resp['message'])
+                
+            # Jeda tipis-tipis (politeness policy) agar server tidak mendeteksi serangan
+            time.sleep(random.uniform(1.5, 5.0))
+
+            # except requests.exceptions.RequestException as e:
+            #     print(f"Terjadi kesalahan koneksi: {e}")
+            #     break
+                
+        # Convert ke Pandas DataFrame dan Export ke CSV
+        if all_rows:
+            df = pd.DataFrame(all_rows)
+            df.to_csv("pencacah_summary_paginated.csv", index=False, sep=instance.pilsep.get())
+            instance.log_message("# Berhasil! Data dari semua halaman telah diexport ke 'pencacah_summary_paginated.csv'", 'green_tag')
+        else:
+            instance.log_message("# Tidak ada data yang berhasil dikumpulkan.")
+
+        # with open("resp.json", "w", encoding="utf-8") as f:
+        #     json.dump(response_json, f, indent=4, ensure_ascii=False)
+        # instance.log_message('exportedddddddddddddddddd')
+
+    except Exception as e:
+        import sys
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+        instance.log_message(f"# Terjadi error di thread get_jml_assignment on line: {str(exc_tb.tb_lineno)} {str(e).split('Stacktrace:')[0]} ", "red_tag")
+    finally:
+        time.sleep(1)
+        isdone(instance, page=page, output=True)
+        # Selalu tutup p_instance di blok 'finally' agar tidak hang
+        try:
+            p_instance.stop()
+            instance.log_message("Koneksi Playwright di thread ditutup.")
+        except NameError:
+            # Terjadi jika get playwright page() gagal total di awal
+            pass
+
+def tandaiwil(instance, var=''): 
+    '''Tandai wilayah sebagai tutup maupun buka. Need csv with column 'idsubsls' dg list idsubsls yg mo ditandai. Pilih 'NonApprov'. Variabel extra bisa diisi dengan 'tutup' atau 'buka'. Login sebagai admin dan buka halaman assignment.'''
+    instance.isdone = 0
+    import re
+    # read csv
+    namafile = instance.filename_entry.get()
+    df = pd.read_csv(namafile, sep=instance.pilsep.get())
+    if 'idsubsls' not in df.columns:
+        instance.log_message(f"Error: Column 'idsubsls' not found in csv file. Please check your csv file.", 'red_tag')
+        instance.isdone = 1
+        return
+    if 'status' not in df.columns:
+        df['status'] = ''
+    if var != 'tutup' and var != 'buka':
+        instance.log_message(f"Error: Invalid input. Please input 'tutup' or 'buka'.", 'red_tag')
+        instance.isdone = 1
+        return
+    elif var == 'buka':
+        btncek = 'Buka Wilayah'; 
+    elif var == 'tutup':
+        btncek = 'Tandai Selesai' #Listing
+
+    # main
+    instance.log_message(f"Start tandai wilayah sebagai {var}")
+    instance.log_message(f"Pastikan ")
+    p_instance, ctx, page = __get_playwright_page() #konek ke playwr
+    page.get_by_role("button", name="Progress Penyelesaian Wilayah").click()
+    for i in range(len(df)):
+        __check_stop(instance)
+        res = ''
+        try:
+            subsls = str(df.loc[i,'idsubsls'])
+            time.sleep(0.5)
+            # page.get_by_role("textbox", name="Cari wilayah...").click()
+            page.get_by_role("textbox", name="Cari wilayah...").fill(subsls)
+            time.sleep(0.5)
+            # cek ada ga btn nya       
+            bukawil = page.get_by_role("button").filter(has_text=re.compile(btncek, re.IGNORECASE))
+            try:
+                bukawil.first.wait_for(state="visible", timeout=5000)
+                page.get_by_role("button", name=btncek).click()
+                page.get_by_role("button", name=f"Ya, {btncek}").click()
+            except PlaywrightTimeoutError:
+                res = "done" #udah ditandain
+                continue
+
+            # cek status bukawil
+            list_item = page.get_by_role("listitem").filter(has_text=re.compile("berhasil", re.IGNORECASE))
+            try:
+                list_item.first.wait_for(state="visible", timeout=10000)
+                res = "done"
+            except PlaywrightTimeoutError:
+                res = "err, gagal"
+        
+        except Exception as e:
+            res = str(e).split("\nCall log")[0]
+            continue
+
+        finally:
+            # logging
+            df.loc[i,'status'] = res#'done'
+            instance.log_message(f"{i}, {btncek} {subsls}: {res}")#'done')
+            df.to_csv(namafile, index=False, sep=instance.pilsep.get())
+
+    instance.isdone = 1
 
 # =====================================================================
 # FUNC SECTION FUNGSI TAMBAHAN __mainfunc 
@@ -806,187 +1054,6 @@ def getdataPES(namafile='data_survey.json'):
     # FINISH
     return d
 
-# Function to get assignment by responsibility
-def get_jml_assignment (instance, var):
-    '''Get report progress jumlah assignment berdasarkan user (ppl/pml) berdasarkan responsibility (misal region), kemudian export ke csv. '''
-    instance.isdone=0
-    try:
-        p_instance, ctx, page = __get_playwright_page() #konek ke playwr
-        target_url = "https://fasih-sm.bps.go.id/app/api/analytic/api/v2/assignment/report-progress-by-responsibility"
-        # get req payload from reloading page
-        instance.log_message('# Silakan klik REKAP PETUGAS trus PPL/PML trus tombol refresh di sebelah pencarian (bukan refresh page)', 'red_tag')
-        captured_req, api_url, api_payload, api_headers = __get_headers(page, target_url=target_url, reload=False)
-        
-        all_rows = []
-        current_page = 0
-        while True:
-            __check_stop(instance)
-            page.goto(instance.getassets('index.html'))
-            page.evaluate("document.body.setAttribute('data-status', 'running')")
-
-            # mod req
-            api_payload['page'] = current_page # 1 2 3 dst sampe ada response terakhir 'last' is true
-
-            # get response first load
-            instance.log_message(f'# Getting data on page {current_page}')
-            resp = __run_api_request(instance, ctx, "post", api_url, target_id=None, payload=api_payload, headers=api_headers)
-            # resp = json.loads(response_json)
-            if resp is None:
-                raise ValueError("API tidak mengembalikan data (Response is None)")
-
-            # 1. lanjut if ada data
-            if 'success' in resp and resp['success'] in [True,'true']:
-                data_block = resp.get("data", {})
-                content = data_block.get("content", [])
-                # Jika content kosong, hentikan loop
-                if not content:
-                    break
-                # 2. Loop per email pencacah
-                for item in content:
-                    if item.get("isPencacah") in [True,'true']:
-                        email = item.get("email")
-                        
-                        # 3. Loop regionSummary untuk mengambil region code & breakdown
-                        for region in item.get("regionSummary", []):
-                            region_code = region.get("regionCode")
-                            region_total = region.get("total")
-                            
-                            for status_item in region.get("statusBreakdown", []):
-                                all_rows.append({
-                                    "email": email,
-                                    "regionCode": region_code,
-                                    "regionTotal": region_total,
-                                    "status": status_item.get("status"),
-                                    "count": status_item.get("count")
-                                })
-                                
-                # Cek kondisi berhenti pagination
-                if data_block.get("last", False) is True:
-                    instance.log_message("# Sudah mencapai halaman terakhir.")
-                    break
-                # Jika belum halaman terakhir, lanjut ke page berikutnya
-                current_page += 1
-            
-            else:
-                instance.log_message(f"API mengembalikan success: false pada halaman {current_page}", 'red_tag')
-                raise ValueError(resp['message'])
-                
-            # Jeda tipis-tipis (politeness policy) agar server tidak mendeteksi serangan
-            time.sleep(random.uniform(1.5, 5.0))
-
-            # except requests.exceptions.RequestException as e:
-            #     print(f"Terjadi kesalahan koneksi: {e}")
-            #     break
-                
-        # Convert ke Pandas DataFrame dan Export ke CSV
-        if all_rows:
-            df = pd.DataFrame(all_rows)
-            df.to_csv("pencacah_summary_paginated.csv", index=False, sep=instance.pilsep.get())
-            instance.log_message("# Berhasil! Data dari semua halaman telah diexport ke 'pencacah_summary_paginated.csv'", 'green_tag')
-        else:
-            instance.log_message("# Tidak ada data yang berhasil dikumpulkan.")
-
-        # with open("resp.json", "w", encoding="utf-8") as f:
-        #     json.dump(response_json, f, indent=4, ensure_ascii=False)
-        # instance.log_message('exportedddddddddddddddddd')
-
-    except Exception as e:
-        import sys
-        exc_type, exc_obj, exc_tb = sys.exc_info()
-        instance.log_message(f"# Terjadi error di thread get_jml_assignment on line: {str(exc_tb.tb_lineno)} {str(e).split('Stacktrace:')[0]} ", "red_tag")
-    finally:
-        time.sleep(1)
-        isdone(instance, page=page, output=True)
-        # Selalu tutup p_instance di blok 'finally' agar tidak hang
-        try:
-            p_instance.stop()
-            instance.log_message("Koneksi Playwright di thread ditutup.")
-        except NameError:
-            # Terjadi jika get playwright page() gagal total di awal
-            pass
-
-def tandaiwil(instance, var=''): 
-    '''Tandai wilayah sebagai tutup maupun buka. Need csv with column 'idsubsls' dg list idsubsls yg mo ditandai. Pilih 'NonApprov'. Variabel extra bisa diisi dengan 'tutup' atau 'buka'. Login sebagai admin dan buka halaman assignment.'''
-    instance.isdone = 0
-    import re
-    # read csv
-    namafile = instance.filename_entry.get()
-    df = pd.read_csv(namafile, sep=instance.pilsep.get())
-    if 'idsubsls' not in df.columns:
-        instance.log_message(f"Error: Column 'idsubsls' not found in csv file. Please check your csv file.", 'red_tag')
-        instance.isdone = 1
-        return
-    if 'status' not in df.columns:
-        df['status'] = ''
-    if var != 'tutup' and var != 'buka':
-        instance.log_message(f"Error: Invalid input. Please input 'tutup' or 'buka'.", 'red_tag')
-        instance.isdone = 1
-        return
-    elif var == 'buka':
-        btncek = 'Buka Wilayah'; 
-    elif var == 'tutup':
-        btncek = 'Tandai Selesai' #Listing
-
-    # main
-    instance.log_message(f"Start tandai wilayah sebagai {var}")
-    instance.log_message(f"Pastikan ")
-    p_instance, ctx, page = __get_playwright_page() #konek ke playwr
-    page.get_by_role("button", name="Progress Penyelesaian Wilayah").click()
-    for i in range(len(df)):
-        __check_stop(instance)
-        res = ''
-        try:
-            subsls = str(df.loc[i,'idsubsls'])
-            time.sleep(0.5)
-            # page.get_by_role("textbox", name="Cari wilayah...").click()
-            page.get_by_role("textbox", name="Cari wilayah...").fill(subsls)
-            time.sleep(0.5)
-            # cek ada ga btn nya       
-            bukawil = page.get_by_role("button").filter(has_text=re.compile(btncek, re.IGNORECASE))
-            try:
-                bukawil.first.wait_for(state="visible", timeout=5000)
-                page.get_by_role("button", name=btncek).click()
-                page.get_by_role("button", name=f"Ya, {btncek}").click()
-            except PlaywrightTimeoutError:
-                res = "done" #udah ditandain
-                continue
-
-            # cek status bukawil
-            list_item = page.get_by_role("listitem").filter(has_text=re.compile("berhasil", re.IGNORECASE))
-            try:
-                list_item.first.wait_for(state="visible", timeout=10000)
-                res = "done"
-            except PlaywrightTimeoutError:
-                res = "err, gagal"
-        
-        except Exception as e:
-            res = str(e).split("\nCall log")[0]
-            continue
-
-        finally:
-            # logging
-            df.loc[i,'status'] = res#'done'
-            instance.log_message(f"{i}, {btncek} {subsls}: {res}")#'done')
-            df.to_csv(namafile, index=False, sep=instance.pilsep.get())
-
-    instance.isdone = 1
-
-
-def ver(instance, var=''): 
-    '''Get a version app'''
-    if var==1:
-        instance.isdone = 0
-        instance.log_message(f"Application version: {APP_VERSION}")
-        instance.isdone = 1
-    return APP_VERSION
-
-def chromeport(instance, var=''): 
-    '''Get a port of a chrome'''
-    if var==1:
-        instance.isdone = 0
-        instance.log_message(f"Chrome Port: {CHROME_PORT}")
-        instance.isdone = 1
-    return CHROME_PORT
 
 # =====================================================================
 # FUNC SECTION MAIN FUNC, DONT DISTURB
@@ -1697,4 +1764,20 @@ def isdone(instance, page=None,output=None):
     if output:
         instance.log_message(f"Running program berhasil diproses. Cek file output", tag="green_tag")        
     else:
-        instance.log_message(f"Running program berhasil diproses.", tag="green_tag")        
+        instance.log_message(f"Running program berhasil diproses.", tag="green_tag")    
+
+def ver(instance, var=''): 
+    '''Get a version app'''
+    if var==1:
+        instance.isdone = 0
+        instance.log_message(f"Application version: {APP_VERSION}")
+        instance.isdone = 1
+    return APP_VERSION
+
+def chromeport(instance, var=''): 
+    '''Get a port of a chrome'''
+    if var==1:
+        instance.isdone = 0
+        instance.log_message(f"Chrome Port: {CHROME_PORT}")
+        instance.isdone = 1
+    return CHROME_PORT
