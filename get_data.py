@@ -1,10 +1,12 @@
 # konfig var
-APP_VERSION = 'v2.5.2' #new minor feature UI, updated kiap_addkeg, added get otp from file json tempsso.txt
+APP_VERSION = 'v2.5.10' #added browser choice #new minor feature UI, updated kiap_addkeg, added get otp from file json tempsso.txt
 TIMEOUT_REQUEST = 60000 #ms
 ROW_REQUEST = 50 #jml row yg diambil dari request getlistdata
 MAX_WORKERS = 3 #jml tab/worker
 MAX_RETRY = 30 #jml error trus retrying
 CHROME_PORT = "http://localhost:9222"
+BROWSER_TYPE = "chromium"
+BROWSER_PATH = r"C:\chrome-win\chrome.exe"
 
 # konfig
 from datetime import datetime
@@ -57,7 +59,7 @@ def help(instance,var=''):
     try:
         exclude_fun_list = ["datetime", "sync_playwright",
                             'expect','unquote', 'PlaywrightTimeoutError',
-                            'LZString','ThreadPoolExecutor','wait','isdone','chromeport']
+                            'LZString','ThreadPoolExecutor','wait','isdone','configvar']
         if var == 1:
             instance.isdone = 0
             instance.log_message(f"List of available functions:")
@@ -1774,10 +1776,17 @@ def ver(instance, var=''):
         instance.isdone = 1
     return APP_VERSION
 
-def chromeport(instance, var=''): 
-    '''Get a port of a chrome'''
+def configvar(instance, var=''): 
+    '''Get list of config variables'''
     if var==1:
         instance.isdone = 0
-        instance.log_message(f"Chrome Port: {CHROME_PORT}")
+        instance.log_message(f"Config variables: {list(globals().keys())}")
         instance.isdone = 1
-    return CHROME_PORT
+        return var
+    
+    # JIKA 'var' ADALAH STRING (CONTOH: "NUM")
+    if isinstance(var, str):
+        # Mengambil nilai dari global variable, kembalikan None jika tidak ditemukan
+        return globals().get(var, None)
+        
+    return var

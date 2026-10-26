@@ -183,13 +183,17 @@ class AutoApp:
         global __get_list_data
         global __loginsso
         global exclude_fun_list
-        global chromeport
         __mainfunc = external_funcs.get('__mainfunc')
         __get_list_data = external_funcs.get('__get_list_data')
         __loginsso = external_funcs.get('__loginsso')
         appver = external_funcs.get('ver')
-        chromeport = external_funcs.get('chromeport')(self)
         exclude_fun_list = external_funcs.get('help')(self)
+
+        getconfigvar = external_funcs.get('configvar')
+        self.BROWSER_TYPE = getconfigvar(self, var="BROWSER_TYPE")
+        self.BROWSER_PATH = getconfigvar(self, var="BROWSER_PATH")
+        self.CHROME_PORT = getconfigvar(self, var="CHROME_PORT")
+        self.PORT = int(self.CHROME_PORT.rsplit(":", 1)[1])   # 9222
         
         # konfigurasi variabel
         self.helper = helper
@@ -1062,10 +1066,19 @@ class AutoApp:
             # self.driver = webdriver.Chrome() # Selenium akan otomatis mencari & mendownload ChromeDriver yang sesuai
             if self.playwright_instance is None:
                 self.playwright_instance = sync_playwright().start()
+
+                if self.BROWSER_TYPE == "firefox":
+                    self.browser = self.playwright_instance.firefox.launch(
+                        headless=False, executable_path=self.BROWSER_PATH or None)
+                    self.page = self.browser.new_page()
+                    self.page.goto(self.getassets('index.html'))
+                    self.change_status("STATUS: Browser Ready", color="green")
+                    self.log_message("Ready for action.")
+                    return
             try:
                 # 1. Coba hubungkan ke browser yang sudah ada
                 self.log_message("Mengecek browser yang terbuka...")
-                self.browser = self.playwright_instance.chromium.connect_over_cdp(chromeport)                    
+                self.browser = self.playwright_instance.chromium.connect_over_cdp(self.CHROME_PORT)                    
                 self.page = self.browser.contexts[0].pages[0]
 
                 # self.page.goto('https://www.google.com')
@@ -1091,18 +1104,20 @@ class AutoApp:
                 # self.browser = p.chromium.launch(headless=False)
                 # Opsional: Jika ingin otomatis membuka Chrome asli Anda lewat script,
                 # gunakan baris di bawah ini menggantikan p.chromium.launch:
-                subprocess.Popen(r'start chrome.exe --remote-debugging-port=9222 --user-data-dir="C:\chrometemp"', shell=True)
+                exe = self.BROWSER_PATH or ("chrome.exe" if self.BROWSER_TYPE == "chrome" else "chromium.exe")
+                subprocess.Popen(f'start "" "{exe}" --remote-debugging-port={self.PORT} --user-data-dir="C:\\chrometemp"', shell=True)
+                #subprocess.Popen(r'start chrome.exe --remote-debugging-port=9222 --user-data-dir="C:\chrometemp"', shell=True)
                 time.sleep(3)
                 # Loop sampai port aktif
                 port_siap = False
                 while not port_siap:
                     try:
-                        with socket.create_connection(("127.0.0.1", 9222), timeout=5):
+                        with socket.create_connection(("127.0.0.1", self.PORT), timeout=5):
                             port_siap = True
                     except (ConnectionRefusedError, socket.timeout):
                         time.sleep(0.5) # Cek ulang setiap 0.5 detik
                 try:
-                    self.browser = self.playwright_instance.chromium.connect_over_cdp(chromeport)
+                    self.browser = self.playwright_instance.chromium.connect_over_cdp(self.CHROME_PORT)
                     context = self.browser.contexts[0] if self.browser.contexts else self.browser.new_context()
                     self.page = context.pages[0] if context.pages else context.new_page()
                     self.page.goto(self.getassets('index.html'))
@@ -1124,7 +1139,8 @@ class AutoApp:
     def close_port_9222(self):
         try:
             # 1. Cari PID yang menggunakan port 9222 lewat netstat
-            result = subprocess.check_output('netstat -ano | findstr :9222', shell=True).decode()
+            # result = subprocess.check_output('netstat -ano | findstr :9222', shell=True).decode()
+            result = subprocess.check_output(f'netstat -ano | findstr :{self.PORT}', shell=True).decode()
             # Ambil semua angka PID yang ada di baris akhir netstat
             pids = set(re.findall(r'\s+(\d+)\s*$', result, re.MULTILINE))
             
@@ -1145,7 +1161,11 @@ class AutoApp:
         #     self.driver.quit()
         #     self.driver = None
         if self.playwright_instance:
-            self.playwright_instance.stop()
+            #
+            if self.BROWSER_TYPE == "firefox" and self.browser:
+                try: self.browser.close()
+                except Exception: pass
+            #
             try:
                 self.playwright_instance.stop()
             except Exception as e:
@@ -1155,7 +1175,8 @@ class AutoApp:
                 self.playwright_instance = None 
                 self.browser = None
                 self.page = None
-        self.close_port_9222()
+        if self.BROWSER_TYPE != "firefox":
+            self.close_port_9222()
         self.log_message("Browser telah ditutup.")
 
     # Menangani tombol close (X) pada jendela Tkinter agar bersih
