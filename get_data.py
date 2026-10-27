@@ -1,5 +1,5 @@
 # konfig var
-APP_VERSION = 'v2.5.10' #added browser choice #new minor feature UI, updated kiap_addkeg, added get otp from file json tempsso.txt
+APP_VERSION = 'v2.5.11' #added browser choice n kiap mod n count err #new minor feature UI, updated kiap_addkeg, added get otp from file json tempsso.txt
 TIMEOUT_REQUEST = 60000 #ms
 ROW_REQUEST = 50 #jml row yg diambil dari request getlistdata
 MAX_WORKERS = 3 #jml tab/worker
@@ -420,8 +420,35 @@ def kiap_getrkid(instance,var):
                 'namaatasan' : rk['namaatasan']
             })
         # data[0] #rkid, rencanakinerja, namatim, namaatasan
-        pd.DataFrame(result).to_csv('temp.csv', index=False, sep=instance.pilsep.get())
-        instance.log_message('File saved to "temp.csv"', 'green_tag')
+        df_rkid = pd.DataFrame(result)
+        
+        # added template addkeg
+        data_template = {
+            'id':['1','2','3','4','5','6'],
+            'skpid' : ['1405103','1405103','',"* dri 'skpid=' di url app Auto-Fasih",'* Yg bintang adalah kolom wajib. Format harus sama dengan contoh id 1 dan 2','* Isi seperti id 1 dan 2 di bawahnya. Hapus baris 1-6 ini jika sudah final'],    
+            'rkid': ['155103','165103','','* dri sheet sebelah','',''],
+            'kegiatan': ['Mengerjakan anomali','Submit','','*','',''],
+            'tanggal': ['2025-01-02','2022-01-02','','* yyyy-mm-dd','',''],
+            'tanggalselesai': ['2025-01-31','','','','',''],
+            'progres': ['100','10','','* isi 0-100','',''],
+            'jammulai': ['06:00','','','','',''],
+            'jamselesai': ['23:59','','','','',''],
+            'capaian': ['Anomali sudah selesai','Submit sudah 100%','','*','',''],
+            'datadukung': ['http://url','http://url','','* format url','',''],
+            'iscapaianskp': ['1','0','','* 1 jika masuk ke capaian skp','',''],
+        }
+        df_template = pd.DataFrame(data_template)
+
+        # Ekspor ke excel
+        nama_file_excel = 'TemplateKiap.xlsx'
+        with pd.ExcelWriter(nama_file_excel, engine='openpyxl') as writer:
+            # Sheet pertama dari data acak tadi
+            df_rkid.to_excel(writer, sheet_name='getrkid', index=False)
+            
+            # Sheet tambahan kedua dari dataframe lain
+            df_template.to_excel(writer, sheet_name='addkeg', index=False)
+        # pd.DataFrame(result).to_csv('temp.csv', index=False, sep=instance.pilsep.get())
+        instance.log_message(f'File saved to "{nama_file_excel}"', 'green_tag')
 
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
@@ -430,7 +457,7 @@ def kiap_getrkid(instance,var):
         __cleanup_worker(instance, page, p_instance, remove_tmpfile=True)
 
 def kiap_addkeg(instance, var):
-    '''Add pelaksanaan kinerja di Kipapp dari csv yg diberikan. Masukkan niplama di Input Variabel. Sementara isian rkid dan skpid diperoleh dari fungsi kiap_getrkid. Kolom harus ada: id*(isi aja no urut), skpid*, rkid*, kegiatan*, tanggal*(yyy-mm-dd), tanggalselesai(yyy-mm-dd), progres*(0-100), jammulai, jamselesai, capaian*, datadukung*(url), iscapaianskp*(0/1). Yg gada * boleh kosongin aja.'''
+    '''Add pelaksanaan kinerja di Kipapp dari excel yg diberikan (data.csv diganti TemplateKiap.xslx kalo gada perubahan). Masukkan niplama di Input Variabel. Isian rkid dan skpid sementara diperoleh dari fungsi kiap_getrkid. Kolom harus ada: id*(isi aja no urut), skpid*, rkid*, kegiatan*, tanggal*(yyy-mm-dd), tanggalselesai(yyy-mm-dd), progres*(0-100), jammulai, jamselesai, capaian*, datadukung*(url), iscapaianskp*(0/1). Yg gada * boleh kosongin aja.'''
     filename = instance.filename_entry.get()
 
     # 1. Baca csv dulu
@@ -438,7 +465,8 @@ def kiap_addkeg(instance, var):
             'progres', 'jammulai', 'jamselesai', 'capaian', 'datadukung', 'iscapaianskp'}
     df, dflist, lendf = __read_csv_dflist(
         instance, filename, instance.pilsep.get(), kolwjb,
-        "Ada kolom yg tidak ditemukan di csv, silakan update dulu dan liat deskripsi. Nama kolom harus sama"
+        "Ada kolom yg tidak ditemukan di excel, silakan update dulu dan liat deskripsi. Nama kolom harus sama",
+        sheet_if_xlsx='addkeg'
     )
     if dflist is None:
         return
@@ -1209,7 +1237,16 @@ def __run_api_request(instance, context, method, target_url, target_id, msg="", 
                     "comment": "\"\""
                 }
             response = context.request.post(target_url, headers=headers, data=payload, timeout=TIMEOUT_REQUEST)
-            
+        elif method == 'PUT':
+            # Jika payload tidak diisi manual, buat dictionary datanya
+            if not payload:
+                payload = {
+                    "id": target_id,
+                    "jenis": "3",
+                    "kegiatan": "lorem ipsum"
+                }
+            # Menggunakan params=payload agar otomatis diubah menjadi "id=123&jenis=3&kegiatan=lorem%20ipsum"
+            response = context.request.put(target_url, headers=headers, params=payload, timeout=TIMEOUT_REQUEST)
         elif method == "GET":
             # Jika target_id dimasukkan sebagai Query Parameter (?assignmentId=123)
             if not payload:
@@ -1300,10 +1337,13 @@ def __get_headers(page, target_url, reload=True):
     return captured_req, api_url, api_payload, api_headers
 
 # read csv penunjang mainfunc
-def __read_csv_dflist(instance, filename, sep, kolwjb, err_msg):
+def __read_csv_dflist(instance, filename, sep, kolwjb, err_msg, sheet_if_xlsx=None):
     '''Baca csv jadi dflist + cek kolom wajib. Return (df, dflist, lendf), atau (None,None,None) kalau gagal'''
     try:
-        df = pd.read_csv(filename, sep=sep)
+        if sheet_if_xlsx is not None:
+            df = pd.read_excel(filename, sheet_name=sheet_if_xlsx)
+        else:
+            df = pd.read_csv(filename, sep=sep)
         df = df.astype(str)
         if 'status_work' not in df.columns:
             df['status_work'] = ""
@@ -1682,7 +1722,19 @@ def __mainfunc(instance, filename, cekapprov, target_rows, is_single, func=None,
             instance.log_message(f"# {len(futures)} work mengantre ({MAX_WORKERS} tab)...")
 
             __row_parent_worker(instance, futures, page)
+            # 2. Hitung total gagal (yang status_work-nya bukan True atau "True")
+            total_gagal = 0
+            for i in row_indices:
+                status = dflist[i].get('status_work')
+                if status not in [True, "True"]:
+                    total_gagal += 1
 
+            # 3. Cetak log kesimpulan ringkas
+            instance.log_message(f"=== RINGKASAN EKSEKUSI ===")
+            if total_gagal > 0:
+                instance.log_message(f"Total Gagal: {total_gagal} baris kerja.", tag="red_tag")
+            else:
+                instance.log_message(f"Semua baris sukses diproses!", tag="green_tag")
         instance.log_message(f"# DONEEE file {filename} updated ---------------------------------")
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
